@@ -1,8 +1,6 @@
 # BCFMS-project-management
 
-
-
-## Welcome to the Sequencing Facility at MPI for Biochemistry
+## Welcome to the Mass-Spectrometry Facility at MPI for Biochemistry
 
 This is the repository of the shiny app for a project management system for the BCF MS core facility
 

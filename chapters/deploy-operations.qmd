@@ -28,7 +28,7 @@ Deletion is **admin-only**:
 
 ### Re-enable delete for non-admin users
 
-In `/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R`:
+In `/Users/yeroslaviz/Documents/Github/BCFMS-project-management/ms-app/app.R`:
 
 1. In `output$user_interface`, render the button unconditionally (remove the `if (user$is_admin)` guard around `delete_project_btn`).
 2. In the `observeEvent(input$delete_project_btn)` handler, allow owners again:
@@ -47,19 +47,20 @@ This is the short checklist I use on production. Details for each step are below
 
 ```{bash}
 ssh -T git@github.com
-cd /home/yeroslaviz/BCFNGS-project-management
+cd /home/yeroslaviz/BCFMS-project-management
 git pull origin main
 ```
 
 2.  Take backups (app folder, SQLite DB, Apache config).
 
 ```{bash}
-sudo rsync -av /srv/shiny-server/sequencing-app/ /srv/shiny-server/sequencing-app.backup_$(date +%Y%m%d_%H%M)/
-cp /srv/shiny-server/sequencing-app/sequencing_projects.db \
-  /srv/shiny-server/sequencing_projects.db.backup_$(date +%Y%m%d_%H%M)
-sudo cp /etc/apache2/sites-enabled/01-main.conf \
-  /etc/apache2/sites-enabled/01-main.conf.backup_$(date +%Y%m%d_%H%M)
+sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
+cp /srv/shiny-server/ms-app/ms_projects.db \
+  /srv/shiny-server/ms_projects.db.backup_$(date +%Y%m%d_%H%M)
+sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
+  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
+The `ms-vm-shiny-443.conf` file is the latest config file, supporting both the LDAP system as well as the https certificate. 
 
 3.  Deploy.
 
@@ -77,15 +78,15 @@ sudo systemctl restart apache2
 5.  Smoke‑test login and app behavior.
 
 ```{bash}
-curl -Ik https://ngs-testing-vm.biochem.mpg.de/
-curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/
-curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/
+curl -Ik https://mscf-vm.biochem.mpg.de/
+curl -Ik -u USER https://mscf-vm.biochem.mpg.de/
+curl -Ik -u USER https://mscf-vm.biochem.mpg.de/sequencing-app/
 ```
 
 6.  Roll back from backups if needed.
 
 ```{bash}
-sudo rsync -av --delete /srv/shiny-server/sequencing-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/sequencing-app/
+sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
 sudo systemctl restart shiny-server
 sudo systemctl restart apache2
 ```
@@ -100,7 +101,7 @@ This is the repeatable checklist I use when rolling out to a VM (first `ngs-test
 Check which remote is set:
 
 ```{bash}
-git -C /home/yeroslaviz/BCFNGS-project-management remote -v
+git -C /home/yeroslaviz/BCFMS-project-management remote -v
 ```
 
 If the remote is SSH (`git@github.com:...`), verify SSH access:
@@ -121,7 +122,7 @@ Then add that key in GitHub:
 #### Step 2: Pull latest code
 
 ```{bash}
-cd /home/yeroslaviz/BCFNGS-project-management
+cd /home/yeroslaviz/BCFMS-project-management
 git pull origin main
 ```
 
@@ -135,7 +136,7 @@ git pull origin main
 If Git refuses because of the local SQLite DB file, I stop tracking the DB on the VM:
 
 ```{bash}
-git rm --cached sequencing-app/sequencing_projects.db
+git rm --cached ms-app/ms_projects.db
 git commit -m "Stop tracking local SQLite DB on VM"
 git pull origin main
 ```
@@ -145,11 +146,11 @@ This does **not** delete the local DB file. It just removes it from Git so futur
 #### Step 3: Production safety backups (fast rollback)
 
 ```{bash}
-sudo rsync -av /srv/shiny-server/sequencing-app/ /srv/shiny-server/sequencing-app.backup_$(date +%Y%m%d_%H%M)/
-cp /srv/shiny-server/sequencing-app/sequencing_projects.db \
-  /srv/shiny-server/sequencing-app/sequencing_projects.db.backup_$(date +%Y%m%d_%H%M)
-sudo cp /etc/apache2/sites-enabled/01-main.conf \
-  /etc/apache2/sites-enabled/01-main.conf.backup_$(date +%Y%m%d_%H%M)
+sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
+cp /srv/shiny-server/ms-app/ms_projects.db \
+  /srv/shiny-server/ms-app/ms_projects.db.backup_$(date +%Y%m%d_%H%M)
+sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
+  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
 
 #### Step 4: Deploy
@@ -173,7 +174,7 @@ Then open the app URL and verify:
 #### Step 6: Rollback (if needed)
 
 ```{bash}
-sudo rsync -av --delete /srv/shiny-server/sequencing-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/sequencing-app/
+sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
 sudo systemctl restart shiny-server
 sudo systemctl restart apache2
 ```
@@ -182,8 +183,8 @@ sudo systemctl restart apache2
 
 `scripts/deploy.sh` is **code deployment only**:
 
-- syncs app files from repo -> `/srv/shiny-server/sequencing-app/`
-- excludes `sequencing_projects.db`
+- syncs app files from repo -> `/srv/shiny-server/ms-app/`
+- excludes `ms_projects.db`
 - restarts `shiny-server`
 - runs LDAP smoke tests (unless `SKIP_SMOKE_TEST=1`)
 
@@ -198,7 +199,7 @@ It does **not**:
 
 Run deploy after changes to app code/config in:
 
-- `/home/yeroslaviz/BCFNGS-project-management/sequencing-app/`
+- `/home/yeroslaviz/BCFMS-project-management/sequencing-app/`
 
 Do not use deploy for Apache-only changes; apply Apache config separately.
 
@@ -212,7 +213,7 @@ Do not use deploy for Apache-only changes; apply Apache config separately.
 
 ```bash
 sudo systemctl stop shiny-server
-sudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.$(date +%F-%H%M%S)
+sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
 sudo systemctl start shiny-server
 ```
 
@@ -220,8 +221,8 @@ Restore snapshot:
 
 ```bash
 sudo systemctl stop shiny-server
-sudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.<timestamp> /srv/shiny-server/sequencing-app/sequencing_projects.db
-sudo chown shiny:shiny /srv/shiny-server/sequencing-app/sequencing_projects.db
+sudo cp /srv/shiny-server/ms-app/ms_projects.db.bak.<timestamp> /srv/shiny-server/ms-app/ms_projects.db
+sudo chown shiny:shiny /srv/shiny-server/ms-app/ms_projects.db
 sudo systemctl start shiny-server
 ```
 
@@ -233,7 +234,7 @@ sudo systemctl start shiny-server
 Run on VM:
 
 ```bash
-cd ~/BCFNGS-project-management
+cd ~/BCFMS-project-management
 ./scripts/deploy.sh
 ```
 
@@ -278,7 +279,7 @@ SKIP_SMOKE_TEST=1 ./scripts/deploy.sh
 Override target base URL:
 
 ```bash
-PUBLIC_BASE_URL="https://ngs-vm.biochem.mpg.de" ./scripts/deploy.sh
+PUBLIC_BASE_URL="https://mscf-vm.biochem.mpg.de" ./scripts/deploy.sh
 ```
 
 ## Feature Branch Deploy (Test VM)
@@ -288,13 +289,13 @@ Use this when you want to validate a feature branch on `bcf-vm` or `ngs-testing-
 1. Switch to your feature branch on the VM and pull latest branch commits.
 
 ```bash
-cd /home/<user>/BCFNGS-project-management
+cd /home/<user>/BCFMS-project-management
 git fetch origin
 git checkout <feature-branch>
 git pull --ff-only origin <feature-branch>
 ```
 
-2. Deploy branch code to `/srv/shiny-server/sequencing-app/`.
+2. Deploy branch code to `/srv/shiny-server/ms-app/`.
 
 ```bash
 PUBLIC_BASE_URL="https://<vm-hostname>" ./scripts/deploy.sh
@@ -305,7 +306,7 @@ PUBLIC_BASE_URL="https://<vm-hostname>" ./scripts/deploy.sh
 4. After merge to `main`, switch VM back to `main` and deploy again:
 
 ```bash
-cd /home/<user>/BCFNGS-project-management
+cd /home/<user>/BCFMS-project-management
 git checkout main
 git pull --ff-only origin main
 PUBLIC_BASE_URL="https://<vm-hostname>" ./scripts/deploy.sh
@@ -320,8 +321,7 @@ Notes:
 
 Target state:
 
-- `https://ngs-vm.biochem.mpg.de` -> Shiny on `:443`
-- `https://ngs-vm.biochem.mpg.de:9443` -> Perl fallback
+- `https://mscf-vm.biochem.mpg.de` -> Shiny on `:443`
 
 This avoids TLS hostname mismatch (same hostname for both endpoints).
 
@@ -329,24 +329,20 @@ This avoids TLS hostname mismatch (same hostname for both endpoints).
 
 Use these repo templates:
 
-- `scripts/ngs-vm-shiny-443.conf`
-- `scripts/ngs-vm-perl-9443.conf`
+- `scripts/mscf-vm-shiny-443.conf`
 
 Copy to Apache:
 
 ```bash
-sudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf
-sudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-perl-9443.conf /etc/apache2/sites-available/ngs-vm-perl-9443.conf
+sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
 ```
 
 ### Step 2: Enable routing and switch traffic
 
 ```bash
-grep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf
+grep -q '^Listen 443$' /etc/apache2/ports.conf || echo 'Listen 443' | sudo tee -a /etc/apache2/ports.conf
 sudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap
 sudo a2ensite ngs-vm-shiny-443.conf
-sudo a2ensite ngs-vm-perl-9443.conf
-sudo a2dissite 02-testing.conf || true
 sudo a2dissite default-ssl.conf || true
 sudo apache2ctl -t
 sudo systemctl restart apache2
@@ -355,9 +351,9 @@ sudo systemctl restart apache2
 ### Step 3: Validate
 
 ```bash
-curl -kI https://ngs-vm.biochem.mpg.de/
-curl -kI -u USER https://ngs-vm.biochem.mpg.de/sequencing-app/
-curl -kI https://ngs-vm.biochem.mpg.de:9443/
+curl -kI https://ms-vm.biochem.mpg.de/
+curl -kI -u USER https://ms-vm.biochem.mpg.de/sequencing-app/
+curl -kI https://ms-vm.biochem.mpg.de:9443/
 ```
 
 ### Step 4: Rollback
@@ -365,31 +361,6 @@ curl -kI https://ngs-vm.biochem.mpg.de:9443/
 ```bash
 sudo a2ensite 02-testing.conf
 sudo a2dissite ngs-vm-shiny-443.conf
-sudo a2dissite ngs-vm-perl-9443.conf
 sudo apache2ctl -t
 sudo systemctl restart apache2
 ```
-
-### Step 5: Scripted switch (optional)
-
-Use:
-
-```bash
-cd /home/yeroslaviz/BCFNGS-project-management
-./scripts/cutover_ngs_vm_ports.sh cutover
-```
-
-`cutover` automatically disables any enabled `:443` site that is not `ngs-vm-shiny-443.conf`.
-
-Rollback:
-
-```bash
-cd /home/yeroslaviz/BCFNGS-project-management
-./scripts/cutover_ngs_vm_ports.sh rollback
-```
-
-`rollback` re-enables legacy `:443` in this priority:
-
-1. `PERL_443_SITE` (if set)
-2. `02-testing.conf`
-3. `default-ssl.conf`
