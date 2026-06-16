@@ -1,0 +1,34 @@
+---
+title: "Documentation"
+---
+
+**BCFNGS-project-management** is a Shiny app for a project management system for the BCF NGS core facility.
+
+The NGS lab of the Core Facility provides sequencing as a service. We recommend contacting us before the start of your experiment. In collaboration with the Bioinformatics Core Facility, we provide the following services. 
+
+* Assistance with experimental design of the studies (required number of samples and replicates)
+* Assistance with the use of NGS open source analysis tools
+* Data analysis on a collaborative basis
+
+If you have any further questions, please do not hesitate to [contact us @ omicsdesk](mailto:omicsdesk.biochem.mpg.de)!
+
+# Chapters
+
+- [Quick Start](chapters/quick-start.html)
+- [Setup & Infrastructure](chapters/setup-infrastructure.html)
+- [Git & GitHub](chapters/git-github.html)
+- [Deploy & Operations](chapters/deploy-operations.html)
+- [LDAP Authentication](chapters/ldap-authentication.html)
+- [SQL Handling](chapters/sql-handling.html)
+- [Troubleshooting](chapters/troubleshooting.html)
+- [Change Log](chapters/change-log.html)
+- [Legacy / Archive](chapters/legacy-archive.html)
+
+## How to render
+
+```bash
+quarto render Documentation/
+```
+
+
+This booklet consolidates all operational and technical documentation for the sequencing Shiny app.
