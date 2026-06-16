@@ -31,7 +31,7 @@ set -euo pipefail
 APP_SOURCE="/home/yeroslaviz/BCFMS-project-management/ms-app/"
 APP_TARGET="/srv/shiny-server/ms-app/"
 APP_DB="${APP_TARGET}ms_projects.db"
-PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://ngs-testing-vm.biochem.mpg.de}"
+PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://ms-vm.biochem.mpg.de}"
 APP_PATH="/ms-app/"
 APP_URL="${PUBLIC_BASE_URL%/}${APP_PATH}"
 
