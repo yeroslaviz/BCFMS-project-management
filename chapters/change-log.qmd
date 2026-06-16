@@ -17,3 +17,7 @@ execute:
 
 1. [github repository](https://github.com/yeroslaviz/BCFMS-project-management) was set up
 2. mscf-vm was set-up for and a https certificate was applied for.
+3. connect VM to github
+4. run `bash scripts/check_requirements.sh` to install requirements, both R packages and ubuntu packages
+5. modify script `deploy.sh` to fit the new VM specifications
+

@@ -6,18 +6,18 @@ set -euo pipefail
 # This script will do the following steps to ensure the smooth running of the app.
 # #
 # 1. syncs the app code to the Shiny Server directory using rsync:
-#     - Source: /home/yeroslaviz/BCFNGS-project-management/sequencing-app/
-#     - Target: /srv/shiny-server/sequencing-app/
+#     - Source: /home/yeroslaviz/BCFMS-project-management/ms-app/
+#     - Target: /srv/shiny-server/ms-app/
 #     - Uses --delete to remove files in the target that no longer exist in the source.
-#     - Excludes sequencing_projects.db so the production DB is not overwritten.
+#     - Excludes ms_projects.db so the production DB is not overwritten.
 #     - Excludes .Renviron so VM runtime auth/env settings are preserved.
 #
 # 2. Fixes ownership of the deployed folder:
 #
-#     - shiny:shiny on everything under /srv/shiny-server/sequencing-app
+#     - shiny:shiny on everything under /srv/shiny-server/ms-app
 #
 # 3. Makes the DB writable:
-#    - sequencing_projects.db
+#    - ms_projects.db
 #
 # 4. Restarts Shiny Server
 #
@@ -28,11 +28,11 @@ set -euo pipefail
 ########################################################################################
 
 
-APP_SOURCE="/home/yeroslaviz/BCFNGS-project-management/sequencing-app/"
-APP_TARGET="/srv/shiny-server/sequencing-app/"
-APP_DB="${APP_TARGET}sequencing_projects.db"
+APP_SOURCE="/home/yeroslaviz/BCFMS-project-management/ms-app/"
+APP_TARGET="/srv/shiny-server/ms-app/"
+APP_DB="${APP_TARGET}ms_projects.db"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://ngs-testing-vm.biochem.mpg.de}"
-APP_PATH="/sequencing-app/"
+APP_PATH="/ms-app/"
 APP_URL="${PUBLIC_BASE_URL%/}${APP_PATH}"
 
 smoke_fail() {
@@ -40,15 +40,15 @@ smoke_fail() {
   echo
   echo "LDAP smoke test failed: ${message}" >&2
   echo "Suggested checks:" >&2
-  echo "1) Verify the active Apache vhost for ${APP_URL} serves /sequencing-app/ with LDAP auth:" >&2
+  echo "1) Verify the active Apache vhost for ${APP_URL} serves /ms-app/ with LDAP auth:" >&2
   echo "   sudo apache2ctl -S" >&2
   echo "   sudo apache2ctl configtest && sudo systemctl restart apache2 && sudo systemctl restart shiny-server" >&2
   echo "2) Verify Shiny environment:" >&2
   echo "   sudo systemctl show shiny-server --property=Environment" >&2
   echo "   Required: AUTH_MODE=ldap and TRUST_PROXY_AUTH_USER_QUERY=1" >&2
   echo "3) Inspect logs for redirects/auth failures:" >&2
-  echo "   sudo tail -n 120 /var/log/apache2/sequencing-app-ssl-access.log" >&2
-  echo "   sudo tail -n 120 /var/log/apache2/sequencing-app-ssl-error.log" >&2
+  echo "   sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log" >&2
+  echo "   sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log" >&2
   exit 1
 }
 
@@ -145,7 +145,7 @@ EOF
 
 echo "Deploying Shiny app..."
 
-if sudo rsync -av --delete --exclude 'sequencing_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
+if sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
   sudo chown -R shiny:shiny "${APP_TARGET}"
   if [ -f "${APP_DB}" ]; then
     sudo chmod 666 "${APP_DB}"

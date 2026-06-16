@@ -10,11 +10,68 @@ execute:
 
 ### Contents
 
+
+- [Bare Server Setup (Ubuntu)](#bare-server-setup-ubuntu)
 - [Server Infrastructure](#server-infrastructure)
 - [Modify Text (Announcements)](#modify-text-announcements)
-- [Bare Server Setup (Ubuntu)](#bare-server-setup-ubuntu)
 - [SSL Certificates](#ssl-certificates)
 - [Firewall](#firewall)
+
+
+## Bare Server Setup (Ubuntu)
+
+###  Install all dependencies
+
+```{bash}
+cd /home/yeroslaviz/BCFMS-project-management
+bash scripts/check_requirements.sh
+```
+
+the scripts ends with 
+
+```
+Manual steps still required:
+- Install Shiny Server (.deb) if not present.
+- Configure Apache vhost, LDAP, and systemd env vars.
+```
+
+### Install Shiny Server
+
+Download the latest Shiny Server `.deb` from Posit and install it:
+
+```bash
+# Example pattern (replace filename with the current version)
+sudo apt install gdebi-core
+wget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb
+sudo gdebi shiny-server-1.5.23.1030-amd64.deb
+```
+
+Start and enable the service:
+
+```{bash}
+sudo systemctl enable shiny-server
+sudo systemctl start shiny-server
+```
+
+Still to be seen if all is installed
+
+### Configure the Shiny app folder
+
+```{bash}
+sudo usermod -a -G shiny $USER
+sudo mv /srv/shiny-server/ms-app /srv/shiny-server/ms-app.backup 2>/dev/null || true
+sudo mkdir -p /srv/shiny-server/ms-app
+sudo chown -R $USER:shiny /srv/shiny-server/ms-app
+```
+
+### Deploy the app files:
+
+```{bash}
+cd /home/yeroslaviz/BCFMS-project-management
+./scripts/deploy.sh
+```
+
+>>>> Below was copied from BCFNGS - need to be cleaned
 
 ## Server Infrastructure
 
@@ -66,6 +123,7 @@ This includes:
 - Admin user promotion in LDAP mode
 - Budget holder updates (CSV vs DB)
 - SQLite inspection and maintenance commands
+
 ### Install required system dependencies
 
 ```{bash}
@@ -120,7 +178,6 @@ sudo systemctl enable shiny-server
 ```
 
 
-## Bare Server Setup (Ubuntu)
 
 ## Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)
 

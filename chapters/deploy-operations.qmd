@@ -10,7 +10,6 @@ execute:
 
 ### Contents
 
-- [Project Deletion Permissions](#project-deletion-permissions)
 - [Deploy Workflow](#deploy-workflow)
 - [Feature Branch Deploy (Test VM)](#feature-branch-deploy-test-vm)
 - [Deploy Scope and DB Behavior](#deploy-scope-and-db-behavior)
@@ -18,40 +17,73 @@ execute:
 - [Backups (summary)](#backups-summary)
 - [ngs-vm Cutover (443/9443)](#ngs-vm-cutover-4439443)
 
-## Project Deletion Permissions
-
-Deletion is **admin-only**:
-
-- The Delete button is only shown when `user$is_admin` is true.
-- The backend also enforces admin-only deletion.
-- A delete performs a hard remove from the SQL DB: `DELETE FROM projects WHERE id = ?`.
-
-### Re-enable delete for non-admin users
-
-In `/Users/yeroslaviz/Documents/Github/BCFMS-project-management/ms-app/app.R`:
-
-1. In `output$user_interface`, render the button unconditionally (remove the `if (user$is_admin)` guard around `delete_project_btn`).
-2. In the `observeEvent(input$delete_project_btn)` handler, allow owners again:
-   - Change `can_delete <- user$is_admin` back to:
-     - `can_delete <- user$is_admin || project$user_id == user$user_id`
-
-Rebuild/redeploy after changes.
-
 ## Deploy Workflow
 
-### Production rollout checklist (quick reference)
+This is the checklist that was used to set up the server and install all requirements. 
 
-This is the short checklist I use on production. Details for each step are below in the VM rollout HOW‑TO section.
+### Create a VM SSH key to connect to github
 
-1.  Confirm GitHub access and pull latest code.
+```{bash}
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -C "<your-github-email>" -f ~/.ssh/id_ed25519_bcfms_vm
+chmod 600 ~/.ssh/id_ed25519_bcfms_vm
+chmod 644 ~/.ssh/id_ed25519_bcfms_vm.pub
+```
+
+### Load key and pin it in SSH config
+
+```{bash}
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519_bcfms_vm
+```
+
+```{python}
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_bcfms_vm
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+```
+
+### Add key in GitHub
+
+```{bash}
+cat ~/.ssh/id_ed25519_bcfms_vm.pub
+```
+
+Copy the full output (public key) and paste it in GitHub. **Do not paste the private key file**.
+
+Choose one:
+
+- Deploy key (read-only) on this repo: clone + pull only.
+
+(We don't use SSH key, since we don't plan to push from the VM to github)
+
+Where to paste:
+
+Deploy key: GitHub repo [BCFMS-project-management](https://github.com/yeroslaviz/BCFMS-project-management) -> Settings -> Deploy keys -> Add deploy key.
+
+### Confirm GitHub access and pull latest code.
 
 ```{bash}
 ssh -T git@github.com
-cd /home/yeroslaviz/BCFMS-project-management
-git pull origin main
 ```
 
-2.  Take backups (app folder, SQLite DB, Apache config).
+### Clone repository
+
+```{bash}
+cd /home/yeroslaviz/
+git clone git@github.com:yeroslaviz/BCFMS-project-management.git
+cd /home/yeroslaviz/BCFMS-project-management
+git pull --ff-only origin main
+```
+
+
+## Take backups (app folder, SQLite DB, Apache config).
 
 ```{bash}
 sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
