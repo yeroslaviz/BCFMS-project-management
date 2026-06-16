@@ -1,0 +1,72 @@
+---
+title: "Git and Github"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+Instruction to set up the git and github repository connection. 
+
+## Create a VM SSH key to connect to github
+
+```{bash}
+mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -C "<your-github-email>" -f ~/.ssh/id_ed25519_bcfms_vm
+chmod 600 ~/.ssh/id_ed25519_bcfms_vm
+chmod 644 ~/.ssh/id_ed25519_bcfms_vm.pub
+```
+
+## Load key and pin it in SSH config
+
+```{bash}
+eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519_bcfms_vm
+```
+
+```{python}
+cat >> ~/.ssh/config <<'EOF'
+Host github.com
+  HostName github.com
+  User git
+  IdentityFile ~/.ssh/id_ed25519_bcfms_vm
+  IdentitiesOnly yes
+EOF
+chmod 600 ~/.ssh/config
+```
+
+## Add key in GitHub
+
+```{bash}
+cat ~/.ssh/id_ed25519_bcfms_vm.pub
+```
+
+Copy the full output (public key) and paste it in GitHub. **Do not paste the private key file**.
+
+Choose one:
+
+- Deploy key (read-only) on this repo: clone + pull only.
+
+(We don't use SSH key, since we don't plan to push from the VM to github)
+
+Where to paste:
+
+Deploy key: GitHub repo [BCFMS-project-management](https://github.com/yeroslaviz/BCFMS-project-management) -> Settings -> Deploy keys -> Add deploy key.
+
+### Confirm GitHub access and pull latest code.
+
+```{bash}
+ssh -T git@github.com
+```
+
+### Clone repository
+
+```{bash}
+cd /home/<user>/
+git clone git@github.com:<user>/BCFMS-project-management.git
+cd /home/<user>/BCFMS-project-management
+git pull --ff-only origin main
+```
+
+

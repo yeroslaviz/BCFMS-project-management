@@ -6,34 +6,28 @@ execute:
   warning: false
 ---
 
-## Setup & Infrastructure
+##  Install all dependencies
 
-### Contents
+### Install packages
 
-
-- [Bare Server Setup (Ubuntu)](#bare-server-setup-ubuntu)
-- [Server Infrastructure](#server-infrastructure)
-- [Modify Text (Announcements)](#modify-text-announcements)
-- [SSL Certificates](#ssl-certificates)
-- [Firewall](#firewall)
-
-
-## Bare Server Setup (Ubuntu)
-
-###  Install all dependencies
+This should be done at the beginning after the VM  was set up by the IT.
 
 ```{bash}
+mkdir -p /home/yeroslaviz/BCFMS-project-management
 cd /home/yeroslaviz/BCFMS-project-management
 bash scripts/check_requirements.sh
 ```
 
-the scripts ends with 
+::: {.callout-tip}
+## The scripts ends with 
 
 ```
 Manual steps still required:
 - Install Shiny Server (.deb) if not present.
 - Configure Apache vhost, LDAP, and systemd env vars.
 ```
+:::
+
 
 ### Install Shiny Server
 
@@ -53,9 +47,52 @@ sudo systemctl enable shiny-server
 sudo systemctl start shiny-server
 ```
 
-Still to be seen if all is installed
+### Install Java + mail packages (required for email notifications)
 
-### Configure the Shiny app folder
+The app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.
+
+```{bash}
+sudo apt-get install -y default-jdk
+sudo R CMD javareconf
+sudo Rscript --vanilla -e 'install.packages(c("rJava","mailR"), repos="https://cloud.r-project.org")'
+```
+
+### Install LDAP packages (Ubuntu + R)
+
+```{bash}
+sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
+```
+
+These packages should already be installed via the installation script above, but just to make sure!
+
+#### Configure OpenLDAP 
+
+The client trust in `/etc/ldap/ldap.conf`:
+
+```{bash}
+sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
+BASE            dc=biochem,dc=mpg,dc=de
+URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
+TLS_REQCERT     hard
+TLS_CACERTDIR   /etc/ssl/certs
+EOF
+```
+
+Install the R LDAP package:
+
+```{bash}
+sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'
+```
+
+Quick checks:
+
+```{bash}
+ldapsearch -x -H ldaps://ldap01.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=yeroslaviz)" mail
+sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
+```
+
+
+## Configure the Shiny app folder
 
 ```{bash}
 sudo usermod -a -G shiny $USER
@@ -64,6 +101,43 @@ sudo mkdir -p /srv/shiny-server/ms-app
 sudo chown -R $USER:shiny /srv/shiny-server/ms-app
 ```
 
+### Clone repo and set app folder
+
+```{bash}
+sudo rsync -av /home/yeroslaviz/BCFMS-project-management/ms-app/ /srv/shiny-server/ms-app/
+sudo chown -R shiny:shiny /srv/shiny-server/ms-app
+```
+
+## Configure Apache (test HTTPS redirect)
+
+copy the apache2 config file
+
+```{bash}
+sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
+```
+
+### Enable the site and restart Apache:
+
+```{bash}
+sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
+sudo a2ensite ms-vm-shiny-443.conf # this creates symlink to sites-enabled
+sudo apache2ctl -t
+sudo systemctl restart apache2
+
+```
+
+>>> We have to wait for the certificate to activate this.
+
+>>>>>>>>> Done so far. Below is all copied from BCFNGS
+
+###  Initialize the SQLite DB
+
+```{bash}
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript setup_database.R
+```
+
+
 ### Deploy the app files:
 
 ```{bash}
@@ -71,7 +145,6 @@ cd /home/yeroslaviz/BCFMS-project-management
 ./scripts/deploy.sh
 ```
 
->>>> Below was copied from BCFNGS - need to be cleaned
 
 ## Server Infrastructure
 

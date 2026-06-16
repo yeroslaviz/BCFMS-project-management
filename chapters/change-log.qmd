@@ -10,7 +10,7 @@ execute:
 
 ### Contents
 
-- [Changes on 03.03.2026](#changes-on-16.06.2027)
+- [Changes on 03.03.2026](#changes-on-16.06.2026)
 
 
 ## Changes on 16.06.2027
@@ -20,4 +20,6 @@ execute:
 3. connect VM to github
 4. run `bash scripts/check_requirements.sh` to install requirements, both R packages and ubuntu packages
 5. modify script `deploy.sh` to fit the new VM specifications
+6. setting up the shiny-server, connect to ldap server
+
 
