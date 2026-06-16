@@ -1,0 +1,601 @@
+---
+title: "VM Installation Guide (ngs-vm & bcf-vm)"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+## VM Installation Guide (ngs-vm & bcf-vm)
+
+### Contents
+
+- [Scope](#scope)
+- [Port strategy (recommended)](#port-strategy-recommended)
+- [Prerequisites (both VMs)](#prerequisites-both-vms)
+- [GitHub connection on a fresh VM](#github-connection-on-a-fresh-vm)
+- [bcf-vm: clean install](#bcf-vm-clean-install)
+- [ngs-vm: parallel install next to perl system](#ngs-vm-parallel-install-next-to-perl-system)
+- [Legacy data migration (perl-VM → shiny-VM)](#legacy-data-migration-perl-vm--shiny-vm)
+- [Cutover and rollback](#cutover-and-rollback)
+- [Post-install verification](#post-install-verification)
+
+## Scope
+
+This guide covers a full installation of the Shiny app on two Ubuntu 24 VMs:
+
+- `bcf-vm`: clean install, no HTTPS cert (self-signed OK for testing).
+- `ngs-vm`: already running the legacy Perl system; install the Shiny app in parallel, then redirect the public hostname when ready.
+
+## Port strategy (recommended)
+
+Recommended for parallel operation on `ngs-vm`:
+
+- Shiny Server stays on `:3838` (default).
+- Apache vhost for the **new** system listens on `:8443` (HTTPS) or another high port (e.g. `:1234` if you prefer).
+- Existing legacy system remains on `:443`.
+
+Why `8443`: it is standard for HTTPS on alternate ports and avoids conflicts.
+
+## Prerequisites (both VMs)
+
+Run the requirement check script:
+
+```bash
+bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh
+```
+
+Install missing apt packages:
+
+```bash
+bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install
+```
+
+Install missing R packages (including `rJava`):
+
+```bash
+bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install-r
+```
+
+The requirement check reports missing `rJava`/`mailR` and missing Java tools (`java`, `javac`) explicitly.
+
+Manual steps still required after package install:
+
+- Install Shiny Server from the `.deb` package (see [bcf-vm Step 2](#bcf-install-shiny-server)).
+- Install Java + R mail dependencies for email notifications (see [bcf-vm Step 2b](#bcf-java-mail)).
+- Install LDAP client/build dependencies + `ldapr` (see [bcf-vm Step 2d](#bcf-ldap-deps)).
+- Ensure the `shiny` user exists and app-folder permissions are correct (see [bcf-vm Step 2c](#bcf-shiny-user-perms)).
+- Configure Apache vhost, LDAP, and systemd environment (see [bcf-vm Step 6](#bcf-configure-ldap-systemd), [bcf-vm Step 7](#bcf-configure-apache-vhost), and [ngs-vm Step 2](#ngs-parallel-shiny-vhost)).
+
+## GitHub connection on a fresh VM
+
+Before cloning on either VM, configure GitHub access.
+
+Use these sections in **Git & GitHub**:
+
+- [GitHub connection on VM (clone/pull/push)](git-github.qmd#github-connection-on-vm-clonepullpush)
+- [Enable push from the VM](git-github.qmd#enable-push-from-the-vm)
+- [Repo setup on the VM](git-github.qmd#repo-setup-on-the-vm)
+
+Minimum check before clone:
+
+```bash
+ssh -T git@github.com
+```
+
+If this fails, do not continue with clone/deploy until SSH access is fixed.
+
+## bcf-vm: clean install
+
+### 1) Install base packages
+
+```bash
+sudo apt-get update
+sudo apt-get install -y git curl rsync apache2 apache2-utils openssl sqlite3 ldap-utils \
+  build-essential libcurl4-openssl-dev libssl-dev libxml2-dev r-base
+```
+
+### 2) Install Shiny Server {#bcf-install-shiny-server}
+
+Copy the `.deb` to the VM and install it:
+
+```bash
+sudo apt-get install -y gdebi-core
+wget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb
+sudo gdebi shiny-server-1.5.23.1030-amd64.deb
+```
+
+### 2b) Configure Java + mail packages (required for email notifications) {#bcf-java-mail}
+
+The app sends emails via `mailR`, which requires Java / `rJava`.
+This is for **email notifications**, not for LDAP auth itself.
+
+```bash
+sudo apt-get install -y default-jdk
+sudo R CMD javareconf
+sudo Rscript --vanilla -e 'install.packages(c("rJava","mailR"), repos="https://cloud.r-project.org")'
+```
+
+Apply the same on `ngs-vm` and `bcf-vm`.
+
+### 2c) Create `shiny` user + app-folder permissions {#bcf-shiny-user-perms}
+
+Shiny Server runs the app as the `shiny` service user.
+
+```bash
+getent passwd shiny || sudo useradd --system --home /var/lib/shiny-server --shell /usr/sbin/nologin shiny
+sudo mkdir -p /srv/shiny-server/sequencing-app
+sudo chown -R shiny:shiny /srv/shiny-server/sequencing-app
+sudo chmod 755 /srv/shiny-server /srv/shiny-server/sequencing-app
+sudo usermod -a -G shiny "$USER"
+```
+
+If you are configuring a different account, replace `"$USER"` with that username.
+
+### 2d) LDAP packages (Ubuntu + R) {#bcf-ldap-deps}
+
+Install LDAP client tools and build dependencies:
+
+```bash
+sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
+```
+
+Configure OpenLDAP client trust in `/etc/ldap/ldap.conf`:
+
+```bash
+sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
+BASE            dc=biochem,dc=mpg,dc=de
+URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
+TLS_REQCERT     hard
+TLS_CACERTDIR   /etc/ssl/certs
+EOF
+```
+
+Install the R LDAP package:
+
+```bash
+sudo Rscript --vanilla -e 'install.packages("ldapr", repos="https://cloud.r-project.org")'
+```
+
+Fallback if CRAN install is unavailable on this VM:
+
+```bash
+sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'
+```
+
+Quick checks:
+
+```bash
+ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=<user>)" mail
+sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
+```
+
+If `ldapsearch` only works with `LDAPTLS_REQCERT=never`, your `/etc/ldap/ldap.conf` trust settings are incomplete or incorrect.
+
+### 3) Create a self-signed certificate (test only)
+
+```bash
+sudo mkdir -p /etc/ssl/localcerts
+sudo openssl req -x509 -nodes -days 365 \
+  -newkey rsa:2048 \
+  -keyout /etc/ssl/localcerts/bcf-vm.key \
+  -out /etc/ssl/localcerts/bcf-vm.crt
+```
+
+### 4) Clone repo and set app folder
+
+```bash
+cd /home/<user>
+git clone git@github.com:yeroslaviz/BCFNGS-project-management.git
+sudo rsync -av /home/<user>/BCFNGS-project-management/sequencing-app/ /srv/shiny-server/sequencing-app/
+sudo chown -R shiny:shiny /srv/shiny-server/sequencing-app
+```
+
+### 5) Initialize the SQLite DB
+
+```bash
+cd /srv/shiny-server/sequencing-app
+sudo -u shiny Rscript setup_database.R
+```
+
+### 6) Configure LDAP mode (systemd override) {#bcf-configure-ldap-systemd}
+
+```bash
+sudo systemctl edit shiny-server
+```
+
+```ini
+[Service]
+Environment=AUTH_MODE=ldap
+Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+Environment=TRUST_PROXY_AUTH_USER_QUERY=1
+```
+
+```bash
+sudo systemctl daemon-reload
+sudo systemctl restart shiny-server
+```
+
+### 6b) Ensure app runtime env is loaded (`.Renviron`) {#bcf-app-renviron}
+
+On `bcf-vm` and `ngs-vm`, we observed that LDAP worked reliably only after setting app env in:
+
+- `/srv/shiny-server/sequencing-app/.Renviron`
+
+Create/update this file:
+
+```bash
+sudo tee /srv/shiny-server/sequencing-app/.Renviron >/dev/null <<'EOF'
+AUTH_MODE=ldap
+LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+TRUST_PROXY_AUTH_USER_QUERY=1
+# LDAP_DEBUG=1   # only while debugging
+EOF
+sudo chown shiny:shiny /srv/shiny-server/sequencing-app/.Renviron
+sudo chmod 640 /srv/shiny-server/sequencing-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+This prevents the app from falling back to local-mode UI when systemd env is present but not visible inside the R worker.
+
+### 7) Configure Apache (test HTTPS redirect) {#bcf-configure-apache-vhost}
+
+Use the versioned template from the repo:
+
+- `scripts/bcf.vm.conf`
+
+Copy it on VM:
+
+```bash
+sudo cp /home/<user>/BCFNGS-project-management/scripts/bcf.vm.conf /etc/apache2/sites-available/bcf-vm.conf
+```
+
+Template includes:
+
+- HTTP→HTTPS redirect (`:80` → `:443`)
+- Scoped proxy to `/sequencing-app/`
+- LDAP `<Location /sequencing-app/>` auth block
+- Canonical `auth_user` rewrite and websocket rule
+
+Enable the site and restart Apache:
+
+```bash
+sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
+sudo a2ensite bcf-vm.conf # this creates symlink to sites-enabled
+sudo apache2ctl -t
+sudo systemctl restart apache2
+```
+
+## ngs-vm: parallel install next to perl system
+
+### 1) Keep legacy system on `:443`
+
+Leave the currently active Perl `:443` site enabled (on our VM this is `02-testing.conf`).
+
+### 2) Add a parallel Shiny vhost on `:8443` (or `:1234`) {#ngs-parallel-shiny-vhost}
+
+Use the versioned template from the repo:
+
+- `scripts/ngs-vm-shiny.conf`
+
+Copy it on VM:
+
+```bash
+sudo cp /home/<user>/BCFNGS-project-management/scripts/ngs-vm-shiny.conf /etc/apache2/sites-available/ngs-vm-shiny.conf
+```
+
+Keep certificate paths unchanged in this file:
+
+- `SSLCertificateFile /etc/ssl/certs/ngs-cert.pem`
+- `SSLCertificateKeyFile /etc/ssl/private/2026_private-key.pem`
+- `SSLCertificateChainFile /etc/apache2/certificate/2026_Cert_binary.cer`
+
+Enable and reload:
+
+```bash
+grep -q '^Listen 8443$' /etc/apache2/ports.conf || echo 'Listen 8443' | sudo tee -a /etc/apache2/ports.conf
+sudo a2enmod ssl proxy proxy_http headers rewrite ldap authnz_ldap
+sudo a2ensite ngs-vm-shiny.conf
+sudo apache2ctl -t
+sudo systemctl restart apache2
+```
+
+### 3) Validate parallel access
+
+```bash
+curl -Ik https://ngs-vm.biochem.mpg.de:8443/
+curl -Ik -u USER https://ngs-vm.biochem.mpg.de:8443/sequencing-app/
+```
+
+If hostname/port tests fail, validate locally against the vhost:
+
+```bash
+curl -kI -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/
+curl -kI -u USER -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/sequencing-app/
+```
+
+If the app returns HTTP 500 with `mailR/rJava` errors on ngs-vm, apply this runtime fix:
+
+```bash
+sudo apt-get install -y openjdk-17-jdk r-cran-rjava
+export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+sudo env JAVA_HOME="$JAVA_HOME" /usr/bin/R CMD javareconf
+sudo env JAVA_HOME="$JAVA_HOME" /usr/bin/Rscript --vanilla -e 'install.packages("mailR", repos="https://cloud.r-project.org", INSTALL_opts="--no-test-load")'
+sudo systemctl restart shiny-server
+```
+
+### 4) Switch between LDAP and local modes on VM
+
+Primary reference: [LDAP chapter - switch between LDAP and local modes](ldap-authentication.qmd#switch-between-ldap-and-local-modes-vm)
+
+In production, switch modes by editing:
+
+- `/srv/shiny-server/sequencing-app/.Renviron`
+
+Set LDAP mode:
+
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/sequencing-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+Set local mode:
+
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/sequencing-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+Verify effective runtime mode from app logs:
+
+```bash
+LATEST=$(sudo ls -1t /var/log/shiny-server/sequencing-app-shiny-*.log | head -n1)
+sudo tail -n 80 "$LATEST"
+```
+
+
+## Legacy data migration (perl-VM → shiny-VM)
+
+Use this workflow to export legacy projects from the perl system on `ngs-vm` and import into either `bcf-vm` or `ngs-vm` (Shiny DB).
+
+### Step 1) Export CSV on ngs-vm (perl PostgreSQL)
+
+```bash
+psql -U letunic -h 127.0.0.1 -d mpiseq2_db -c "\
+\\copy (\
+  SELECT \
+    p.id AS legacy_id, \
+    p.name AS project_name, \
+    m.login AS login, \
+    m.name AS user_full_name, \
+    l.name AS group_name, \
+    COALESCE(p.ref_genome_legacy, rg.genome) AS reference_genome, \
+    COALESCE(p.sample_type_legacy, st.type) AS sample_type, \
+    t.type AS type_label, \
+    p.sequencing_length AS sequencing_length, \
+    COALESCE(p.budget_group_legacy, bg.budget) AS budget_group, \
+    p.sequencing_platform AS sequencing_platform, \
+    COALESCE(p.sequencing_kit_legacy, p.sequencing_kit) AS sequencing_kit, \
+    p.sequencing_index AS sequencing_index, \
+    p.note AS note \
+  FROM project.project p \
+  LEFT JOIN people.member m ON p.user_id = m.id \
+  LEFT JOIN people.lab l ON m.lab_id = l.id \
+  LEFT JOIN project.ref_genome rg ON p.ref_genome_id = rg.id \
+  LEFT JOIN project.sample_type st ON p.sample_type_id = st.id \
+  LEFT JOIN project.type t ON p.type_id = t.id \
+  LEFT JOIN project.budget_group bg ON p.budget_group_id = bg.id \
+  ORDER BY p.id\
+) TO '/www/mpiseq2/exports/legacy_projects.csv' CSV HEADER"
+```
+
+### Step 2) Normalize UTF-8 (recommended)
+
+```bash
+sudo python3 - <<'PY'
+src = "/www/mpiseq2/exports/legacy_projects.csv"
+dst = "/www/mpiseq2/exports/legacy_projects.utf8.csv"
+with open(src, "r", encoding="utf-8", errors="ignore") as f, \
+     open(dst, "w", encoding="utf-8") as out:
+    for line in f:
+        if "Ã" in line or "Â" in line:
+            line = line.encode("latin1", errors="ignore").decode("utf-8", errors="ignore")
+        out.write(line)
+PY
+```
+
+### Step 3) Move CSV to the target VM
+
+If importing into `bcf-vm`:
+
+```bash
+# run on bcf-vm once
+mkdir -p /home/yeroslaviz/BCFNGS-project-management/exports/
+
+# run on ngs-vm (source)
+scp /www/mpiseq2/exports/legacy_projects.utf8.csv \
+  yeroslaviz@bcf-vm:/home/yeroslaviz/BCFNGS-project-management/exports/
+```
+
+If importing into Shiny on `ngs-vm` (same host as perl system):
+
+```bash
+cp -R /www/mpiseq2/exports/ /home/yeroslaviz/BCFNGS-project-management/
+```
+
+### Step 4) Import into Shiny SQLite DB
+
+```bash
+sudo systemctl stop shiny-server
+cd /srv/shiny-server/sequencing-app
+```
+
+If `/home/yeroslaviz` is not traversable by `shiny` (permission denied), either:
+
+- quick fix:
+
+```bash
+sudo chmod o+x /home/yeroslaviz
+```
+
+- safer fix (preferred): copy script + CSV to a service-owned path and run from there.
+
+Then run import:
+
+```bash
+sudo -u shiny python3 /home/yeroslaviz/BCFNGS-project-management/scripts/import_legacy_projects.py \
+  --db /srv/shiny-server/sequencing-app/sequencing_projects.db \
+  --csv /home/yeroslaviz/BCFNGS-project-management/exports/legacy_projects.utf8.csv
+
+sudo systemctl start shiny-server
+```
+
+### Step 5) Verify import
+
+```bash
+sudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \
+"SELECT COUNT(*) FROM projects WHERE status='Legacy project';"
+
+sudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \
+"SELECT project_id, project_name, responsible_user, status FROM projects WHERE status='Legacy project' ORDER BY project_id LIMIT 5;"
+```
+
+Notes:
+
+- Rebuild is not required for regular imports; new `legacy_id` rows are inserted, already imported IDs are skipped.
+- If you need a full refresh of legacy rows, rebuild or delete legacy rows first, then re-import.
+- Detailed SQL notes remain in `Documentation/chapters/sql-handling.qmd`.
+
+## Cutover and rollback
+
+### Cutover target
+
+After cutover:
+
+- `https://ngs-vm.biochem.mpg.de` serves **Shiny** on `:443` (no port in URL).
+- Perl fallback stays available on `https://ngs-vm.biochem.mpg.de:9443`.
+
+### 1) Pre-cutover safety backup
+
+```bash
+sudo mkdir -p /root/apache-backup-$(date +%F-%H%M)
+sudo cp -a /etc/apache2/sites-available /root/apache-backup-$(date +%F-%H%M)/
+sudo cp -a /etc/apache2/sites-enabled /root/apache-backup-$(date +%F-%H%M)/
+```
+
+### 2) Prepare vhost files
+
+Use the versioned templates from the repo:
+
+- `scripts/ngs-vm-shiny-443.conf` -> `/etc/apache2/sites-available/ngs-vm-shiny-443.conf`
+- `scripts/ngs-vm-perl-9443.conf` -> `/etc/apache2/sites-available/ngs-vm-perl-9443.conf`
+
+```bash
+sudo cp /home/<user>/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf
+sudo cp /home/<user>/BCFNGS-project-management/scripts/ngs-vm-perl-9443.conf /etc/apache2/sites-available/ngs-vm-perl-9443.conf
+```
+
+### 3) Enable the cutover routing
+
+```bash
+grep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf
+sudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap
+sudo a2ensite ngs-vm-shiny-443.conf
+sudo a2ensite ngs-vm-perl-9443.conf
+# Disable the old Perl :443 site (name can vary by VM):
+sudo a2dissite 02-testing.conf || true
+sudo a2dissite default-ssl.conf || true
+sudo apache2ctl -t
+sudo systemctl restart apache2
+```
+
+### 4) Automated switch/rollback script (optional)
+
+You can use:
+
+- `scripts/cutover_ngs_vm_ports.sh`
+
+Cutover:
+
+```bash
+cd /home/<user>/BCFNGS-project-management
+./scripts/cutover_ngs_vm_ports.sh cutover
+```
+
+`cutover` auto-disables competing `:443` sites (including `default-ssl.conf` when present).
+
+Rollback:
+
+```bash
+cd /home/<user>/BCFNGS-project-management
+./scripts/cutover_ngs_vm_ports.sh rollback
+```
+
+`rollback` re-enables the first available legacy `:443` site in this order:
+
+1. `PERL_443_SITE` (if provided)
+2. `02-testing.conf`
+3. `default-ssl.conf`
+
+### Rollback (manual)
+
+```bash
+sudo a2ensite 02-testing.conf
+sudo a2dissite ngs-vm-shiny-443.conf
+sudo a2dissite ngs-vm-perl-9443.conf
+sudo apache2ctl -t
+sudo systemctl restart apache2
+```
+
+### DB lifecycle policy (important)
+
+- `scripts/deploy.sh` is code-only deployment and does **not** recreate `sequencing_projects.db`.
+- Restarting `shiny-server` does **not** delete DB content.
+- Rebuild is manual and only when intentionally running `/srv/shiny-server/sequencing-app/setup_database.R`.
+- Keep legacy CSV import as a separate operation, not part of deploy.
+
+### DB snapshot / rebuild / restore runbook
+
+Snapshot:
+
+```bash
+sudo systemctl stop shiny-server
+sudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.$(date +%F-%H%M%S)
+sudo systemctl start shiny-server
+```
+
+Optional rebuild:
+
+```bash
+cd /srv/shiny-server/sequencing-app
+sudo systemctl stop shiny-server
+sudo -u shiny Rscript setup_database.R
+sudo systemctl start shiny-server
+```
+
+Restore snapshot:
+
+```bash
+sudo systemctl stop shiny-server
+sudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.<timestamp> /srv/shiny-server/sequencing-app/sequencing_projects.db
+sudo chown shiny:shiny /srv/shiny-server/sequencing-app/sequencing_projects.db
+sudo systemctl start shiny-server
+```
+
+## Post-install verification
+
+Run these checks after install:
+
+```bash
+curl -Ik https://ngs-vm.biochem.mpg.de/
+curl -Ik -u USER https://ngs-vm.biochem.mpg.de/sequencing-app/
+curl -Ik https://ngs-vm.biochem.mpg.de:9443/
+```
+
+Confirm:
+
+- no-port hostname opens Shiny.
+- LDAP prompt appears and login succeeds.
+- Perl fallback is reachable on `:9443`.

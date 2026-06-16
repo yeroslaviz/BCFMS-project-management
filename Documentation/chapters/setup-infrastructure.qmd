@@ -1,0 +1,370 @@
+---
+title: "Setup & Infrastructure"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+## Setup & Infrastructure
+
+### Contents
+
+- [Server Infrastructure](#server-infrastructure)
+- [Modify Text (Announcements)](#modify-text-announcements)
+- [Bare Server Setup (Ubuntu)](#bare-server-setup-ubuntu)
+- [SSL Certificates](#ssl-certificates)
+- [Firewall](#firewall)
+
+## Server Infrastructure
+
+## Modify Text (Announcements)
+
+The post-login landing text is now **admin-editable in the app UI** (no code edit needed for content changes):
+
+1. Log in as admin.
+2. Open `Administer Projects` -> `Manage Landing Text`.
+3. Select the panel:
+   - `Announcement`
+   - `service_info` (service/instructions panel)
+4. Add/Edit/Delete/Reorder white text boxes.
+5. Changes are published immediately and stored in SQLite.
+
+### Markdown-lite syntax
+
+Use these formats in each box:
+
+- Bold: `**important text**`
+- Bullet list:
+  - `- first item`
+  - `- second item`
+- Numbered list:
+  - `1. first`
+  - `2. second`
+- Link: `[@NGS](mailto:ngs@biochem.mpg.de)`
+
+### Where it is stored
+
+- DB tables:
+  - `announcement_panels`
+  - `announcement_items`
+- App render + admin handlers:
+  - `/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R`
+- Style classes (unchanged):
+  - `.announcement-panel`
+  - `.service-panel`
+  - `.info-box`
+
+If tables are missing, the app auto-creates them and seeds default content on startup.
+
+### SQL handling (moved)
+
+All SQL database commands and explanations were moved to **`notes/sql-handling.qmd`**.  
+This includes:
+
+- DB rebuild procedure
+- Admin user promotion in LDAP mode
+- Budget holder updates (CSV vs DB)
+- SQLite inspection and maintenance commands
+### Install required system dependencies
+
+```{bash}
+
+sudo apt install -y libssl-dev libxml2-dev libcurl4-openssl-dev libudunits2-dev libgdal-dev
+
+```
+
+### Changing hostname to fit the apache2 config file
+
+```{bash}
+
+# Change the hostname
+sudo hostnamectl set-hostname ngs-testing-vm.biochem.mpg.de
+
+# Verify the change
+hostnamectl status
+
+```
+
+```{bash}
+nslookup ngs-testing-vm.biochem.mpg.de
+ping ngs-testing-vm.biochem.mpg.de
+```
+
+```
+Server:     127.0.0.53
+Address:    127.0.0.53#53
+
+Non-authoritative answer:
+Name:   ngs-testing-vm.biochem.mpg.de
+Address: 10.33.0.60
+
+PING ngs-testing-vm.biochem.mpg.de (10.33.0.60) 56(84) bytes of data.
+64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=1 ttl=64 time=0.079 ms
+64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=2 ttl=64 time=0.074 ms
+```
+
+```{bash}
+
+sudo systemctl restart apache2
+
+```
+
+### Automatic start-up
+
+```{bash}
+
+sudo systemctl enable apache2
+sudo systemctl enable shiny-server
+
+```
+
+
+## Bare Server Setup (Ubuntu)
+
+## Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)
+
+### Restart communication (quick resume)
+
+If I ever need to resume this work with a new AI tool or a new chat session:
+
+1. Read **Troubleshooting** for common failures and fixes.
+2. Read **Deploy & Operations** for the current deploy/validation steps.
+3. Read **Change Log** for the latest configuration changes and decisions.
+
+### Base OS prep
+
+```bash
+sudo apt update
+sudo apt upgrade -y
+```
+
+Install common tools and libraries:
+
+```bash
+sudo apt install -y \
+  git rsync curl ca-certificates \
+  build-essential \
+  libcurl4-openssl-dev libssl-dev libxml2-dev \
+  sqlite3 libsqlite3-dev \
+  ldap-utils \
+  apache2 apache2-utils
+```
+
+If mail sending via `mailR` is needed, install a Java runtime:
+
+```bash
+sudo apt install -y default-jre
+```
+
+If LDAP-related R packages need OpenLDAP headers, install:
+
+```bash
+sudo apt install -y libldap2-dev libsasl2-dev
+```
+
+### Install R
+
+```bash
+sudo apt install -y r-base
+```
+
+If you need a newer R version than the Ubuntu default, add the CRAN repo and install from there (optional).
+
+### Install Shiny Server
+
+Download the latest Shiny Server `.deb` from Posit and install it:
+
+```bash
+# Example pattern (replace filename with the current version)
+# wget https://download3.rstudio.org/ubuntu-22.04/x86_64/shiny-server-<version>.deb
+# sudo dpkg -i shiny-server-<version>.deb
+# sudo apt -f install -y
+```
+
+Start and enable the service:
+
+```bash
+sudo systemctl enable shiny-server
+sudo systemctl start shiny-server
+```
+
+### Clone the repo
+
+```bash
+cd /home/<your-user>
+git clone git@github.com:yeroslaviz/BCFNGS-project-management.git
+```
+
+### Configure the Shiny app folder
+
+```bash
+sudo usermod -a -G shiny $USER
+sudo mv /srv/shiny-server/sequencing-app /srv/shiny-server/sequencing-app.backup 2>/dev/null || true
+sudo mkdir -p /srv/shiny-server/sequencing-app
+sudo chown -R $USER:shiny /srv/shiny-server/sequencing-app
+```
+
+Deploy the app files:
+
+```bash
+cd /home/<your-user>/BCFNGS-project-management
+./scripts/deploy.sh
+```
+
+### Install required R packages
+
+From R (or `R -q -e`):
+
+```r
+install.packages(c(
+  "shiny",
+  "shinyjs",
+  "DBI",
+  "RSQLite",
+  "digest",
+  "DT",
+  "shinyWidgets",
+  "mailR",
+  "ldapr"
+))
+```
+
+If any package fails, install missing system libraries and retry.
+
+### Configure Shiny Server environment variables
+
+Recommended: systemd drop-in (production-safe).
+
+```bash
+sudo systemctl edit shiny-server
+```
+
+Add:
+
+```
+[Service]
+Environment=AUTH_MODE=ldap
+Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+# Optional debug (dev only):
+# Environment=APP_ENV=dev
+# Environment=LDAP_DEBUG=1
+```
+
+Then restart:
+
+```bash
+sudo systemctl restart shiny-server
+```
+
+Alternative: `/home/shiny/.Renviron` (simpler, less explicit).
+
+### Configure LDAP trust (OpenLDAP client)
+
+Edit `/etc/ldap/ldap.conf` and ensure:
+
+```
+BASE            dc=biochem,dc=mpg,dc=de
+URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
+TLS_REQCERT     hard
+TLS_CACERTDIR   /etc/ssl/certs
+```
+
+Test:
+
+```bash
+ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
+  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
+```
+
+### Configure Apache reverse proxy + LDAP auth
+
+Copy the repo Apache config and enable required modules:
+
+```bash
+sudo cp /home/<your-user>/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-enabled/01-main.conf
+sudo a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers ldap authnz_ldap
+sudo apache2ctl -t
+sudo systemctl restart apache2
+```
+
+### Validate the full flow
+
+```bash
+curl -Ik https://ngs-testing-vm.biochem.mpg.de/
+# Expect 401
+
+curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/
+# Expect 302 to /sequencing-app/?auth_user=USER
+
+curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/
+# Expect 200
+
+curl -I http://localhost:3838/sequencing-app/
+# Expect 200
+```
+
+### Routine updates
+
+```bash
+cd /home/<your-user>/BCFNGS-project-management
+git pull origin main
+./scripts/deploy.sh
+```
+
+### Production hygiene
+
+1. Use a **service bind account** if LDAP requires bind credentials.
+2. Keep DB files out of git.
+3. Keep Apache debug logs off unless diagnosing a problem.
+
+### References
+
+- `notes/vm-troubleshooting-guide.md`
+- `Server_preparations.qmd`
+
+
+## SSL Certificates
+
+## SSL Certificate (for HTTPS)
+
+the new setting of the certificates. I have three files.
+
+The private key I created when applying for the certificate. The other two were downloaded, when the emial came from Harica (the certificate provider).
+
+the `PEM` is the pem file and the `DER (issuer)` is the chain file. Both of them are needed.
+
+Setting for the readability of the files:
+
+```
+cd /etc/apache2/certificate/2026
+-rw------- 1 yeroslaviz b_mcf 3272 Nov 10 15:58 private-key.pem # udo chmod 600 /path/to/private.key  # Readable only by root
+-rw-r--r-- 1 yeroslaviz b_mcf 1545 Nov 14 12:12 NGS_2026_Issuer_ChainFile.cer # sudo chmod 644 /path/to/chain.crt  # Readable by all
+-rw-r--r-- 1 yeroslaviz b_mcf 2796 Nov 14 12:34 NGS_2026_Cert.pem # sudo chmod 644 /path/to/certificate.crt # Readable by all
+```
+
+All the files are saved under `/etc/apache2/certificate/2026`.
+
+Now I created soft links for each of these files.
+
+```{bash}
+sudo ln -s /etc/apache2/certificate/2026/private-key.pem /etc/ssl/private/2026_private-key.pem
+sudo ln -s /etc/apache2/certificate/2026/NGS_2026_Cert.pem /etc/ssl/certs/2026_NGS_Cert.pem
+
+```
+
+
+## Firewall
+
+### Firewall
+
+at the moment is not active, but maybe in the future.
+
+```{bash}
+
+sudo ufw allow 3838
+sudo ufw allow 80
+sudo ufw allow 443
+
+```

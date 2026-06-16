@@ -1,0 +1,26 @@
+project:
+  type: book
+  output-dir: _site
+
+book:
+  title: "Documentation"
+  author: "Assa Yeroslaviz"
+  chapters:
+    - index.qmd
+    - chapters/quick-start.qmd
+    - chapters/setup-infrastructure.qmd
+    - chapters/vm-installation.qmd
+    - chapters/git-github.qmd
+    - chapters/deploy-operations.qmd
+    - chapters/ldap-authentication.qmd
+    - chapters/sql-handling.qmd
+    - chapters/troubleshooting.qmd
+    - chapters/change-log.qmd
+    - chapters/legacy-archive.qmd
+
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    code-fold: true

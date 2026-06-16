@@ -1,0 +1,358 @@
+---
+title: "LDAP Authentication"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+## LDAP Authentication
+
+### Contents
+
+- [Dependencies (Ubuntu + R)](#dependencies-ubuntu--r)
+- [LDAP Configuration](#ldap-configuration)
+- [LDAP Summary (2026-02-06)](#ldap-summary-2026-02-06)
+
+## Dependencies (Ubuntu + R)
+
+Install LDAP client tools and headers on Ubuntu:
+
+```bash
+sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
+```
+
+Install `ldapr` in R:
+
+```bash
+sudo Rscript --vanilla -e 'install.packages("ldapr", repos="https://cloud.r-project.org")'
+```
+
+Fallback if CRAN install is unavailable:
+
+```bash
+sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'
+```
+
+Verify:
+
+```bash
+ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=<user>)" mail
+sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
+```
+
+Note:
+
+- Java / `rJava` / `mailR` are for email notifications, not required for LDAP itself.
+
+## LDAP Configuration
+
+## LDAP
+
+The app uses Apache LDAP authentication in front of Shiny. The Apache config template in this repo is `mpiseq2/ngs-vm_01-main.conf`.
+
+Enable required Apache modules:
+
+```{bash}
+sudo a2enmod ldap authnz_ldap headers
+sudo systemctl reload apache2
+```
+
+Test whether anonymous LDAP search works:
+
+```{bash}
+ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de -b "dc=biochem,dc=mpg,dc=de" "(uid=YOURUSER)"
+```
+
+If anonymous search fails, use bind credentials from IT and add them to the Apache config:
+
+``` apache
+AuthLDAPBindDN "cn=binduser,dc=biochem,dc=mpg,dc=de"
+AuthLDAPBindPassword "REDACTED"
+```
+
+::: callout-warning
+For production, **do not use a personal account** for LDAP binding. Ask IT for a dedicated **service bind account** with read‑only permissions and store those credentials securely.
+:::
+
+Set app environment variables for Shiny Server (systemd override recommended):
+
+```{bash}
+sudo systemctl edit shiny-server
+```
+
+``` ini
+[Service]
+Environment=AUTH_MODE=ldap
+Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+# If you want to restrict search to the user OU:
+# Environment=LDAP_BASE_DN=ou=People,dc=biochem,dc=mpg,dc=de
+# Optional bind credentials (only if anonymous LDAP search is blocked):
+# Environment=LDAP_BIND_DN=cn=binduser,dc=biochem,dc=mpg,dc=de
+# Environment=LDAP_BIND_PW=REDACTED
+```
+
+Restart services after config changes:
+
+```{bash}
+sudo systemctl restart apache2
+sudo systemctl restart shiny-server
+```
+
+### Admin access in LDAP mode (VM)
+
+Moved to **`notes/sql-handling.qmd`** (admin promotion and verification commands).
+
+### Switch between LDAP and local modes (VM)
+
+I switch auth modes by changing the `AUTH_MODE` environment variable for the `shiny-server` service and restarting it.
+
+Open the systemd override:
+
+```{bash}
+sudo systemctl edit shiny-server
+```
+
+**LDAP mode (production):**
+
+```ini
+[Service]
+Environment=AUTH_MODE=ldap
+Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+```
+
+**Local mode (maintenance/testing):**
+
+```ini
+[Service]
+Environment=AUTH_MODE=local
+```
+
+Apply changes:
+
+```{bash}
+sudo systemctl restart shiny-server
+sudo systemctl show shiny-server --property=Environment
+```
+
+If I switch back to LDAP, I also remove any dev‑only variables like `DEV_REMOTE_USER`.
+
+### Local dev testing (LDAP mode)
+
+To test LDAP integration on your local machine without affecting production, run the app in dev mode and simulate the authenticated user. If LDAP attribute lookup is needed, provide a bind DN/password (personal credentials are OK for **local testing only**).
+
+``` r
+Sys.setenv(
+  APP_ENV = "dev",
+  AUTH_MODE = "ldap",
+  DEV_REMOTE_USER = "your_username",
+  LDAP_BIND_DN = "uid=your_username,ou=YourGroup,ou=Research Group,ou=People,dc=biochem,dc=mpg,dc=de",
+  LDAP_BIND_PW = "YOUR_PASSWORD"
+)
+shiny::runApp("sequencing-app")
+```
+
+To switch back to normal local login (no LDAP), run:
+
+``` r
+Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
+shiny::runApp("sequencing-app")
+```
+
+To fully clear the LDAP/testing variables in your R session:
+
+``` r
+Sys.unsetenv(c(
+  "APP_ENV", "AUTH_MODE", "DEV_REMOTE_USER",
+  "LDAP_BIND_DN", "LDAP_BIND_PW",
+  "LDAP_URI", "LDAP_BASE_DN", "LDAP_DEBUG"
+))
+```
+
+### How I run the app locally (my notes)
+
+When I want the **normal local login**, I run:
+
+```r
+Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
+shiny::runApp("sequencing-app")
+```
+
+When I want to **simulate production LDAP login**, I run:
+
+```r
+Sys.setenv(
+  APP_ENV = "dev",
+  AUTH_MODE = "ldap",
+  DEV_REMOTE_USER = "my_username",
+  LDAP_URI = "ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636",
+  LDAP_BASE_DN = "dc=biochem,dc=mpg,dc=de"
+)
+shiny::runApp("sequencing-app")
+```
+
+If I want to fully reset the session, I clear the env vars:
+
+```r
+Sys.unsetenv(c(
+  "APP_ENV", "AUTH_MODE", "DEV_REMOTE_USER",
+  "LDAP_BIND_DN", "LDAP_BIND_PW",
+  "LDAP_URI", "LDAP_BASE_DN", "LDAP_DEBUG"
+))
+```
+
+**Local vs LDAP mode (practical difference for me):**
+
+- Local mode uses the SQLite users/passwords and shows the normal login screen.
+- LDAP mode auto‑logs in with the LDAP user, pulls email/phone/OU, and hides the local login UI.
+- LDAP mode needs network access to the institute LDAP servers.
+
+**Dev badge:**
+In dev mode, I see a small badge in the app header that shows `DEV · LDAP` or `DEV · LOCAL`, so I always know which mode I’m running.
+
+### Budget holder auto-assignment (first login)
+
+On first LDAP login, the app attempts to map the user to a budget holder based on the LDAP `ou` value.\
+If the `ou` contains a group key in parentheses (e.g., `(... Cox)`), the app matches that key against `budget_holders` and stores the **full PI name** (e.g., `Cox Juergen`) in `users.research_group`.
+
+When a new project is created, this `research_group` value is used to auto‑select the budget holder (and thus the cost center).\
+If multiple cost centers exist for the same PI, the first match is selected by default and can be adjusted during project creation.
+
+
+## LDAP Summary (2026-02-06)
+
+## LDAP + Project Management App Summary (2026-02-06)
+
+### What Changed
+
+- Added LDAP login flow with auto-login via `X-Remote-User` and local dev simulation via `DEV_REMOTE_USER`.
+- LDAP attribute lookup now works without a bind account (anonymous bind), and falls back to `ldapsearch` for older `ldapr` versions.
+- Added a dev-only auth toggle and mode badge (`DEV · LDAP` / `DEV · LOCAL`).
+- Mapped LDAP `ou` values to budget holders, auto-selecting the correct PI in the project form (with partial match fallback).
+- Added notices when a PI has multiple cost centers or missing cost center.
+- Added “Other / not listed” budget holder option so users can enter a new PI (name + surname required; cost center optional with warning).
+- `scripts/deploy.sh` now uses `rsync` and excludes the SQLite DB.
+- Docs updated with LDAP setup, local testing, and env cleanup.
+- `.gitignore` updated to ignore DB files and backup folders.
+
+### Files Updated
+
+- `sequencing-app/app.R`
+- `scripts/deploy.sh`
+- `mpiseq2/ngs-vm_01-main.conf`
+- `Server_preparations.qmd`
+- `.gitignore`
+- `sequencing-app/budget_holders.csv`
+
+### Local Run: Local Mode
+
+```r
+Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
+shiny::runApp("sequencing-app")
+```
+
+**Implications**
+- Uses SQLite users/passwords.
+- Shows normal login form.
+- Works offline.
+
+### Local Run: LDAP Mode (simulate production)
+
+```r
+Sys.setenv(
+  APP_ENV = "dev",
+  AUTH_MODE = "ldap",
+  DEV_REMOTE_USER = "your_username",
+  LDAP_URI = "ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636",
+  LDAP_BASE_DN = "dc=biochem,dc=mpg,dc=de"
+)
+shiny::runApp("sequencing-app")
+```
+
+**Implications**
+- Auto-login (no local password).
+- Pulls `mail`, `telephoneNumber`, and `ou` via LDAP.
+- Auto-creates user in SQLite if missing.
+- Matches production behavior.
+
+### Clear Dev Environment Variables
+
+```r
+Sys.unsetenv(c(
+  "APP_ENV", "AUTH_MODE", "DEV_REMOTE_USER",
+  "LDAP_BIND_DN", "LDAP_BIND_PW",
+  "LDAP_URI", "LDAP_BASE_DN", "LDAP_DEBUG"
+))
+```
+
+### SQL handling (moved)
+
+All SQL database commands and explanations were moved to **`notes/sql-handling.qmd`**.
+
+### Budget Holder Behavior
+
+- On first LDAP login, the app maps LDAP `ou` to a PI name in `budget_holders`.
+- If multiple cost centers exist for a PI, the app displays a notice.
+- If cost center is missing (`N.A.`/empty), the app displays a warning.
+- “Other / not listed” allows users to enter a new PI and inserts into `budget_holders` automatically.
+
+### Deploy (VM)
+
+```bash
+cd /home/yeroslaviz/BCFNGS-project-management
+git pull
+./scripts/deploy.sh
+```
+
+`scripts/deploy.sh` uses `rsync` and **does not overwrite** the SQLite DB.
+
+### LDAP on VM (when ready)
+
+1. Update Apache config (template in `mpiseq2/ngs-vm_01-main.conf`).
+2. Enable modules:
+   ```bash
+   sudo a2enmod ldap authnz_ldap headers
+   sudo systemctl reload apache2
+   ```
+3. Set Shiny env vars:
+   ```bash
+   sudo systemctl edit shiny-server
+   ```
+   ```ini
+   [Service]
+   Environment=AUTH_MODE=ldap
+   Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+   Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+   # Optional: restrict to People OU
+   # Environment=LDAP_BASE_DN=ou=People,dc=biochem,dc=mpg,dc=de
+   ```
+4. Restart services:
+   ```bash
+   sudo systemctl restart apache2
+   sudo systemctl restart shiny-server
+   ```
+
+### Switching Modes on VM
+
+```bash
+sudo systemctl edit shiny-server
+```
+- LDAP mode: `Environment=AUTH_MODE=ldap`
+- Local mode: `Environment=AUTH_MODE=local` (or remove the line)
+
+Restart:
+```bash
+sudo systemctl restart shiny-server
+```
+
+### Why DB Files Are Ignored (moved)
+
+See **`notes/sql-handling.qmd`** for the full rationale and git commands.
+
+### Tools Needed
+
+- `ldapsearch` is required for LDAP attribute fallback:
+  - Ubuntu: `sudo apt install -y ldap-utils`
+  - macOS: `brew install openldap`

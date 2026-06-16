@@ -1,0 +1,85 @@
+---
+title: "Quick Start"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+## Quick Start
+
+### Contents
+
+- [Local dev — local mode](#local-dev--local-mode)
+- [Local dev — LDAP simulation](#local-dev--ldap-simulation)
+- [Local dev — unset](#local-dev--unset)
+- [VM — LDAP mode (production)](#vm--ldap-mode-production)
+- [VM — local mode (maintenance)](#vm--local-mode-maintenance)
+- [VM — unset (clear overrides)](#vm--unset-clear-overrides)
+
+#### Local dev — local mode
+
+```r
+Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
+shiny::runApp("sequencing-app")
+```
+
+#### Local dev — LDAP simulation
+
+```r
+Sys.setenv(
+  APP_ENV = "dev",
+  AUTH_MODE = "ldap",
+  DEV_REMOTE_USER = "your_username",
+  LDAP_URI = "ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636",
+  LDAP_BASE_DN = "dc=biochem,dc=mpg,dc=de"
+)
+shiny::runApp("sequencing-app")
+```
+To run this locally, replace "your_username" with actual user name.
+
+#### Local dev — unset
+
+```r
+Sys.unsetenv(c(
+  "APP_ENV","AUTH_MODE","DEV_REMOTE_USER",
+  "LDAP_BIND_DN","LDAP_BIND_PW",
+  "LDAP_URI","LDAP_BASE_DN","LDAP_DEBUG"
+))
+```
+
+#### VM — LDAP mode (production)
+
+```bash
+sudo systemctl edit shiny-server
+```
+
+```ini
+[Service]
+Environment=AUTH_MODE=ldap
+Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
+Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+```
+
+```bash
+sudo systemctl restart shiny-server
+```
+
+#### VM — local mode (maintenance)
+
+```ini
+[Service]
+Environment=AUTH_MODE=local
+```
+
+```bash
+sudo systemctl restart shiny-server
+```
+
+#### VM — unset (clear overrides)
+
+```bash
+sudo systemctl edit shiny-server
+# remove AUTH_MODE/LDAP_* lines, save, then:
+sudo systemctl restart shiny-server
+```
