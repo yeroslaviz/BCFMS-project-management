@@ -4,7 +4,7 @@
     "href": "index.html",
     "title": "Documentation",
     "section": "",
-    "text": "1 Chapters\nBCFNGS-project-management is a Shiny app for a project management system for the BCF NGS core facility.\nThe NGS lab of the Core Facility provides sequencing as a service. We recommend contacting us before the start of your experiment. In collaboration with the Bioinformatics Core Facility, we provide the following services.\nIf you have any further questions, please do not hesitate to contact us @ omicsdesk!",
+    "text": "1 Chapters\nBCFMS-project-management is a Shiny app for a project management system for the MS core facility.\nThe MS Core Facility provides services such as ​\nIf you have any further questions regarding this repository, please do not hesitate to contact us @ omicsdesk!",
     "crumbs": [
       "<span class='chapter-number'>1</span>  <span class='chapter-title'>Documentation</span>"
     ]
@@ -14,7 +14,7 @@
     "href": "index.html#how-to-render",
     "title": "Documentation",
     "section": "1.1 How to render",
-    "text": "1.1 How to render\nquarto render Documentation/\nThis booklet consolidates all operational and technical documentation for the sequencing Shiny app.",
+    "text": "1.1 How to render\nquarto render Documentation/\nThis booklet consolidates all operational and technical documentation for the sequencing Shiny app.\nTODO\nsplit the docs into (for now) three parts\n\ngithub-related (move sections from deploy-operations)\ninstallation-related (server,shiny, apache2, etc.)\nset up inside server.\n???? deploy steps",
     "crumbs": [
       "<span class='chapter-number'>1</span>  <span class='chapter-title'>Documentation</span>"
     ]
@@ -44,17 +44,37 @@
     "href": "chapters/setup-infrastructure.html",
     "title": "3  Setup & Infrastructure",
     "section": "",
-    "text": "3.1 Setup & Infrastructure",
+    "text": "3.1 Install all dependencies",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
   },
   {
-    "objectID": "chapters/setup-infrastructure.html#setup-infrastructure",
-    "href": "chapters/setup-infrastructure.html#setup-infrastructure",
+    "objectID": "chapters/setup-infrastructure.html#install-all-dependencies",
+    "href": "chapters/setup-infrastructure.html#install-all-dependencies",
     "title": "3  Setup & Infrastructure",
     "section": "",
-    "text": "3.1.1 Contents\n\nServer Infrastructure\nModify Text (Announcements)\nBare Server Setup (Ubuntu)\nSSL Certificates\nFirewall",
+    "text": "3.1.1 Install packages\nThis should be done at the beginning after the VM was set up by the IT.\nmkdir -p /home/yeroslaviz/BCFMS-project-management\ncd /home/yeroslaviz/BCFMS-project-management\nbash scripts/check_requirements.sh\n\n\n\n\n\n\nTipThe scripts ends with\n\n\n\nManual steps still required:\n- Install Shiny Server (.deb) if not present.\n- Configure Apache vhost, LDAP, and systemd env vars.\n\n\n\n\n3.1.2 Install Shiny Server\nDownload the latest Shiny Server .deb from Posit and install it:\n# Example pattern (replace filename with the current version)\nsudo apt install gdebi-core\nwget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb\nsudo gdebi shiny-server-1.5.23.1030-amd64.deb\nStart and enable the service:\nsudo systemctl enable shiny-server\nsudo systemctl start shiny-server\n\n\n3.1.3 Install Java + mail packages (required for email notifications)\nThe app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.\nsudo apt-get install -y default-jdk\nsudo R CMD javareconf\nsudo Rscript --vanilla -e 'install.packages(c(\"rJava\",\"mailR\"), repos=\"https://cloud.r-project.org\")'\n\n\n3.1.4 Install LDAP packages (Ubuntu + R)\nsudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates\nThese packages should already be installed via the installation script above, but just to make sure!\n\n3.1.4.1 Configure OpenLDAP\nThe client trust in /etc/ldap/ldap.conf:\nsudo tee /etc/ldap/ldap.conf &gt;/dev/null &lt;&lt;'EOF'\nBASE            dc=biochem,dc=mpg,dc=de\nURI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de\nTLS_REQCERT     hard\nTLS_CACERTDIR   /etc/ssl/certs\nEOF\nInstall the R LDAP package:\nsudo Rscript --vanilla -e 'if (!requireNamespace(\"remotes\", quietly=TRUE)) install.packages(\"remotes\", repos=\"https://cloud.r-project.org\"); remotes::install_github(\"liamgilbey/ldapr\")'\nQuick checks:\nldapsearch -x -H ldaps://ldap01.biochem.mpg.de:636 -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=yeroslaviz)\" mail\nsudo -u shiny Rscript --vanilla -e 'library(ldapr); cat(\"ldapr OK\\n\")'",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/setup-infrastructure.html#configure-the-shiny-app-folder",
+    "href": "chapters/setup-infrastructure.html#configure-the-shiny-app-folder",
+    "title": "3  Setup & Infrastructure",
+    "section": "3.2 Configure the Shiny app folder",
+    "text": "3.2 Configure the Shiny app folder\nsudo usermod -a -G shiny $USER\nsudo mv /srv/shiny-server/ms-app /srv/shiny-server/ms-app.backup 2&gt;/dev/null || true\nsudo mkdir -p /srv/shiny-server/ms-app\nsudo chown -R $USER:shiny /srv/shiny-server/ms-app\n\n3.2.1 Clone repo and set app folder\nsudo rsync -av /home/yeroslaviz/BCFMS-project-management/ms-app/ /srv/shiny-server/ms-app/\nsudo chown -R shiny:shiny /srv/shiny-server/ms-app",
+    "crumbs": [
+      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/setup-infrastructure.html#configure-apache-test-https-redirect",
+    "href": "chapters/setup-infrastructure.html#configure-apache-test-https-redirect",
+    "title": "3  Setup & Infrastructure",
+    "section": "3.3 Configure Apache (test HTTPS redirect)",
+    "text": "3.3 Configure Apache (test HTTPS redirect)\ncopy the apache2 config file\nsudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf\n\n3.3.1 Enable the site and restart Apache:\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap\nsudo a2ensite ms-vm-shiny-443.conf # this creates symlink to sites-enabled\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n\n\nWe have to wait for the certificate to activate this.\n\n\n\n\n\n\n\n\n\n\n\n\nDone so far. Below is all copied from BCFNGS\n\n\n\n\n\n\n\n\n\n\n\n3.3.2 Initialize the SQLite DB\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript setup_database.R\n\n\n3.3.3 Deploy the app files:\ncd /home/yeroslaviz/BCFMS-project-management\n./scripts/deploy.sh",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -63,8 +83,8 @@
     "objectID": "chapters/setup-infrastructure.html#server-infrastructure",
     "href": "chapters/setup-infrastructure.html#server-infrastructure",
     "title": "3  Setup & Infrastructure",
-    "section": "3.2 Server Infrastructure",
-    "text": "3.2 Server Infrastructure",
+    "section": "3.4 Server Infrastructure",
+    "text": "3.4 Server Infrastructure",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -73,18 +93,8 @@
     "objectID": "chapters/setup-infrastructure.html#modify-text-announcements",
     "href": "chapters/setup-infrastructure.html#modify-text-announcements",
     "title": "3  Setup & Infrastructure",
-    "section": "3.3 Modify Text (Announcements)",
-    "text": "3.3 Modify Text (Announcements)\nThe post-login landing text is now admin-editable in the app UI (no code edit needed for content changes):\n\nLog in as admin.\nOpen Administer Projects -&gt; Manage Landing Text.\nSelect the panel:\n\nAnnouncement\nservice_info (service/instructions panel)\n\nAdd/Edit/Delete/Reorder white text boxes.\nChanges are published immediately and stored in SQLite.\n\n\n3.3.1 Markdown-lite syntax\nUse these formats in each box:\n\nBold: **important text**\nBullet list:\n\n- first item\n- second item\n\nNumbered list:\n\n1. first\n2. second\n\nLink: [@NGS](mailto:ngs@biochem.mpg.de)\n\n\n\n3.3.2 Where it is stored\n\nDB tables:\n\nannouncement_panels\nannouncement_items\n\nApp render + admin handlers:\n\n/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R\n\nStyle classes (unchanged):\n\n.announcement-panel\n.service-panel\n.info-box\n\n\nIf tables are missing, the app auto-creates them and seeds default content on startup.\n\n\n3.3.3 SQL handling (moved)\nAll SQL database commands and explanations were moved to notes/sql-handling.qmd.\nThis includes:\n\nDB rebuild procedure\nAdmin user promotion in LDAP mode\nBudget holder updates (CSV vs DB)\nSQLite inspection and maintenance commands ### Install required system dependencies\n\n\nsudo apt install -y libssl-dev libxml2-dev libcurl4-openssl-dev libudunits2-dev libgdal-dev\n\n\n\n3.3.4 Changing hostname to fit the apache2 config file\n\n# Change the hostname\nsudo hostnamectl set-hostname ngs-testing-vm.biochem.mpg.de\n\n# Verify the change\nhostnamectl status\n\nnslookup ngs-testing-vm.biochem.mpg.de\nping ngs-testing-vm.biochem.mpg.de\nServer:     127.0.0.53\nAddress:    127.0.0.53#53\n\nNon-authoritative answer:\nName:   ngs-testing-vm.biochem.mpg.de\nAddress: 10.33.0.60\n\nPING ngs-testing-vm.biochem.mpg.de (10.33.0.60) 56(84) bytes of data.\n64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=1 ttl=64 time=0.079 ms\n64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=2 ttl=64 time=0.074 ms\n\nsudo systemctl restart apache2\n\n\n\n3.3.5 Automatic start-up\n\nsudo systemctl enable apache2\nsudo systemctl enable shiny-server",
-    "crumbs": [
-      "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/setup-infrastructure.html#bare-server-setup-ubuntu",
-    "href": "chapters/setup-infrastructure.html#bare-server-setup-ubuntu",
-    "title": "3  Setup & Infrastructure",
-    "section": "3.4 Bare Server Setup (Ubuntu)",
-    "text": "3.4 Bare Server Setup (Ubuntu)",
+    "section": "3.5 Modify Text (Announcements)",
+    "text": "3.5 Modify Text (Announcements)\nThe post-login landing text is now admin-editable in the app UI (no code edit needed for content changes):\n\nLog in as admin.\nOpen Administer Projects -&gt; Manage Landing Text.\nSelect the panel:\n\nAnnouncement\nservice_info (service/instructions panel)\n\nAdd/Edit/Delete/Reorder white text boxes.\nChanges are published immediately and stored in SQLite.\n\n\n3.5.1 Markdown-lite syntax\nUse these formats in each box:\n\nBold: **important text**\nBullet list:\n\n- first item\n- second item\n\nNumbered list:\n\n1. first\n2. second\n\nLink: [@NGS](mailto:ngs@biochem.mpg.de)\n\n\n\n3.5.2 Where it is stored\n\nDB tables:\n\nannouncement_panels\nannouncement_items\n\nApp render + admin handlers:\n\n/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R\n\nStyle classes (unchanged):\n\n.announcement-panel\n.service-panel\n.info-box\n\n\nIf tables are missing, the app auto-creates them and seeds default content on startup.\n\n\n3.5.3 SQL handling (moved)\nAll SQL database commands and explanations were moved to notes/sql-handling.qmd.\nThis includes:\n\nDB rebuild procedure\nAdmin user promotion in LDAP mode\nBudget holder updates (CSV vs DB)\nSQLite inspection and maintenance commands\n\n\n\n3.5.4 Install required system dependencies\n\nsudo apt install -y libssl-dev libxml2-dev libcurl4-openssl-dev libudunits2-dev libgdal-dev\n\n\n\n3.5.5 Changing hostname to fit the apache2 config file\n\n# Change the hostname\nsudo hostnamectl set-hostname ngs-testing-vm.biochem.mpg.de\n\n# Verify the change\nhostnamectl status\n\nnslookup ngs-testing-vm.biochem.mpg.de\nping ngs-testing-vm.biochem.mpg.de\nServer:     127.0.0.53\nAddress:    127.0.0.53#53\n\nNon-authoritative answer:\nName:   ngs-testing-vm.biochem.mpg.de\nAddress: 10.33.0.60\n\nPING ngs-testing-vm.biochem.mpg.de (10.33.0.60) 56(84) bytes of data.\n64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=1 ttl=64 time=0.079 ms\n64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=2 ttl=64 time=0.074 ms\n\nsudo systemctl restart apache2\n\n\n\n3.5.6 Automatic start-up\n\nsudo systemctl enable apache2\nsudo systemctl enable shiny-server",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -93,8 +103,8 @@
     "objectID": "chapters/setup-infrastructure.html#ubuntu-bare-server-setup-howto-shiny-ldap",
     "href": "chapters/setup-infrastructure.html#ubuntu-bare-server-setup-howto-shiny-ldap",
     "title": "3  Setup & Infrastructure",
-    "section": "3.5 Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)",
-    "text": "3.5 Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)\n\n3.5.1 Restart communication (quick resume)\nIf I ever need to resume this work with a new AI tool or a new chat session:\n\nRead Troubleshooting for common failures and fixes.\nRead Deploy & Operations for the current deploy/validation steps.\nRead Change Log for the latest configuration changes and decisions.\n\n\n\n3.5.2 Base OS prep\nsudo apt update\nsudo apt upgrade -y\nInstall common tools and libraries:\nsudo apt install -y \\\n  git rsync curl ca-certificates \\\n  build-essential \\\n  libcurl4-openssl-dev libssl-dev libxml2-dev \\\n  sqlite3 libsqlite3-dev \\\n  ldap-utils \\\n  apache2 apache2-utils\nIf mail sending via mailR is needed, install a Java runtime:\nsudo apt install -y default-jre\nIf LDAP-related R packages need OpenLDAP headers, install:\nsudo apt install -y libldap2-dev libsasl2-dev\n\n\n3.5.3 Install R\nsudo apt install -y r-base\nIf you need a newer R version than the Ubuntu default, add the CRAN repo and install from there (optional).\n\n\n3.5.4 Install Shiny Server\nDownload the latest Shiny Server .deb from Posit and install it:\n# Example pattern (replace filename with the current version)\n# wget https://download3.rstudio.org/ubuntu-22.04/x86_64/shiny-server-&lt;version&gt;.deb\n# sudo dpkg -i shiny-server-&lt;version&gt;.deb\n# sudo apt -f install -y\nStart and enable the service:\nsudo systemctl enable shiny-server\nsudo systemctl start shiny-server\n\n\n3.5.5 Clone the repo\ncd /home/&lt;your-user&gt;\ngit clone git@github.com:yeroslaviz/BCFNGS-project-management.git\n\n\n3.5.6 Configure the Shiny app folder\nsudo usermod -a -G shiny $USER\nsudo mv /srv/shiny-server/sequencing-app /srv/shiny-server/sequencing-app.backup 2&gt;/dev/null || true\nsudo mkdir -p /srv/shiny-server/sequencing-app\nsudo chown -R $USER:shiny /srv/shiny-server/sequencing-app\nDeploy the app files:\ncd /home/&lt;your-user&gt;/BCFNGS-project-management\n./scripts/deploy.sh\n\n\n3.5.7 Install required R packages\nFrom R (or R -q -e):\ninstall.packages(c(\n  \"shiny\",\n  \"shinyjs\",\n  \"DBI\",\n  \"RSQLite\",\n  \"digest\",\n  \"DT\",\n  \"shinyWidgets\",\n  \"mailR\",\n  \"ldapr\"\n))\nIf any package fails, install missing system libraries and retry.\n\n\n3.5.8 Configure Shiny Server environment variables\nRecommended: systemd drop-in (production-safe).\nsudo systemctl edit shiny-server\nAdd:\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\n# Optional debug (dev only):\n# Environment=APP_ENV=dev\n# Environment=LDAP_DEBUG=1\nThen restart:\nsudo systemctl restart shiny-server\nAlternative: /home/shiny/.Renviron (simpler, less explicit).\n\n\n3.5.9 Configure LDAP trust (OpenLDAP client)\nEdit /etc/ldap/ldap.conf and ensure:\nBASE            dc=biochem,dc=mpg,dc=de\nURI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de\nTLS_REQCERT     hard\nTLS_CACERTDIR   /etc/ssl/certs\nTest:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\n\n\n3.5.10 Configure Apache reverse proxy + LDAP auth\nCopy the repo Apache config and enable required modules:\nsudo cp /home/&lt;your-user&gt;/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-enabled/01-main.conf\nsudo a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers ldap authnz_ldap\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n3.5.11 Validate the full flow\ncurl -Ik https://ngs-testing-vm.biochem.mpg.de/\n# Expect 401\n\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/\n# Expect 302 to /sequencing-app/?auth_user=USER\n\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/\n# Expect 200\n\ncurl -I http://localhost:3838/sequencing-app/\n# Expect 200\n\n\n3.5.12 Routine updates\ncd /home/&lt;your-user&gt;/BCFNGS-project-management\ngit pull origin main\n./scripts/deploy.sh\n\n\n3.5.13 Production hygiene\n\nUse a service bind account if LDAP requires bind credentials.\nKeep DB files out of git.\nKeep Apache debug logs off unless diagnosing a problem.\n\n\n\n3.5.14 References\n\nnotes/vm-troubleshooting-guide.md\nServer_preparations.qmd",
+    "section": "3.6 Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)",
+    "text": "3.6 Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)\n\n3.6.1 Restart communication (quick resume)\nIf I ever need to resume this work with a new AI tool or a new chat session:\n\nRead Troubleshooting for common failures and fixes.\nRead Deploy & Operations for the current deploy/validation steps.\nRead Change Log for the latest configuration changes and decisions.\n\n\n\n3.6.2 Base OS prep\nsudo apt update\nsudo apt upgrade -y\nInstall common tools and libraries:\nsudo apt install -y \\\n  git rsync curl ca-certificates \\\n  build-essential \\\n  libcurl4-openssl-dev libssl-dev libxml2-dev \\\n  sqlite3 libsqlite3-dev \\\n  ldap-utils \\\n  apache2 apache2-utils\nIf mail sending via mailR is needed, install a Java runtime:\nsudo apt install -y default-jre\nIf LDAP-related R packages need OpenLDAP headers, install:\nsudo apt install -y libldap2-dev libsasl2-dev\n\n\n3.6.3 Install R\nsudo apt install -y r-base\nIf you need a newer R version than the Ubuntu default, add the CRAN repo and install from there (optional).\n\n\n3.6.4 Install Shiny Server\nDownload the latest Shiny Server .deb from Posit and install it:\n# Example pattern (replace filename with the current version)\n# wget https://download3.rstudio.org/ubuntu-22.04/x86_64/shiny-server-&lt;version&gt;.deb\n# sudo dpkg -i shiny-server-&lt;version&gt;.deb\n# sudo apt -f install -y\nStart and enable the service:\nsudo systemctl enable shiny-server\nsudo systemctl start shiny-server\n\n\n3.6.5 Clone the repo\ncd /home/&lt;your-user&gt;\ngit clone git@github.com:yeroslaviz/BCFNGS-project-management.git\n\n\n3.6.6 Configure the Shiny app folder\nsudo usermod -a -G shiny $USER\nsudo mv /srv/shiny-server/sequencing-app /srv/shiny-server/sequencing-app.backup 2&gt;/dev/null || true\nsudo mkdir -p /srv/shiny-server/sequencing-app\nsudo chown -R $USER:shiny /srv/shiny-server/sequencing-app\nDeploy the app files:\ncd /home/&lt;your-user&gt;/BCFNGS-project-management\n./scripts/deploy.sh\n\n\n3.6.7 Install required R packages\nFrom R (or R -q -e):\ninstall.packages(c(\n  \"shiny\",\n  \"shinyjs\",\n  \"DBI\",\n  \"RSQLite\",\n  \"digest\",\n  \"DT\",\n  \"shinyWidgets\",\n  \"mailR\",\n  \"ldapr\"\n))\nIf any package fails, install missing system libraries and retry.\n\n\n3.6.8 Configure Shiny Server environment variables\nRecommended: systemd drop-in (production-safe).\nsudo systemctl edit shiny-server\nAdd:\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\n# Optional debug (dev only):\n# Environment=APP_ENV=dev\n# Environment=LDAP_DEBUG=1\nThen restart:\nsudo systemctl restart shiny-server\nAlternative: /home/shiny/.Renviron (simpler, less explicit).\n\n\n3.6.9 Configure LDAP trust (OpenLDAP client)\nEdit /etc/ldap/ldap.conf and ensure:\nBASE            dc=biochem,dc=mpg,dc=de\nURI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de\nTLS_REQCERT     hard\nTLS_CACERTDIR   /etc/ssl/certs\nTest:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\n\n\n3.6.10 Configure Apache reverse proxy + LDAP auth\nCopy the repo Apache config and enable required modules:\nsudo cp /home/&lt;your-user&gt;/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-enabled/01-main.conf\nsudo a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers ldap authnz_ldap\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n3.6.11 Validate the full flow\ncurl -Ik https://ngs-testing-vm.biochem.mpg.de/\n# Expect 401\n\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/\n# Expect 302 to /sequencing-app/?auth_user=USER\n\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/\n# Expect 200\n\ncurl -I http://localhost:3838/sequencing-app/\n# Expect 200\n\n\n3.6.12 Routine updates\ncd /home/&lt;your-user&gt;/BCFNGS-project-management\ngit pull origin main\n./scripts/deploy.sh\n\n\n3.6.13 Production hygiene\n\nUse a service bind account if LDAP requires bind credentials.\nKeep DB files out of git.\nKeep Apache debug logs off unless diagnosing a problem.\n\n\n\n3.6.14 References\n\nnotes/vm-troubleshooting-guide.md\nServer_preparations.qmd",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -103,8 +113,8 @@
     "objectID": "chapters/setup-infrastructure.html#ssl-certificates",
     "href": "chapters/setup-infrastructure.html#ssl-certificates",
     "title": "3  Setup & Infrastructure",
-    "section": "3.6 SSL Certificates",
-    "text": "3.6 SSL Certificates",
+    "section": "3.7 SSL Certificates",
+    "text": "3.7 SSL Certificates",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -113,8 +123,8 @@
     "objectID": "chapters/setup-infrastructure.html#ssl-certificate-for-https",
     "href": "chapters/setup-infrastructure.html#ssl-certificate-for-https",
     "title": "3  Setup & Infrastructure",
-    "section": "3.7 SSL Certificate (for HTTPS)",
-    "text": "3.7 SSL Certificate (for HTTPS)\nthe new setting of the certificates. I have three files.\nThe private key I created when applying for the certificate. The other two were downloaded, when the emial came from Harica (the certificate provider).\nthe PEM is the pem file and the DER (issuer) is the chain file. Both of them are needed.\nSetting for the readability of the files:\ncd /etc/apache2/certificate/2026\n-rw------- 1 yeroslaviz b_mcf 3272 Nov 10 15:58 private-key.pem # udo chmod 600 /path/to/private.key  # Readable only by root\n-rw-r--r-- 1 yeroslaviz b_mcf 1545 Nov 14 12:12 NGS_2026_Issuer_ChainFile.cer # sudo chmod 644 /path/to/chain.crt  # Readable by all\n-rw-r--r-- 1 yeroslaviz b_mcf 2796 Nov 14 12:34 NGS_2026_Cert.pem # sudo chmod 644 /path/to/certificate.crt # Readable by all\nAll the files are saved under /etc/apache2/certificate/2026.\nNow I created soft links for each of these files.\nsudo ln -s /etc/apache2/certificate/2026/private-key.pem /etc/ssl/private/2026_private-key.pem\nsudo ln -s /etc/apache2/certificate/2026/NGS_2026_Cert.pem /etc/ssl/certs/2026_NGS_Cert.pem",
+    "section": "3.8 SSL Certificate (for HTTPS)",
+    "text": "3.8 SSL Certificate (for HTTPS)\nthe new setting of the certificates. I have three files.\nThe private key I created when applying for the certificate. The other two were downloaded, when the emial came from Harica (the certificate provider).\nthe PEM is the pem file and the DER (issuer) is the chain file. Both of them are needed.\nSetting for the readability of the files:\ncd /etc/apache2/certificate/2026\n-rw------- 1 yeroslaviz b_mcf 3272 Nov 10 15:58 private-key.pem # udo chmod 600 /path/to/private.key  # Readable only by root\n-rw-r--r-- 1 yeroslaviz b_mcf 1545 Nov 14 12:12 NGS_2026_Issuer_ChainFile.cer # sudo chmod 644 /path/to/chain.crt  # Readable by all\n-rw-r--r-- 1 yeroslaviz b_mcf 2796 Nov 14 12:34 NGS_2026_Cert.pem # sudo chmod 644 /path/to/certificate.crt # Readable by all\nAll the files are saved under /etc/apache2/certificate/2026.\nNow I created soft links for each of these files.\nsudo ln -s /etc/apache2/certificate/2026/private-key.pem /etc/ssl/private/2026_private-key.pem\nsudo ln -s /etc/apache2/certificate/2026/NGS_2026_Cert.pem /etc/ssl/certs/2026_NGS_Cert.pem",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -123,630 +133,260 @@
     "objectID": "chapters/setup-infrastructure.html#firewall",
     "href": "chapters/setup-infrastructure.html#firewall",
     "title": "3  Setup & Infrastructure",
-    "section": "3.8 Firewall",
-    "text": "3.8 Firewall\n\n3.8.1 Firewall\nat the moment is not active, but maybe in the future.\n\nsudo ufw allow 3838\nsudo ufw allow 80\nsudo ufw allow 443",
+    "section": "3.9 Firewall",
+    "text": "3.9 Firewall\n\n3.9.1 Firewall\nat the moment is not active, but maybe in the future.\n\nsudo ufw allow 3838\nsudo ufw allow 80\nsudo ufw allow 443",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
   },
   {
+    "objectID": "chapters/git-github.html",
+    "href": "chapters/git-github.html",
+    "title": "4  Git and Github",
+    "section": "",
+    "text": "4.1 Create a VM SSH key to connect to github\nInstruction to set up the git and github repository connection.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Git and Github</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/git-github.html#create-a-vm-ssh-key-to-connect-to-github",
+    "href": "chapters/git-github.html#create-a-vm-ssh-key-to-connect-to-github",
+    "title": "4  Git and Github",
+    "section": "",
+    "text": "mkdir -p ~/.ssh\nchmod 700 ~/.ssh\nssh-keygen -t ed25519 -C \"&lt;your-github-email&gt;\" -f ~/.ssh/id_ed25519_bcfms_vm\nchmod 600 ~/.ssh/id_ed25519_bcfms_vm\nchmod 644 ~/.ssh/id_ed25519_bcfms_vm.pub",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Git and Github</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/git-github.html#load-key-and-pin-it-in-ssh-config",
+    "href": "chapters/git-github.html#load-key-and-pin-it-in-ssh-config",
+    "title": "4  Git and Github",
+    "section": "4.2 Load key and pin it in SSH config",
+    "text": "4.2 Load key and pin it in SSH config\neval \"$(ssh-agent -s)\"\nssh-add ~/.ssh/id_ed25519_bcfms_vm\n\n\nCode\ncat &gt;&gt; ~/.ssh/config &lt;&lt;'EOF'\nHost github.com\n  HostName github.com\n  User git\n  IdentityFile ~/.ssh/id_ed25519_bcfms_vm\n  IdentitiesOnly yes\nEOF\nchmod 600 ~/.ssh/config",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Git and Github</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/git-github.html#add-key-in-github",
+    "href": "chapters/git-github.html#add-key-in-github",
+    "title": "4  Git and Github",
+    "section": "4.3 Add key in GitHub",
+    "text": "4.3 Add key in GitHub\ncat ~/.ssh/id_ed25519_bcfms_vm.pub\nCopy the full output (public key) and paste it in GitHub. Do not paste the private key file.\nChoose one:\n\nDeploy key (read-only) on this repo: clone + pull only.\n\n(We don’t use SSH key, since we don’t plan to push from the VM to github)\nWhere to paste:\nDeploy key: GitHub repo BCFMS-project-management -&gt; Settings -&gt; Deploy keys -&gt; Add deploy key.\n\n4.3.1 Confirm GitHub access and pull latest code.\nssh -T git@github.com\n\n\n4.3.2 Clone repository\ncd /home/&lt;user&gt;/\ngit clone git@github.com:&lt;user&gt;/BCFMS-project-management.git\ncd /home/&lt;user&gt;/BCFMS-project-management\ngit pull --ff-only origin main",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>Git and Github</span>"
+    ]
+  },
+  {
     "objectID": "chapters/vm-installation.html",
     "href": "chapters/vm-installation.html",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
     "section": "",
-    "text": "4.1 VM Installation Guide (ngs-vm & bcf-vm)",
+    "text": "5.1 VM Installation Guide (ngs-vm & bcf-vm)",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#vm-installation-guide-ngs-vm-bcf-vm",
     "href": "chapters/vm-installation.html#vm-installation-guide-ngs-vm-bcf-vm",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
     "section": "",
-    "text": "4.1.1 Contents\n\nScope\nPort strategy (recommended)\nPrerequisites (both VMs)\nGitHub connection on a fresh VM\nbcf-vm: clean install\nngs-vm: parallel install next to perl system\nLegacy data migration (perl-VM → shiny-VM)\nCutover and rollback\nPost-install verification",
+    "text": "5.1.1 Contents\n\nScope\nPort strategy (recommended)\nPrerequisites (both VMs)\nGitHub connection on a fresh VM\nbcf-vm: clean install\nngs-vm: parallel install next to perl system\nLegacy data migration (perl-VM → shiny-VM)\nCutover and rollback\nPost-install verification",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#scope",
     "href": "chapters/vm-installation.html#scope",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.2 Scope",
-    "text": "4.2 Scope\nThis guide covers a full installation of the Shiny app on two Ubuntu 24 VMs:\n\nbcf-vm: clean install, no HTTPS cert (self-signed OK for testing).\nngs-vm: already running the legacy Perl system; install the Shiny app in parallel, then redirect the public hostname when ready.",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.2 Scope",
+    "text": "5.2 Scope\nThis guide covers a full installation of the Shiny app on two Ubuntu 24 VMs:\n\nbcf-vm: clean install, no HTTPS cert (self-signed OK for testing).\nngs-vm: already running the legacy Perl system; install the Shiny app in parallel, then redirect the public hostname when ready.",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#port-strategy-recommended",
     "href": "chapters/vm-installation.html#port-strategy-recommended",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.3 Port strategy (recommended)",
-    "text": "4.3 Port strategy (recommended)\nRecommended for parallel operation on ngs-vm:\n\nShiny Server stays on :3838 (default).\nApache vhost for the new system listens on :8443 (HTTPS) or another high port (e.g. :1234 if you prefer).\nExisting legacy system remains on :443.\n\nWhy 8443: it is standard for HTTPS on alternate ports and avoids conflicts.",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.3 Port strategy (recommended)",
+    "text": "5.3 Port strategy (recommended)\nRecommended for parallel operation on ngs-vm:\n\nShiny Server stays on :3838 (default).\nApache vhost for the new system listens on :8443 (HTTPS) or another high port (e.g. :1234 if you prefer).\nExisting legacy system remains on :443.\n\nWhy 8443: it is standard for HTTPS on alternate ports and avoids conflicts.",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#prerequisites-both-vms",
     "href": "chapters/vm-installation.html#prerequisites-both-vms",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.4 Prerequisites (both VMs)",
-    "text": "4.4 Prerequisites (both VMs)\nRun the requirement check script:\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh\nInstall missing apt packages:\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install\nInstall missing R packages (including rJava):\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install-r\nThe requirement check reports missing rJava/mailR and missing Java tools (java, javac) explicitly.\nManual steps still required after package install:\n\nInstall Shiny Server from the .deb package (see bcf-vm Step 2).\nInstall Java + R mail dependencies for email notifications (see bcf-vm Step 2b).\nInstall LDAP client/build dependencies + ldapr (see bcf-vm Step 2d).\nEnsure the shiny user exists and app-folder permissions are correct (see bcf-vm Step 2c).\nConfigure Apache vhost, LDAP, and systemd environment (see bcf-vm Step 6, bcf-vm Step 7, and ngs-vm Step 2).",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.4 Prerequisites (both VMs)",
+    "text": "5.4 Prerequisites (both VMs)\nRun the requirement check script:\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh\nInstall missing apt packages:\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install\nInstall missing R packages (including rJava):\nbash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install-r\nThe requirement check reports missing rJava/mailR and missing Java tools (java, javac) explicitly.\nManual steps still required after package install:\n\nInstall Shiny Server from the .deb package (see bcf-vm Step 2).\nInstall Java + R mail dependencies for email notifications (see bcf-vm Step 2b).\nInstall LDAP client/build dependencies + ldapr (see bcf-vm Step 2d).\nEnsure the shiny user exists and app-folder permissions are correct (see bcf-vm Step 2c).\nConfigure Apache vhost, LDAP, and systemd environment (see bcf-vm Step 6, bcf-vm Step 7, and ngs-vm Step 2).",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#github-connection-on-a-fresh-vm",
     "href": "chapters/vm-installation.html#github-connection-on-a-fresh-vm",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.5 GitHub connection on a fresh VM",
-    "text": "4.5 GitHub connection on a fresh VM\nBefore cloning on either VM, configure GitHub access.\nUse these sections in Git & GitHub:\n\nGitHub connection on VM (clone/pull/push)\nEnable push from the VM\nRepo setup on the VM\n\nMinimum check before clone:\nssh -T git@github.com\nIf this fails, do not continue with clone/deploy until SSH access is fixed.",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.5 GitHub connection on a fresh VM",
+    "text": "5.5 GitHub connection on a fresh VM\nBefore cloning on either VM, configure GitHub access.\nUse these sections in Git & GitHub:\n\nGitHub connection on VM (clone/pull/push)\nEnable push from the VM\nRepo setup on the VM\n\nMinimum check before clone:\nssh -T git@github.com\nIf this fails, do not continue with clone/deploy until SSH access is fixed.",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#bcf-vm-clean-install",
     "href": "chapters/vm-installation.html#bcf-vm-clean-install",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.6 bcf-vm: clean install",
-    "text": "4.6 bcf-vm: clean install\n\n4.6.1 1) Install base packages\nsudo apt-get update\nsudo apt-get install -y git curl rsync apache2 apache2-utils openssl sqlite3 ldap-utils \\\n  build-essential libcurl4-openssl-dev libssl-dev libxml2-dev r-base\n\n\n4.6.2 2) Install Shiny Server\nCopy the .deb to the VM and install it:\nsudo apt-get install -y gdebi-core\nwget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb\nsudo gdebi shiny-server-1.5.23.1030-amd64.deb\n\n\n4.6.3 2b) Configure Java + mail packages (required for email notifications)\nThe app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.\nsudo apt-get install -y default-jdk\nsudo R CMD javareconf\nsudo Rscript --vanilla -e 'install.packages(c(\"rJava\",\"mailR\"), repos=\"https://cloud.r-project.org\")'\nApply the same on ngs-vm and bcf-vm.\n\n\n4.6.4 2c) Create shiny user + app-folder permissions\nShiny Server runs the app as the shiny service user.\ngetent passwd shiny || sudo useradd --system --home /var/lib/shiny-server --shell /usr/sbin/nologin shiny\nsudo mkdir -p /srv/shiny-server/sequencing-app\nsudo chown -R shiny:shiny /srv/shiny-server/sequencing-app\nsudo chmod 755 /srv/shiny-server /srv/shiny-server/sequencing-app\nsudo usermod -a -G shiny \"$USER\"\nIf you are configuring a different account, replace \"$USER\" with that username.\n\n\n4.6.5 2d) LDAP packages (Ubuntu + R)\nInstall LDAP client tools and build dependencies:\nsudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates\nConfigure OpenLDAP client trust in /etc/ldap/ldap.conf:\nsudo tee /etc/ldap/ldap.conf &gt;/dev/null &lt;&lt;'EOF'\nBASE            dc=biochem,dc=mpg,dc=de\nURI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de\nTLS_REQCERT     hard\nTLS_CACERTDIR   /etc/ssl/certs\nEOF\nInstall the R LDAP package:\nsudo Rscript --vanilla -e 'install.packages(\"ldapr\", repos=\"https://cloud.r-project.org\")'\nFallback if CRAN install is unavailable on this VM:\nsudo Rscript --vanilla -e 'if (!requireNamespace(\"remotes\", quietly=TRUE)) install.packages(\"remotes\", repos=\"https://cloud.r-project.org\"); remotes::install_github(\"liamgilbey/ldapr\")'\nQuick checks:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=&lt;user&gt;)\" mail\nsudo -u shiny Rscript --vanilla -e 'library(ldapr); cat(\"ldapr OK\\n\")'\nIf ldapsearch only works with LDAPTLS_REQCERT=never, your /etc/ldap/ldap.conf trust settings are incomplete or incorrect.\n\n\n4.6.6 3) Create a self-signed certificate (test only)\nsudo mkdir -p /etc/ssl/localcerts\nsudo openssl req -x509 -nodes -days 365 \\\n  -newkey rsa:2048 \\\n  -keyout /etc/ssl/localcerts/bcf-vm.key \\\n  -out /etc/ssl/localcerts/bcf-vm.crt\n\n\n4.6.7 4) Clone repo and set app folder\ncd /home/&lt;user&gt;\ngit clone git@github.com:yeroslaviz/BCFNGS-project-management.git\nsudo rsync -av /home/&lt;user&gt;/BCFNGS-project-management/sequencing-app/ /srv/shiny-server/sequencing-app/\nsudo chown -R shiny:shiny /srv/shiny-server/sequencing-app\n\n\n4.6.8 5) Initialize the SQLite DB\ncd /srv/shiny-server/sequencing-app\nsudo -u shiny Rscript setup_database.R\n\n\n4.6.9 6) Configure LDAP mode (systemd override)\nsudo systemctl edit shiny-server\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nEnvironment=TRUST_PROXY_AUTH_USER_QUERY=1\nsudo systemctl daemon-reload\nsudo systemctl restart shiny-server\n\n\n4.6.10 6b) Ensure app runtime env is loaded (.Renviron)\nOn bcf-vm and ngs-vm, we observed that LDAP worked reliably only after setting app env in:\n\n/srv/shiny-server/sequencing-app/.Renviron\n\nCreate/update this file:\nsudo tee /srv/shiny-server/sequencing-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nTRUST_PROXY_AUTH_USER_QUERY=1\n# LDAP_DEBUG=1   # only while debugging\nEOF\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/.Renviron\nsudo chmod 640 /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nThis prevents the app from falling back to local-mode UI when systemd env is present but not visible inside the R worker.\n\n\n4.6.11 7) Configure Apache (test HTTPS redirect)\nUse the versioned template from the repo:\n\nscripts/bcf.vm.conf\n\nCopy it on VM:\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/bcf.vm.conf /etc/apache2/sites-available/bcf-vm.conf\nTemplate includes:\n\nHTTP→HTTPS redirect (:80 → :443)\nScoped proxy to /sequencing-app/\nLDAP &lt;Location /sequencing-app/&gt; auth block\nCanonical auth_user rewrite and websocket rule\n\nEnable the site and restart Apache:\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap\nsudo a2ensite bcf-vm.conf # this creates symlink to sites-enabled\nsudo apache2ctl -t\nsudo systemctl restart apache2",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.6 bcf-vm: clean install",
+    "text": "5.6 bcf-vm: clean install\n\n5.6.1 1) Install base packages\nsudo apt-get update\nsudo apt-get install -y git curl rsync apache2 apache2-utils openssl sqlite3 ldap-utils \\\n  build-essential libcurl4-openssl-dev libssl-dev libxml2-dev r-base\n\n\n5.6.2 2) Install Shiny Server\nCopy the .deb to the VM and install it:\nsudo apt-get install -y gdebi-core\nwget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb\nsudo gdebi shiny-server-1.5.23.1030-amd64.deb\n\n\n5.6.3 2b) Configure Java + mail packages (required for email notifications)\nThe app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.\nsudo apt-get install -y default-jdk\nsudo R CMD javareconf\nsudo Rscript --vanilla -e 'install.packages(c(\"rJava\",\"mailR\"), repos=\"https://cloud.r-project.org\")'\nApply the same on ngs-vm and bcf-vm.\n\n\n5.6.4 2c) Create shiny user + app-folder permissions\nShiny Server runs the app as the shiny service user.\ngetent passwd shiny || sudo useradd --system --home /var/lib/shiny-server --shell /usr/sbin/nologin shiny\nsudo mkdir -p /srv/shiny-server/sequencing-app\nsudo chown -R shiny:shiny /srv/shiny-server/sequencing-app\nsudo chmod 755 /srv/shiny-server /srv/shiny-server/sequencing-app\nsudo usermod -a -G shiny \"$USER\"\nIf you are configuring a different account, replace \"$USER\" with that username.\n\n\n5.6.5 2d) LDAP packages (Ubuntu + R)\nInstall LDAP client tools and build dependencies:\nsudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates\nConfigure OpenLDAP client trust in /etc/ldap/ldap.conf:\nsudo tee /etc/ldap/ldap.conf &gt;/dev/null &lt;&lt;'EOF'\nBASE            dc=biochem,dc=mpg,dc=de\nURI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de\nTLS_REQCERT     hard\nTLS_CACERTDIR   /etc/ssl/certs\nEOF\nInstall the R LDAP package:\nsudo Rscript --vanilla -e 'install.packages(\"ldapr\", repos=\"https://cloud.r-project.org\")'\nFallback if CRAN install is unavailable on this VM:\nsudo Rscript --vanilla -e 'if (!requireNamespace(\"remotes\", quietly=TRUE)) install.packages(\"remotes\", repos=\"https://cloud.r-project.org\"); remotes::install_github(\"liamgilbey/ldapr\")'\nQuick checks:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=&lt;user&gt;)\" mail\nsudo -u shiny Rscript --vanilla -e 'library(ldapr); cat(\"ldapr OK\\n\")'\nIf ldapsearch only works with LDAPTLS_REQCERT=never, your /etc/ldap/ldap.conf trust settings are incomplete or incorrect.\n\n\n5.6.6 3) Create a self-signed certificate (test only)\nsudo mkdir -p /etc/ssl/localcerts\nsudo openssl req -x509 -nodes -days 365 \\\n  -newkey rsa:2048 \\\n  -keyout /etc/ssl/localcerts/bcf-vm.key \\\n  -out /etc/ssl/localcerts/bcf-vm.crt\n\n\n5.6.7 4) Clone repo and set app folder\ncd /home/&lt;user&gt;\ngit clone git@github.com:yeroslaviz/BCFNGS-project-management.git\nsudo rsync -av /home/&lt;user&gt;/BCFNGS-project-management/sequencing-app/ /srv/shiny-server/sequencing-app/\nsudo chown -R shiny:shiny /srv/shiny-server/sequencing-app\n\n\n5.6.8 5) Initialize the SQLite DB\ncd /srv/shiny-server/sequencing-app\nsudo -u shiny Rscript setup_database.R\n\n\n5.6.9 6) Configure LDAP mode (systemd override)\nsudo systemctl edit shiny-server\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nEnvironment=TRUST_PROXY_AUTH_USER_QUERY=1\nsudo systemctl daemon-reload\nsudo systemctl restart shiny-server\n\n\n5.6.10 6b) Ensure app runtime env is loaded (.Renviron)\nOn bcf-vm and ngs-vm, we observed that LDAP worked reliably only after setting app env in:\n\n/srv/shiny-server/sequencing-app/.Renviron\n\nCreate/update this file:\nsudo tee /srv/shiny-server/sequencing-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nTRUST_PROXY_AUTH_USER_QUERY=1\n# LDAP_DEBUG=1   # only while debugging\nEOF\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/.Renviron\nsudo chmod 640 /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nThis prevents the app from falling back to local-mode UI when systemd env is present but not visible inside the R worker.\n\n\n5.6.11 7) Configure Apache (test HTTPS redirect)\nUse the versioned template from the repo:\n\nscripts/bcf.vm.conf\n\nCopy it on VM:\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/bcf.vm.conf /etc/apache2/sites-available/bcf-vm.conf\nTemplate includes:\n\nHTTP→HTTPS redirect (:80 → :443)\nScoped proxy to /sequencing-app/\nLDAP &lt;Location /sequencing-app/&gt; auth block\nCanonical auth_user rewrite and websocket rule\n\nEnable the site and restart Apache:\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap\nsudo a2ensite bcf-vm.conf # this creates symlink to sites-enabled\nsudo apache2ctl -t\nsudo systemctl restart apache2",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#ngs-vm-parallel-install-next-to-perl-system",
     "href": "chapters/vm-installation.html#ngs-vm-parallel-install-next-to-perl-system",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.7 ngs-vm: parallel install next to perl system",
-    "text": "4.7 ngs-vm: parallel install next to perl system\n\n4.7.1 1) Keep legacy system on :443\nLeave the currently active Perl :443 site enabled (on our VM this is 02-testing.conf).\n\n\n4.7.2 2) Add a parallel Shiny vhost on :8443 (or :1234)\nUse the versioned template from the repo:\n\nscripts/ngs-vm-shiny.conf\n\nCopy it on VM:\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-shiny.conf /etc/apache2/sites-available/ngs-vm-shiny.conf\nKeep certificate paths unchanged in this file:\n\nSSLCertificateFile /etc/ssl/certs/ngs-cert.pem\nSSLCertificateKeyFile /etc/ssl/private/2026_private-key.pem\nSSLCertificateChainFile /etc/apache2/certificate/2026_Cert_binary.cer\n\nEnable and reload:\ngrep -q '^Listen 8443$' /etc/apache2/ports.conf || echo 'Listen 8443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http headers rewrite ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n4.7.3 3) Validate parallel access\ncurl -Ik https://ngs-vm.biochem.mpg.de:8443/\ncurl -Ik -u USER https://ngs-vm.biochem.mpg.de:8443/sequencing-app/\nIf hostname/port tests fail, validate locally against the vhost:\ncurl -kI -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/\ncurl -kI -u USER -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/sequencing-app/\nIf the app returns HTTP 500 with mailR/rJava errors on ngs-vm, apply this runtime fix:\nsudo apt-get install -y openjdk-17-jdk r-cran-rjava\nexport JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64\nsudo env JAVA_HOME=\"$JAVA_HOME\" /usr/bin/R CMD javareconf\nsudo env JAVA_HOME=\"$JAVA_HOME\" /usr/bin/Rscript --vanilla -e 'install.packages(\"mailR\", repos=\"https://cloud.r-project.org\", INSTALL_opts=\"--no-test-load\")'\nsudo systemctl restart shiny-server\n\n\n4.7.4 4) Switch between LDAP and local modes on VM\nPrimary reference: LDAP chapter - switch between LDAP and local modes\nIn production, switch modes by editing:\n\n/srv/shiny-server/sequencing-app/.Renviron\n\nSet LDAP mode:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nSet local mode:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nVerify effective runtime mode from app logs:\nLATEST=$(sudo ls -1t /var/log/shiny-server/sequencing-app-shiny-*.log | head -n1)\nsudo tail -n 80 \"$LATEST\"",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.7 ngs-vm: parallel install next to perl system",
+    "text": "5.7 ngs-vm: parallel install next to perl system\n\n5.7.1 1) Keep legacy system on :443\nLeave the currently active Perl :443 site enabled (on our VM this is 02-testing.conf).\n\n\n5.7.2 2) Add a parallel Shiny vhost on :8443 (or :1234)\nUse the versioned template from the repo:\n\nscripts/ngs-vm-shiny.conf\n\nCopy it on VM:\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-shiny.conf /etc/apache2/sites-available/ngs-vm-shiny.conf\nKeep certificate paths unchanged in this file:\n\nSSLCertificateFile /etc/ssl/certs/ngs-cert.pem\nSSLCertificateKeyFile /etc/ssl/private/2026_private-key.pem\nSSLCertificateChainFile /etc/apache2/certificate/2026_Cert_binary.cer\n\nEnable and reload:\ngrep -q '^Listen 8443$' /etc/apache2/ports.conf || echo 'Listen 8443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http headers rewrite ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n5.7.3 3) Validate parallel access\ncurl -Ik https://ngs-vm.biochem.mpg.de:8443/\ncurl -Ik -u USER https://ngs-vm.biochem.mpg.de:8443/sequencing-app/\nIf hostname/port tests fail, validate locally against the vhost:\ncurl -kI -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/\ncurl -kI -u USER -H 'Host: ngs-vm.biochem.mpg.de' https://127.0.0.1:8443/sequencing-app/\nIf the app returns HTTP 500 with mailR/rJava errors on ngs-vm, apply this runtime fix:\nsudo apt-get install -y openjdk-17-jdk r-cran-rjava\nexport JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64\nsudo env JAVA_HOME=\"$JAVA_HOME\" /usr/bin/R CMD javareconf\nsudo env JAVA_HOME=\"$JAVA_HOME\" /usr/bin/Rscript --vanilla -e 'install.packages(\"mailR\", repos=\"https://cloud.r-project.org\", INSTALL_opts=\"--no-test-load\")'\nsudo systemctl restart shiny-server\n\n\n5.7.4 4) Switch between LDAP and local modes on VM\nPrimary reference: LDAP chapter - switch between LDAP and local modes\nIn production, switch modes by editing:\n\n/srv/shiny-server/sequencing-app/.Renviron\n\nSet LDAP mode:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nSet local mode:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nVerify effective runtime mode from app logs:\nLATEST=$(sudo ls -1t /var/log/shiny-server/sequencing-app-shiny-*.log | head -n1)\nsudo tail -n 80 \"$LATEST\"",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#legacy-data-migration-perl-vm-shiny-vm",
     "href": "chapters/vm-installation.html#legacy-data-migration-perl-vm-shiny-vm",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.8 Legacy data migration (perl-VM → shiny-VM)",
-    "text": "4.8 Legacy data migration (perl-VM → shiny-VM)\nUse this workflow to export legacy projects from the perl system on ngs-vm and import into either bcf-vm or ngs-vm (Shiny DB).\n\n4.8.1 Step 1) Export CSV on ngs-vm (perl PostgreSQL)\npsql -U letunic -h 127.0.0.1 -d mpiseq2_db -c \"\\\n\\\\copy (\\\n  SELECT \\\n    p.id AS legacy_id, \\\n    p.name AS project_name, \\\n    m.login AS login, \\\n    m.name AS user_full_name, \\\n    l.name AS group_name, \\\n    COALESCE(p.ref_genome_legacy, rg.genome) AS reference_genome, \\\n    COALESCE(p.sample_type_legacy, st.type) AS sample_type, \\\n    t.type AS type_label, \\\n    p.sequencing_length AS sequencing_length, \\\n    COALESCE(p.budget_group_legacy, bg.budget) AS budget_group, \\\n    p.sequencing_platform AS sequencing_platform, \\\n    COALESCE(p.sequencing_kit_legacy, p.sequencing_kit) AS sequencing_kit, \\\n    p.sequencing_index AS sequencing_index, \\\n    p.note AS note \\\n  FROM project.project p \\\n  LEFT JOIN people.member m ON p.user_id = m.id \\\n  LEFT JOIN people.lab l ON m.lab_id = l.id \\\n  LEFT JOIN project.ref_genome rg ON p.ref_genome_id = rg.id \\\n  LEFT JOIN project.sample_type st ON p.sample_type_id = st.id \\\n  LEFT JOIN project.type t ON p.type_id = t.id \\\n  LEFT JOIN project.budget_group bg ON p.budget_group_id = bg.id \\\n  ORDER BY p.id\\\n) TO '/www/mpiseq2/exports/legacy_projects.csv' CSV HEADER\"\n\n\n4.8.2 Step 2) Normalize UTF-8 (recommended)\nsudo python3 - &lt;&lt;'PY'\nsrc = \"/www/mpiseq2/exports/legacy_projects.csv\"\ndst = \"/www/mpiseq2/exports/legacy_projects.utf8.csv\"\nwith open(src, \"r\", encoding=\"utf-8\", errors=\"ignore\") as f, \\\n     open(dst, \"w\", encoding=\"utf-8\") as out:\n    for line in f:\n        if \"Ã\" in line or \"Â\" in line:\n            line = line.encode(\"latin1\", errors=\"ignore\").decode(\"utf-8\", errors=\"ignore\")\n        out.write(line)\nPY\n\n\n4.8.3 Step 3) Move CSV to the target VM\nIf importing into bcf-vm:\n# run on bcf-vm once\nmkdir -p /home/yeroslaviz/BCFNGS-project-management/exports/\n\n# run on ngs-vm (source)\nscp /www/mpiseq2/exports/legacy_projects.utf8.csv \\\n  yeroslaviz@bcf-vm:/home/yeroslaviz/BCFNGS-project-management/exports/\nIf importing into Shiny on ngs-vm (same host as perl system):\ncp -R /www/mpiseq2/exports/ /home/yeroslaviz/BCFNGS-project-management/\n\n\n4.8.4 Step 4) Import into Shiny SQLite DB\nsudo systemctl stop shiny-server\ncd /srv/shiny-server/sequencing-app\nIf /home/yeroslaviz is not traversable by shiny (permission denied), either:\n\nquick fix:\n\nsudo chmod o+x /home/yeroslaviz\n\nsafer fix (preferred): copy script + CSV to a service-owned path and run from there.\n\nThen run import:\nsudo -u shiny python3 /home/yeroslaviz/BCFNGS-project-management/scripts/import_legacy_projects.py \\\n  --db /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n  --csv /home/yeroslaviz/BCFNGS-project-management/exports/legacy_projects.utf8.csv\n\nsudo systemctl start shiny-server\n\n\n4.8.5 Step 5) Verify import\nsudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n\"SELECT COUNT(*) FROM projects WHERE status='Legacy project';\"\n\nsudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n\"SELECT project_id, project_name, responsible_user, status FROM projects WHERE status='Legacy project' ORDER BY project_id LIMIT 5;\"\nNotes:\n\nRebuild is not required for regular imports; new legacy_id rows are inserted, already imported IDs are skipped.\nIf you need a full refresh of legacy rows, rebuild or delete legacy rows first, then re-import.\nDetailed SQL notes remain in Documentation/chapters/sql-handling.qmd.",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.8 Legacy data migration (perl-VM → shiny-VM)",
+    "text": "5.8 Legacy data migration (perl-VM → shiny-VM)\nUse this workflow to export legacy projects from the perl system on ngs-vm and import into either bcf-vm or ngs-vm (Shiny DB).\n\n5.8.1 Step 1) Export CSV on ngs-vm (perl PostgreSQL)\npsql -U letunic -h 127.0.0.1 -d mpiseq2_db -c \"\\\n\\\\copy (\\\n  SELECT \\\n    p.id AS legacy_id, \\\n    p.name AS project_name, \\\n    m.login AS login, \\\n    m.name AS user_full_name, \\\n    l.name AS group_name, \\\n    COALESCE(p.ref_genome_legacy, rg.genome) AS reference_genome, \\\n    COALESCE(p.sample_type_legacy, st.type) AS sample_type, \\\n    t.type AS type_label, \\\n    p.sequencing_length AS sequencing_length, \\\n    COALESCE(p.budget_group_legacy, bg.budget) AS budget_group, \\\n    p.sequencing_platform AS sequencing_platform, \\\n    COALESCE(p.sequencing_kit_legacy, p.sequencing_kit) AS sequencing_kit, \\\n    p.sequencing_index AS sequencing_index, \\\n    p.note AS note \\\n  FROM project.project p \\\n  LEFT JOIN people.member m ON p.user_id = m.id \\\n  LEFT JOIN people.lab l ON m.lab_id = l.id \\\n  LEFT JOIN project.ref_genome rg ON p.ref_genome_id = rg.id \\\n  LEFT JOIN project.sample_type st ON p.sample_type_id = st.id \\\n  LEFT JOIN project.type t ON p.type_id = t.id \\\n  LEFT JOIN project.budget_group bg ON p.budget_group_id = bg.id \\\n  ORDER BY p.id\\\n) TO '/www/mpiseq2/exports/legacy_projects.csv' CSV HEADER\"\n\n\n5.8.2 Step 2) Normalize UTF-8 (recommended)\nsudo python3 - &lt;&lt;'PY'\nsrc = \"/www/mpiseq2/exports/legacy_projects.csv\"\ndst = \"/www/mpiseq2/exports/legacy_projects.utf8.csv\"\nwith open(src, \"r\", encoding=\"utf-8\", errors=\"ignore\") as f, \\\n     open(dst, \"w\", encoding=\"utf-8\") as out:\n    for line in f:\n        if \"Ã\" in line or \"Â\" in line:\n            line = line.encode(\"latin1\", errors=\"ignore\").decode(\"utf-8\", errors=\"ignore\")\n        out.write(line)\nPY\n\n\n5.8.3 Step 3) Move CSV to the target VM\nIf importing into bcf-vm:\n# run on bcf-vm once\nmkdir -p /home/yeroslaviz/BCFNGS-project-management/exports/\n\n# run on ngs-vm (source)\nscp /www/mpiseq2/exports/legacy_projects.utf8.csv \\\n  yeroslaviz@bcf-vm:/home/yeroslaviz/BCFNGS-project-management/exports/\nIf importing into Shiny on ngs-vm (same host as perl system):\ncp -R /www/mpiseq2/exports/ /home/yeroslaviz/BCFNGS-project-management/\n\n\n5.8.4 Step 4) Import into Shiny SQLite DB\nsudo systemctl stop shiny-server\ncd /srv/shiny-server/sequencing-app\nIf /home/yeroslaviz is not traversable by shiny (permission denied), either:\n\nquick fix:\n\nsudo chmod o+x /home/yeroslaviz\n\nsafer fix (preferred): copy script + CSV to a service-owned path and run from there.\n\nThen run import:\nsudo -u shiny python3 /home/yeroslaviz/BCFNGS-project-management/scripts/import_legacy_projects.py \\\n  --db /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n  --csv /home/yeroslaviz/BCFNGS-project-management/exports/legacy_projects.utf8.csv\n\nsudo systemctl start shiny-server\n\n\n5.8.5 Step 5) Verify import\nsudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n\"SELECT COUNT(*) FROM projects WHERE status='Legacy project';\"\n\nsudo -u shiny sqlite3 /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n\"SELECT project_id, project_name, responsible_user, status FROM projects WHERE status='Legacy project' ORDER BY project_id LIMIT 5;\"\nNotes:\n\nRebuild is not required for regular imports; new legacy_id rows are inserted, already imported IDs are skipped.\nIf you need a full refresh of legacy rows, rebuild or delete legacy rows first, then re-import.\nDetailed SQL notes remain in Documentation/chapters/sql-handling.qmd.",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#cutover-and-rollback",
     "href": "chapters/vm-installation.html#cutover-and-rollback",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.9 Cutover and rollback",
-    "text": "4.9 Cutover and rollback\n\n4.9.1 Cutover target\nAfter cutover:\n\nhttps://ngs-vm.biochem.mpg.de serves Shiny on :443 (no port in URL).\nPerl fallback stays available on https://ngs-vm.biochem.mpg.de:9443.\n\n\n\n4.9.2 1) Pre-cutover safety backup\nsudo mkdir -p /root/apache-backup-$(date +%F-%H%M)\nsudo cp -a /etc/apache2/sites-available /root/apache-backup-$(date +%F-%H%M)/\nsudo cp -a /etc/apache2/sites-enabled /root/apache-backup-$(date +%F-%H%M)/\n\n\n4.9.3 2) Prepare vhost files\nUse the versioned templates from the repo:\n\nscripts/ngs-vm-shiny-443.conf -&gt; /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nscripts/ngs-vm-perl-9443.conf -&gt; /etc/apache2/sites-available/ngs-vm-perl-9443.conf\n\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-perl-9443.conf /etc/apache2/sites-available/ngs-vm-perl-9443.conf\n\n\n4.9.4 3) Enable the cutover routing\ngrep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo a2ensite ngs-vm-perl-9443.conf\n# Disable the old Perl :443 site (name can vary by VM):\nsudo a2dissite 02-testing.conf || true\nsudo a2dissite default-ssl.conf || true\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n4.9.5 4) Automated switch/rollback script (optional)\nYou can use:\n\nscripts/cutover_ngs_vm_ports.sh\n\nCutover:\ncd /home/&lt;user&gt;/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh cutover\ncutover auto-disables competing :443 sites (including default-ssl.conf when present).\nRollback:\ncd /home/&lt;user&gt;/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh rollback\nrollback re-enables the first available legacy :443 site in this order:\n\nPERL_443_SITE (if provided)\n02-testing.conf\ndefault-ssl.conf\n\n\n\n4.9.6 Rollback (manual)\nsudo a2ensite 02-testing.conf\nsudo a2dissite ngs-vm-shiny-443.conf\nsudo a2dissite ngs-vm-perl-9443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n4.9.7 DB lifecycle policy (important)\n\nscripts/deploy.sh is code-only deployment and does not recreate sequencing_projects.db.\nRestarting shiny-server does not delete DB content.\nRebuild is manual and only when intentionally running /srv/shiny-server/sequencing-app/setup_database.R.\nKeep legacy CSV import as a separate operation, not part of deploy.\n\n\n\n4.9.8 DB snapshot / rebuild / restore runbook\nSnapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.$(date +%F-%H%M%S)\nsudo systemctl start shiny-server\nOptional rebuild:\ncd /srv/shiny-server/sequencing-app\nsudo systemctl stop shiny-server\nsudo -u shiny Rscript setup_database.R\nsudo systemctl start shiny-server\nRestore snapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.&lt;timestamp&gt; /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo systemctl start shiny-server",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.9 Cutover and rollback",
+    "text": "5.9 Cutover and rollback\n\n5.9.1 Cutover target\nAfter cutover:\n\nhttps://ngs-vm.biochem.mpg.de serves Shiny on :443 (no port in URL).\nPerl fallback stays available on https://ngs-vm.biochem.mpg.de:9443.\n\n\n\n5.9.2 1) Pre-cutover safety backup\nsudo mkdir -p /root/apache-backup-$(date +%F-%H%M)\nsudo cp -a /etc/apache2/sites-available /root/apache-backup-$(date +%F-%H%M)/\nsudo cp -a /etc/apache2/sites-enabled /root/apache-backup-$(date +%F-%H%M)/\n\n\n5.9.3 2) Prepare vhost files\nUse the versioned templates from the repo:\n\nscripts/ngs-vm-shiny-443.conf -&gt; /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nscripts/ngs-vm-perl-9443.conf -&gt; /etc/apache2/sites-available/ngs-vm-perl-9443.conf\n\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nsudo cp /home/&lt;user&gt;/BCFNGS-project-management/scripts/ngs-vm-perl-9443.conf /etc/apache2/sites-available/ngs-vm-perl-9443.conf\n\n\n5.9.4 3) Enable the cutover routing\ngrep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo a2ensite ngs-vm-perl-9443.conf\n# Disable the old Perl :443 site (name can vary by VM):\nsudo a2dissite 02-testing.conf || true\nsudo a2dissite default-ssl.conf || true\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n5.9.5 4) Automated switch/rollback script (optional)\nYou can use:\n\nscripts/cutover_ngs_vm_ports.sh\n\nCutover:\ncd /home/&lt;user&gt;/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh cutover\ncutover auto-disables competing :443 sites (including default-ssl.conf when present).\nRollback:\ncd /home/&lt;user&gt;/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh rollback\nrollback re-enables the first available legacy :443 site in this order:\n\nPERL_443_SITE (if provided)\n02-testing.conf\ndefault-ssl.conf\n\n\n\n5.9.6 Rollback (manual)\nsudo a2ensite 02-testing.conf\nsudo a2dissite ngs-vm-shiny-443.conf\nsudo a2dissite ngs-vm-perl-9443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n5.9.7 DB lifecycle policy (important)\n\nscripts/deploy.sh is code-only deployment and does not recreate sequencing_projects.db.\nRestarting shiny-server does not delete DB content.\nRebuild is manual and only when intentionally running /srv/shiny-server/sequencing-app/setup_database.R.\nKeep legacy CSV import as a separate operation, not part of deploy.\n\n\n\n5.9.8 DB snapshot / rebuild / restore runbook\nSnapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.$(date +%F-%H%M%S)\nsudo systemctl start shiny-server\nOptional rebuild:\ncd /srv/shiny-server/sequencing-app\nsudo systemctl stop shiny-server\nsudo -u shiny Rscript setup_database.R\nsudo systemctl start shiny-server\nRestore snapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.&lt;timestamp&gt; /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo systemctl start shiny-server",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/vm-installation.html#post-install-verification",
     "href": "chapters/vm-installation.html#post-install-verification",
-    "title": "4  VM Installation Guide (ngs-vm & bcf-vm)",
-    "section": "4.10 Post-install verification",
-    "text": "4.10 Post-install verification\nRun these checks after install:\ncurl -Ik https://ngs-vm.biochem.mpg.de/\ncurl -Ik -u USER https://ngs-vm.biochem.mpg.de/sequencing-app/\ncurl -Ik https://ngs-vm.biochem.mpg.de:9443/\nConfirm:\n\nno-port hostname opens Shiny.\nLDAP prompt appears and login succeeds.\nPerl fallback is reachable on :9443.",
+    "title": "5  VM Installation Guide (ngs-vm & bcf-vm)",
+    "section": "5.10 Post-install verification",
+    "text": "5.10 Post-install verification\nRun these checks after install:\ncurl -Ik https://ngs-vm.biochem.mpg.de/\ncurl -Ik -u USER https://ngs-vm.biochem.mpg.de/sequencing-app/\ncurl -Ik https://ngs-vm.biochem.mpg.de:9443/\nConfirm:\n\nno-port hostname opens Shiny.\nLDAP prompt appears and login succeeds.\nPerl fallback is reachable on :9443.",
     "crumbs": [
-      "<span class='chapter-number'>4</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>VM Installation Guide (ngs-vm & bcf-vm)</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html",
     "href": "chapters/deploy-operations.html",
-    "title": "5  Deploy & Operations",
+    "title": "6  Deploy & Operations",
     "section": "",
-    "text": "5.1 Deploy & Operations",
+    "text": "6.1 Deploy & Operations",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
-    "objectID": "chapters/deploy-operations.html#deploy-operations",
-    "href": "chapters/deploy-operations.html#deploy-operations",
-    "title": "5  Deploy & Operations",
-    "section": "",
-    "text": "5.1.1 Contents\n\nProject Deletion Permissions\nDeploy Workflow\nFeature Branch Deploy (Test VM)\nDeploy Scope and DB Behavior\nLDAP Deploy Smoke Tests\nBackups (summary)\nngs-vm Cutover (443/9443)",
+    "objectID": "chapters/deploy-operations.html#take-backups-app-folder-sqlite-db-apache-config.",
+    "href": "chapters/deploy-operations.html#take-backups-app-folder-sqlite-db-apache-config.",
+    "title": "6  Deploy & Operations",
+    "section": "6.2 Take backups (app folder, SQLite DB, Apache config).",
+    "text": "6.2 Take backups (app folder, SQLite DB, Apache config).\nsudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/\ncp /srv/shiny-server/ms-app/ms_projects.db \\\n  /srv/shiny-server/ms_projects.db.backup_$(date +%Y%m%d_%H%M)\nsudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \\\n  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)\nThe ms-vm-shiny-443.conf file is the latest config file, supporting both the LDAP system as well as the https certificate.\n\nDeploy.\n\n./scripts/deploy.sh\n\nRestart services.\n\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\n\nSmoke‑test login and app behavior.\n\ncurl -Ik https://mscf-vm.biochem.mpg.de/\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/sequencing-app/\n\nRoll back from backups if needed.\n\nsudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\n\n6.2.1 VM rollout HOW‑TO (Git + deploy + safety)\nThis is the repeatable checklist I use when rolling out to a VM (first ngs-testing-vm, then ngs-vm).\n\n6.2.1.1 Step 1: Make sure GitHub access works on the VM\nCheck which remote is set:\ngit -C /home/yeroslaviz/BCFMS-project-management remote -v\nIf the remote is SSH (git@github.com:...), verify SSH access:\nssh -T git@github.com\nIf SSH works but git pull still says Permission denied (publickey), the VM key is not added to the repo. The fix is to add the VM public key as a Deploy Key:\ncat ~/.ssh/id_ed25519.pub\nThen add that key in GitHub: Repo → Settings → Deploy keys → Add deploy key (read‑only is enough for pull).\n\n\n6.2.1.2 Step 2: Pull latest code\ncd /home/yeroslaviz/BCFMS-project-management\ngit pull origin main\nIf Git says divergent branches, I set merge as the default and pull again:\ngit config pull.rebase false\ngit pull origin main\nIf Git refuses because of the local SQLite DB file, I stop tracking the DB on the VM:\ngit rm --cached ms-app/ms_projects.db\ngit commit -m \"Stop tracking local SQLite DB on VM\"\ngit pull origin main\nThis does not delete the local DB file. It just removes it from Git so future pulls work.\n\n\n6.2.1.3 Step 3: Production safety backups (fast rollback)\nsudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/\ncp /srv/shiny-server/ms-app/ms_projects.db \\\n  /srv/shiny-server/ms-app/ms_projects.db.backup_$(date +%Y%m%d_%H%M)\nsudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \\\n  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)\n\n\n6.2.1.4 Step 4: Deploy\n./scripts/deploy.sh\n\n\n6.2.1.5 Step 5: Restart and smoke‑test\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\nThen open the app URL and verify: - LDAP prompt appears - login works - app loads\n\n\n6.2.1.6 Step 6: Rollback (if needed)\nsudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/deploy-operations.html#project-deletion-permissions",
-    "href": "chapters/deploy-operations.html#project-deletion-permissions",
-    "title": "5  Deploy & Operations",
-    "section": "5.2 Project Deletion Permissions",
-    "text": "5.2 Project Deletion Permissions\nDeletion is admin-only:\n\nThe Delete button is only shown when user$is_admin is true.\nThe backend also enforces admin-only deletion.\nA delete performs a hard remove from the SQL DB: DELETE FROM projects WHERE id = ?.\n\n\n5.2.1 Re-enable delete for non-admin users\nIn /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R:\n\nIn output$user_interface, render the button unconditionally (remove the if (user$is_admin) guard around delete_project_btn).\nIn the observeEvent(input$delete_project_btn) handler, allow owners again:\n\nChange can_delete &lt;- user$is_admin back to:\n\ncan_delete &lt;- user$is_admin || project$user_id == user$user_id\n\n\n\nRebuild/redeploy after changes.",
-    "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/deploy-operations.html#deploy-workflow",
-    "href": "chapters/deploy-operations.html#deploy-workflow",
-    "title": "5  Deploy & Operations",
-    "section": "5.3 Deploy Workflow",
-    "text": "5.3 Deploy Workflow\n\n5.3.1 Production rollout checklist (quick reference)\nThis is the short checklist I use on production. Details for each step are below in the VM rollout HOW‑TO section.\n\nConfirm GitHub access and pull latest code.\n\nssh -T git@github.com\ncd /home/yeroslaviz/BCFNGS-project-management\ngit pull origin main\n\nTake backups (app folder, SQLite DB, Apache config).\n\nsudo rsync -av /srv/shiny-server/sequencing-app/ /srv/shiny-server/sequencing-app.backup_$(date +%Y%m%d_%H%M)/\ncp /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n  /srv/shiny-server/sequencing_projects.db.backup_$(date +%Y%m%d_%H%M)\nsudo cp /etc/apache2/sites-enabled/01-main.conf \\\n  /etc/apache2/sites-enabled/01-main.conf.backup_$(date +%Y%m%d_%H%M)\n\nDeploy.\n\n./scripts/deploy.sh\n\nRestart services.\n\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\n\nSmoke‑test login and app behavior.\n\ncurl -Ik https://ngs-testing-vm.biochem.mpg.de/\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/\n\nRoll back from backups if needed.\n\nsudo rsync -av --delete /srv/shiny-server/sequencing-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/sequencing-app/\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\n\n\n5.3.2 VM rollout HOW‑TO (Git + deploy + safety)\nThis is the repeatable checklist I use when rolling out to a VM (first ngs-testing-vm, then ngs-vm).\n\n5.3.2.1 Step 1: Make sure GitHub access works on the VM\nCheck which remote is set:\ngit -C /home/yeroslaviz/BCFNGS-project-management remote -v\nIf the remote is SSH (git@github.com:...), verify SSH access:\nssh -T git@github.com\nIf SSH works but git pull still says Permission denied (publickey), the VM key is not added to the repo. The fix is to add the VM public key as a Deploy Key:\ncat ~/.ssh/id_ed25519.pub\nThen add that key in GitHub: Repo → Settings → Deploy keys → Add deploy key (read‑only is enough for pull).\n\n\n5.3.2.2 Step 2: Pull latest code\ncd /home/yeroslaviz/BCFNGS-project-management\ngit pull origin main\nIf Git says divergent branches, I set merge as the default and pull again:\ngit config pull.rebase false\ngit pull origin main\nIf Git refuses because of the local SQLite DB file, I stop tracking the DB on the VM:\ngit rm --cached sequencing-app/sequencing_projects.db\ngit commit -m \"Stop tracking local SQLite DB on VM\"\ngit pull origin main\nThis does not delete the local DB file. It just removes it from Git so future pulls work.\n\n\n5.3.2.3 Step 3: Production safety backups (fast rollback)\nsudo rsync -av /srv/shiny-server/sequencing-app/ /srv/shiny-server/sequencing-app.backup_$(date +%Y%m%d_%H%M)/\ncp /srv/shiny-server/sequencing-app/sequencing_projects.db \\\n  /srv/shiny-server/sequencing-app/sequencing_projects.db.backup_$(date +%Y%m%d_%H%M)\nsudo cp /etc/apache2/sites-enabled/01-main.conf \\\n  /etc/apache2/sites-enabled/01-main.conf.backup_$(date +%Y%m%d_%H%M)\n\n\n5.3.2.4 Step 4: Deploy\n./scripts/deploy.sh\n\n\n5.3.2.5 Step 5: Restart and smoke‑test\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2\nThen open the app URL and verify: - LDAP prompt appears - login works - app loads\n\n\n5.3.2.6 Step 6: Rollback (if needed)\nsudo rsync -av --delete /srv/shiny-server/sequencing-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/sequencing-app/\nsudo systemctl restart shiny-server\nsudo systemctl restart apache2",
-    "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html#deploy-scope-and-db-behavior",
     "href": "chapters/deploy-operations.html#deploy-scope-and-db-behavior",
-    "title": "5  Deploy & Operations",
-    "section": "5.4 Deploy Scope and DB Behavior",
-    "text": "5.4 Deploy Scope and DB Behavior\nscripts/deploy.sh is code deployment only:\n\nsyncs app files from repo -&gt; /srv/shiny-server/sequencing-app/\nexcludes sequencing_projects.db\nrestarts shiny-server\nruns LDAP smoke tests (unless SKIP_SMOKE_TEST=1)\n\nIt does not:\n\nrebuild the DB\nimport legacy CSV\nrun setup_database.R\noverwrite landing text content (announcement_panels / announcement_items)\n\n\n5.4.1 When to run deploy\nRun deploy after changes to app code/config in:\n\n/home/yeroslaviz/BCFNGS-project-management/sequencing-app/\n\nDo not use deploy for Apache-only changes; apply Apache config separately.\n\n\n5.4.2 Restart vs rebuild\n\nRestarting shiny-server does not remove DB content.\nRebuild is a manual, explicit action (setup_database.R) and should be done only when needed.\nLanding text edited via Manage Landing Text is DB-backed and survives deploy/restart.\n\n\n\n5.4.3 Safe DB snapshot around risky maintenance\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.$(date +%F-%H%M%S)\nsudo systemctl start shiny-server\nRestore snapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/sequencing-app/sequencing_projects.db.bak.&lt;timestamp&gt; /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/sequencing_projects.db\nsudo systemctl start shiny-server",
+    "title": "6  Deploy & Operations",
+    "section": "6.3 Deploy Scope and DB Behavior",
+    "text": "6.3 Deploy Scope and DB Behavior\nscripts/deploy.sh is code deployment only:\n\nsyncs app files from repo -&gt; /srv/shiny-server/ms-app/\nexcludes ms_projects.db\nrestarts shiny-server\nruns LDAP smoke tests (unless SKIP_SMOKE_TEST=1)\n\nIt does not:\n\nrebuild the DB\nimport legacy CSV\nrun setup_database.R\noverwrite landing text content (announcement_panels / announcement_items)\n\n\n6.3.1 When to run deploy\nRun deploy after changes to app code/config in:\n\n/home/yeroslaviz/BCFMS-project-management/sequencing-app/\n\nDo not use deploy for Apache-only changes; apply Apache config separately.\n\n\n6.3.2 Restart vs rebuild\n\nRestarting shiny-server does not remove DB content.\nRebuild is a manual, explicit action (setup_database.R) and should be done only when needed.\nLanding text edited via Manage Landing Text is DB-backed and survives deploy/restart.\n\n\n\n6.3.3 Safe DB snapshot around risky maintenance\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)\nsudo systemctl start shiny-server\nRestore snapshot:\nsudo systemctl stop shiny-server\nsudo cp /srv/shiny-server/ms-app/ms_projects.db.bak.&lt;timestamp&gt; /srv/shiny-server/ms-app/ms_projects.db\nsudo chown shiny:shiny /srv/shiny-server/ms-app/ms_projects.db\nsudo systemctl start shiny-server",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html#ldap-deploy-smoke-tests",
     "href": "chapters/deploy-operations.html#ldap-deploy-smoke-tests",
-    "title": "5  Deploy & Operations",
-    "section": "5.5 LDAP Deploy Smoke Tests",
-    "text": "5.5 LDAP Deploy Smoke Tests\n\n5.5.1 Step 1: Deploy with built-in smoke tests\nRun on VM:\ncd ~/BCFNGS-project-management\n./scripts/deploy.sh\nThe script now:\n\nDeploys app files to /srv/shiny-server/sequencing-app/\nRestarts shiny-server\nRuns LDAP smoke tests:\n\n/sequencing-app/ returns 302 to canonical ?auth_user=&lt;logged-user&gt;\ntampered ?auth_user=other is rewritten to ?auth_user=&lt;logged-user&gt;\nfinal app load returns 200\n\n\nIt exits with non-zero status and prints remediation hints if any check fails.",
+    "title": "6  Deploy & Operations",
+    "section": "6.4 LDAP Deploy Smoke Tests",
+    "text": "6.4 LDAP Deploy Smoke Tests\n\n6.4.1 Step 1: Deploy with built-in smoke tests\nRun on VM:\ncd ~/BCFMS-project-management\n./scripts/deploy.sh\nThe script now:\n\nDeploys app files to /srv/shiny-server/sequencing-app/\nRestarts shiny-server\nRuns LDAP smoke tests:\n\n/sequencing-app/ returns 302 to canonical ?auth_user=&lt;logged-user&gt;\ntampered ?auth_user=other is rewritten to ?auth_user=&lt;logged-user&gt;\nfinal app load returns 200\n\n\nIt exits with non-zero status and prints remediation hints if any check fails.",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html#backups-summary",
     "href": "chapters/deploy-operations.html#backups-summary",
-    "title": "5  Deploy & Operations",
-    "section": "5.6 Backups (summary)",
-    "text": "5.6 Backups (summary)\nThis project currently has three backup mechanisms:\n\nManual pre-deploy rollback backups (recommended before any deploy/maintenance): copy the app folder, the SQLite DB, and the Apache vhost config with a timestamp. See “Production safety backups (fast rollback)” above.\nManual in-app backup/restore (Admin UI): admins can download a .sqlite backup and restore it later (restore makes a pre-restore copy first).\nAutomatic bi-weekly backups: present in the app code but commented out / disabled by default.\n\nNote:\n\nscripts/deploy.sh syncs app code only. If you changed Apache config, apply/restart Apache separately, then run curl checks.\n\n\n5.6.1 Step 2: Non-interactive usage (optional)\nIf you do not want password prompts:\nLDAP_TEST_USER=\"yeroslaviz-test\" LDAP_TEST_PASSWORD=\"YOUR_PASSWORD\" ./scripts/deploy.sh\nSkip smoke tests only when needed:\nSKIP_SMOKE_TEST=1 ./scripts/deploy.sh\nOverride target base URL:\nPUBLIC_BASE_URL=\"https://ngs-vm.biochem.mpg.de\" ./scripts/deploy.sh",
+    "title": "6  Deploy & Operations",
+    "section": "6.5 Backups (summary)",
+    "text": "6.5 Backups (summary)\nThis project currently has three backup mechanisms:\n\nManual pre-deploy rollback backups (recommended before any deploy/maintenance): copy the app folder, the SQLite DB, and the Apache vhost config with a timestamp. See “Production safety backups (fast rollback)” above.\nManual in-app backup/restore (Admin UI): admins can download a .sqlite backup and restore it later (restore makes a pre-restore copy first).\nAutomatic bi-weekly backups: present in the app code but commented out / disabled by default.\n\nNote:\n\nscripts/deploy.sh syncs app code only. If you changed Apache config, apply/restart Apache separately, then run curl checks.\n\n\n6.5.1 Step 2: Non-interactive usage (optional)\nIf you do not want password prompts:\nLDAP_TEST_USER=\"yeroslaviz-test\" LDAP_TEST_PASSWORD=\"YOUR_PASSWORD\" ./scripts/deploy.sh\nSkip smoke tests only when needed:\nSKIP_SMOKE_TEST=1 ./scripts/deploy.sh\nOverride target base URL:\nPUBLIC_BASE_URL=\"https://mscf-vm.biochem.mpg.de\" ./scripts/deploy.sh",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html#feature-branch-deploy-test-vm",
     "href": "chapters/deploy-operations.html#feature-branch-deploy-test-vm",
-    "title": "5  Deploy & Operations",
-    "section": "5.7 Feature Branch Deploy (Test VM)",
-    "text": "5.7 Feature Branch Deploy (Test VM)\nUse this when you want to validate a feature branch on bcf-vm or ngs-testing-vm before merging to main.\n\nSwitch to your feature branch on the VM and pull latest branch commits.\n\ncd /home/&lt;user&gt;/BCFNGS-project-management\ngit fetch origin\ngit checkout &lt;feature-branch&gt;\ngit pull --ff-only origin &lt;feature-branch&gt;\n\nDeploy branch code to /srv/shiny-server/sequencing-app/.\n\nPUBLIC_BASE_URL=\"https://&lt;vm-hostname&gt;\" ./scripts/deploy.sh\n\nValidate app behavior on that VM (LDAP/local mode, forms, emails, admin actions).\nAfter merge to main, switch VM back to main and deploy again:\n\ncd /home/&lt;user&gt;/BCFNGS-project-management\ngit checkout main\ngit pull --ff-only origin main\nPUBLIC_BASE_URL=\"https://&lt;vm-hostname&gt;\" ./scripts/deploy.sh\nNotes:\n\nscripts/deploy.sh does not rebuild or replace the SQLite DB.\nDB-backed content (projects, landing text, additional costs) persists across deploy and restart.",
+    "title": "6  Deploy & Operations",
+    "section": "6.6 Feature Branch Deploy (Test VM)",
+    "text": "6.6 Feature Branch Deploy (Test VM)\nUse this when you want to validate a feature branch on bcf-vm or ngs-testing-vm before merging to main.\n\nSwitch to your feature branch on the VM and pull latest branch commits.\n\ncd /home/&lt;user&gt;/BCFMS-project-management\ngit fetch origin\ngit checkout &lt;feature-branch&gt;\ngit pull --ff-only origin &lt;feature-branch&gt;\n\nDeploy branch code to /srv/shiny-server/ms-app/.\n\nPUBLIC_BASE_URL=\"https://&lt;vm-hostname&gt;\" ./scripts/deploy.sh\n\nValidate app behavior on that VM (LDAP/local mode, forms, emails, admin actions).\nAfter merge to main, switch VM back to main and deploy again:\n\ncd /home/&lt;user&gt;/BCFMS-project-management\ngit checkout main\ngit pull --ff-only origin main\nPUBLIC_BASE_URL=\"https://&lt;vm-hostname&gt;\" ./scripts/deploy.sh\nNotes:\n\nscripts/deploy.sh does not rebuild or replace the SQLite DB.\nDB-backed content (projects, landing text, additional costs) persists across deploy and restart.",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/deploy-operations.html#ngs-vm-cutover-4439443",
     "href": "chapters/deploy-operations.html#ngs-vm-cutover-4439443",
-    "title": "5  Deploy & Operations",
-    "section": "5.8 ngs-vm Cutover (443/9443)",
-    "text": "5.8 ngs-vm Cutover (443/9443)\nTarget state:\n\nhttps://ngs-vm.biochem.mpg.de -&gt; Shiny on :443\nhttps://ngs-vm.biochem.mpg.de:9443 -&gt; Perl fallback\n\nThis avoids TLS hostname mismatch (same hostname for both endpoints).\n\n5.8.1 Step 1: Prepare vhost templates\nUse these repo templates:\n\nscripts/ngs-vm-shiny-443.conf\nscripts/ngs-vm-perl-9443.conf\n\nCopy to Apache:\nsudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nsudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-perl-9443.conf /etc/apache2/sites-available/ngs-vm-perl-9443.conf\n\n\n5.8.2 Step 2: Enable routing and switch traffic\ngrep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo a2ensite ngs-vm-perl-9443.conf\nsudo a2dissite 02-testing.conf || true\nsudo a2dissite default-ssl.conf || true\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n5.8.3 Step 3: Validate\ncurl -kI https://ngs-vm.biochem.mpg.de/\ncurl -kI -u USER https://ngs-vm.biochem.mpg.de/sequencing-app/\ncurl -kI https://ngs-vm.biochem.mpg.de:9443/\n\n\n5.8.4 Step 4: Rollback\nsudo a2ensite 02-testing.conf\nsudo a2dissite ngs-vm-shiny-443.conf\nsudo a2dissite ngs-vm-perl-9443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n5.8.5 Step 5: Scripted switch (optional)\nUse:\ncd /home/yeroslaviz/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh cutover\ncutover automatically disables any enabled :443 site that is not ngs-vm-shiny-443.conf.\nRollback:\ncd /home/yeroslaviz/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh rollback\nrollback re-enables legacy :443 in this priority:\n\nPERL_443_SITE (if set)\n02-testing.conf\ndefault-ssl.conf",
+    "title": "6  Deploy & Operations",
+    "section": "6.7 ngs-vm Cutover (443/9443)",
+    "text": "6.7 ngs-vm Cutover (443/9443)\nTarget state:\n\nhttps://mscf-vm.biochem.mpg.de -&gt; Shiny on :443\n\nThis avoids TLS hostname mismatch (same hostname for both endpoints).\n\n6.7.1 Step 1: Prepare vhost templates\nUse these repo templates:\n\nscripts/mscf-vm-shiny-443.conf\n\nCopy to Apache:\nsudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf\n\n\n6.7.2 Step 2: Enable routing and switch traffic\ngrep -q '^Listen 443$' /etc/apache2/ports.conf || echo 'Listen 443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo a2dissite default-ssl.conf || true\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n6.7.3 Step 3: Validate\ncurl -kI https://ms-vm.biochem.mpg.de/\ncurl -kI -u USER https://ms-vm.biochem.mpg.de/sequencing-app/\ncurl -kI https://ms-vm.biochem.mpg.de:9443/\n\n\n6.7.4 Step 4: Rollback\nsudo a2ensite 02-testing.conf\nsudo a2dissite ngs-vm-shiny-443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2",
     "crumbs": [
-      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Deploy & Operations</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html",
-    "href": "chapters/ldap-authentication.html",
-    "title": "6  LDAP Authentication",
-    "section": "",
-    "text": "6.1 LDAP Authentication",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#ldap-authentication",
-    "href": "chapters/ldap-authentication.html#ldap-authentication",
-    "title": "6  LDAP Authentication",
-    "section": "",
-    "text": "6.1.1 Contents\n\nDependencies (Ubuntu + R)\nLDAP Configuration\nLDAP Summary (2026-02-06)",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#dependencies-ubuntu-r",
-    "href": "chapters/ldap-authentication.html#dependencies-ubuntu-r",
-    "title": "6  LDAP Authentication",
-    "section": "6.2 Dependencies (Ubuntu + R)",
-    "text": "6.2 Dependencies (Ubuntu + R)\nInstall LDAP client tools and headers on Ubuntu:\nsudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates\nInstall ldapr in R:\nsudo Rscript --vanilla -e 'install.packages(\"ldapr\", repos=\"https://cloud.r-project.org\")'\nFallback if CRAN install is unavailable:\nsudo Rscript --vanilla -e 'if (!requireNamespace(\"remotes\", quietly=TRUE)) install.packages(\"remotes\", repos=\"https://cloud.r-project.org\"); remotes::install_github(\"liamgilbey/ldapr\")'\nVerify:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=&lt;user&gt;)\" mail\nsudo -u shiny Rscript --vanilla -e 'library(ldapr); cat(\"ldapr OK\\n\")'\nNote:\n\nJava / rJava / mailR are for email notifications, not required for LDAP itself.",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#ldap-configuration",
-    "href": "chapters/ldap-authentication.html#ldap-configuration",
-    "title": "6  LDAP Authentication",
-    "section": "6.3 LDAP Configuration",
-    "text": "6.3 LDAP Configuration",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#ldap",
-    "href": "chapters/ldap-authentication.html#ldap",
-    "title": "6  LDAP Authentication",
-    "section": "6.4 LDAP",
-    "text": "6.4 LDAP\nThe app uses Apache LDAP authentication in front of Shiny. The Apache config template in this repo is mpiseq2/ngs-vm_01-main.conf.\nEnable required Apache modules:\nsudo a2enmod ldap authnz_ldap headers\nsudo systemctl reload apache2\nTest whether anonymous LDAP search works:\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=YOURUSER)\"\nIf anonymous search fails, use bind credentials from IT and add them to the Apache config:\nAuthLDAPBindDN \"cn=binduser,dc=biochem,dc=mpg,dc=de\"\nAuthLDAPBindPassword \"REDACTED\"\n\n\n\n\n\n\nWarning\n\n\n\nFor production, do not use a personal account for LDAP binding. Ask IT for a dedicated service bind account with read‑only permissions and store those credentials securely.\n\n\nSet app environment variables for Shiny Server (systemd override recommended):\nsudo systemctl edit shiny-server\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\n# If you want to restrict search to the user OU:\n# Environment=LDAP_BASE_DN=ou=People,dc=biochem,dc=mpg,dc=de\n# Optional bind credentials (only if anonymous LDAP search is blocked):\n# Environment=LDAP_BIND_DN=cn=binduser,dc=biochem,dc=mpg,dc=de\n# Environment=LDAP_BIND_PW=REDACTED\nRestart services after config changes:\nsudo systemctl restart apache2\nsudo systemctl restart shiny-server\n\n6.4.1 Admin access in LDAP mode (VM)\nMoved to notes/sql-handling.qmd (admin promotion and verification commands).\n\n\n6.4.2 Switch between LDAP and local modes (VM)\nI switch auth modes by changing the AUTH_MODE environment variable for the shiny-server service and restarting it.\nOpen the systemd override:\nsudo systemctl edit shiny-server\nLDAP mode (production):\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLocal mode (maintenance/testing):\n[Service]\nEnvironment=AUTH_MODE=local\nApply changes:\nsudo systemctl restart shiny-server\nsudo systemctl show shiny-server --property=Environment\nIf I switch back to LDAP, I also remove any dev‑only variables like DEV_REMOTE_USER.\n\n\n6.4.3 Local dev testing (LDAP mode)\nTo test LDAP integration on your local machine without affecting production, run the app in dev mode and simulate the authenticated user. If LDAP attribute lookup is needed, provide a bind DN/password (personal credentials are OK for local testing only).\nSys.setenv(\n  APP_ENV = \"dev\",\n  AUTH_MODE = \"ldap\",\n  DEV_REMOTE_USER = \"your_username\",\n  LDAP_BIND_DN = \"uid=your_username,ou=YourGroup,ou=Research Group,ou=People,dc=biochem,dc=mpg,dc=de\",\n  LDAP_BIND_PW = \"YOUR_PASSWORD\"\n)\nshiny::runApp(\"sequencing-app\")\nTo switch back to normal local login (no LDAP), run:\nSys.setenv(APP_ENV = \"dev\", AUTH_MODE = \"local\")\nshiny::runApp(\"sequencing-app\")\nTo fully clear the LDAP/testing variables in your R session:\nSys.unsetenv(c(\n  \"APP_ENV\", \"AUTH_MODE\", \"DEV_REMOTE_USER\",\n  \"LDAP_BIND_DN\", \"LDAP_BIND_PW\",\n  \"LDAP_URI\", \"LDAP_BASE_DN\", \"LDAP_DEBUG\"\n))\n\n\n6.4.4 How I run the app locally (my notes)\nWhen I want the normal local login, I run:\nSys.setenv(APP_ENV = \"dev\", AUTH_MODE = \"local\")\nshiny::runApp(\"sequencing-app\")\nWhen I want to simulate production LDAP login, I run:\nSys.setenv(\n  APP_ENV = \"dev\",\n  AUTH_MODE = \"ldap\",\n  DEV_REMOTE_USER = \"my_username\",\n  LDAP_URI = \"ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\",\n  LDAP_BASE_DN = \"dc=biochem,dc=mpg,dc=de\"\n)\nshiny::runApp(\"sequencing-app\")\nIf I want to fully reset the session, I clear the env vars:\nSys.unsetenv(c(\n  \"APP_ENV\", \"AUTH_MODE\", \"DEV_REMOTE_USER\",\n  \"LDAP_BIND_DN\", \"LDAP_BIND_PW\",\n  \"LDAP_URI\", \"LDAP_BASE_DN\", \"LDAP_DEBUG\"\n))\nLocal vs LDAP mode (practical difference for me):\n\nLocal mode uses the SQLite users/passwords and shows the normal login screen.\nLDAP mode auto‑logs in with the LDAP user, pulls email/phone/OU, and hides the local login UI.\nLDAP mode needs network access to the institute LDAP servers.\n\nDev badge: In dev mode, I see a small badge in the app header that shows DEV · LDAP or DEV · LOCAL, so I always know which mode I’m running.\n\n\n6.4.5 Budget holder auto-assignment (first login)\nOn first LDAP login, the app attempts to map the user to a budget holder based on the LDAP ou value.\nIf the ou contains a group key in parentheses (e.g., (... Cox)), the app matches that key against budget_holders and stores the full PI name (e.g., Cox Juergen) in users.research_group.\nWhen a new project is created, this research_group value is used to auto‑select the budget holder (and thus the cost center).\nIf multiple cost centers exist for the same PI, the first match is selected by default and can be adjusted during project creation.",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#ldap-summary-2026-02-06",
-    "href": "chapters/ldap-authentication.html#ldap-summary-2026-02-06",
-    "title": "6  LDAP Authentication",
-    "section": "6.5 LDAP Summary (2026-02-06)",
-    "text": "6.5 LDAP Summary (2026-02-06)",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/ldap-authentication.html#ldap-project-management-app-summary-2026-02-06",
-    "href": "chapters/ldap-authentication.html#ldap-project-management-app-summary-2026-02-06",
-    "title": "6  LDAP Authentication",
-    "section": "6.6 LDAP + Project Management App Summary (2026-02-06)",
-    "text": "6.6 LDAP + Project Management App Summary (2026-02-06)\n\n6.6.1 What Changed\n\nAdded LDAP login flow with auto-login via X-Remote-User and local dev simulation via DEV_REMOTE_USER.\nLDAP attribute lookup now works without a bind account (anonymous bind), and falls back to ldapsearch for older ldapr versions.\nAdded a dev-only auth toggle and mode badge (DEV · LDAP / DEV · LOCAL).\nMapped LDAP ou values to budget holders, auto-selecting the correct PI in the project form (with partial match fallback).\nAdded notices when a PI has multiple cost centers or missing cost center.\nAdded “Other / not listed” budget holder option so users can enter a new PI (name + surname required; cost center optional with warning).\nscripts/deploy.sh now uses rsync and excludes the SQLite DB.\nDocs updated with LDAP setup, local testing, and env cleanup.\n.gitignore updated to ignore DB files and backup folders.\n\n\n\n6.6.2 Files Updated\n\nsequencing-app/app.R\nscripts/deploy.sh\nmpiseq2/ngs-vm_01-main.conf\nServer_preparations.qmd\n.gitignore\nsequencing-app/budget_holders.csv\n\n\n\n6.6.3 Local Run: Local Mode\nSys.setenv(APP_ENV = \"dev\", AUTH_MODE = \"local\")\nshiny::runApp(\"sequencing-app\")\nImplications - Uses SQLite users/passwords. - Shows normal login form. - Works offline.\n\n\n6.6.4 Local Run: LDAP Mode (simulate production)\nSys.setenv(\n  APP_ENV = \"dev\",\n  AUTH_MODE = \"ldap\",\n  DEV_REMOTE_USER = \"your_username\",\n  LDAP_URI = \"ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\",\n  LDAP_BASE_DN = \"dc=biochem,dc=mpg,dc=de\"\n)\nshiny::runApp(\"sequencing-app\")\nImplications - Auto-login (no local password). - Pulls mail, telephoneNumber, and ou via LDAP. - Auto-creates user in SQLite if missing. - Matches production behavior.\n\n\n6.6.5 Clear Dev Environment Variables\nSys.unsetenv(c(\n  \"APP_ENV\", \"AUTH_MODE\", \"DEV_REMOTE_USER\",\n  \"LDAP_BIND_DN\", \"LDAP_BIND_PW\",\n  \"LDAP_URI\", \"LDAP_BASE_DN\", \"LDAP_DEBUG\"\n))\n\n\n6.6.6 SQL handling (moved)\nAll SQL database commands and explanations were moved to notes/sql-handling.qmd.\n\n\n6.6.7 Budget Holder Behavior\n\nOn first LDAP login, the app maps LDAP ou to a PI name in budget_holders.\nIf multiple cost centers exist for a PI, the app displays a notice.\nIf cost center is missing (N.A./empty), the app displays a warning.\n“Other / not listed” allows users to enter a new PI and inserts into budget_holders automatically.\n\n\n\n6.6.8 Deploy (VM)\ncd /home/yeroslaviz/BCFNGS-project-management\ngit pull\n./scripts/deploy.sh\nscripts/deploy.sh uses rsync and does not overwrite the SQLite DB.\n\n\n6.6.9 LDAP on VM (when ready)\n\nUpdate Apache config (template in mpiseq2/ngs-vm_01-main.conf).\nEnable modules:\nsudo a2enmod ldap authnz_ldap headers\nsudo systemctl reload apache2\nSet Shiny env vars:\nsudo systemctl edit shiny-server\n[Service]\nEnvironment=AUTH_MODE=ldap\nEnvironment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nEnvironment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\n# Optional: restrict to People OU\n# Environment=LDAP_BASE_DN=ou=People,dc=biochem,dc=mpg,dc=de\nRestart services:\nsudo systemctl restart apache2\nsudo systemctl restart shiny-server\n\n\n\n6.6.10 Switching Modes on VM\nsudo systemctl edit shiny-server\n\nLDAP mode: Environment=AUTH_MODE=ldap\nLocal mode: Environment=AUTH_MODE=local (or remove the line)\n\nRestart:\nsudo systemctl restart shiny-server\n\n\n6.6.11 Why DB Files Are Ignored (moved)\nSee notes/sql-handling.qmd for the full rationale and git commands.\n\n\n6.6.12 Tools Needed\n\nldapsearch is required for LDAP attribute fallback:\n\nUbuntu: sudo apt install -y ldap-utils\nmacOS: brew install openldap",
-    "crumbs": [
-      "<span class='chapter-number'>6</span>  <span class='chapter-title'>LDAP Authentication</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html",
-    "href": "chapters/troubleshooting.html",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "",
-    "text": "7.1 VM Troubleshooting Guide",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#vm-troubleshooting-guide",
-    "href": "chapters/troubleshooting.html#vm-troubleshooting-guide",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "",
-    "text": "7.1.1 Contents\n\nDocumentation\nGit / GitHub\nApache / LDAP\nngs-vm Cutover (443/9443)\nSQL (moved)\nAuth mode switching\nApache proxy\nLDAP Deploy Troubleshooting (by symptom)\n\nThis checklist covers the most common issues we hit and how to fix them quickly.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#documentation",
-    "href": "chapters/troubleshooting.html#documentation",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.2 Documentation",
-    "text": "7.2 Documentation\n\n7.2.1 Book search not working (file://)\nQuarto search requires a web server. If you open the docs directly via file://, search is disabled.\nFix (local server):\ncd /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/Documentation/_site\npython3 -m http.server 8000\nThen open:\nhttp://localhost:8000\nAlternative:\nquarto preview /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/Documentation",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#git-github",
-    "href": "chapters/troubleshooting.html#git-github",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.3 Git / GitHub",
-    "text": "7.3 Git / GitHub\n\n7.3.1 Permission denied (publickey)\nSymptoms:\n\ngit@github.com: Permission denied (publickey)\nfatal: Could not read from remote repository\n\nFix:\n\nVerify SSH auth:\n\nssh -T git@github.com\n\nConfirm repo URL:\n\ngit remote -v\n\nEnsure the correct SSH key is loaded (or add it to ~/.ssh/config).\n\n\n\n7.3.2 Divergent branches during pull\nSymptoms:\nfatal: Need to specify how to reconcile divergent branches.\nFix:\ngit config pull.rebase false\n# or git config pull.rebase true\n\n\n7.3.3 Local changes block pull\nSymptoms:\nerror: Your local changes ... would be overwritten by merge\nFix:\ngit stash push -m \"vm local changes\"\ngit pull origin main\ngit stash pop\nResolve conflicts if they appear.\n\n\n7.3.4 Merge conflict in config files\nFix options:\n# Keep repo version\ngit checkout --ours &lt;file&gt;\n\n# Keep local version\ngit checkout --theirs &lt;file&gt;\n\n\n7.3.5 Untracked files in the VM\nSymptoms:\n?? sequencing-app/test_detailed.R\nFix:\n\nIgnore, delete, or add to .gitignore.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#apache-ldap",
-    "href": "chapters/troubleshooting.html#apache-ldap",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.4 Apache / LDAP",
-    "text": "7.4 Apache / LDAP\n\n7.4.1 Apache won’t restart after LDAP change\nSymptoms:\nAH00526: Syntax error ... Bad LDAP URL while parsing.\nFix:\nUse a single, complete LDAP URL:\nAuthLDAPURL \"ldaps://ldapserv1.biochem.mpg.de:636/dc=biochem,dc=mpg,dc=de?uid?sub?(objectClass=posixAccount)\"\n\n\n7.4.2 Invalid command 'RequestHeader'\nSymptoms:\nInvalid command 'RequestHeader', perhaps misspelled or defined by a module not included\nFix:\nsudo a2enmod headers\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n7.4.3 Invalid command LDAPTLS_CACERTDIR\nCause:\nLDAPTLS_CACERTDIR is not an Apache directive.\nFix:\nRemove from Apache config. Put TLS trust in /etc/ldap/ldap.conf instead.\n\n\n7.4.4 ldap_simple_bind() failed: Can’t contact LDAP server\nFix:\n\nCheck port:\n\nnc -vz ldapserv1.biochem.mpg.de 636\n\nTest TLS bypass:\n\nLDAPTLS_REQCERT=never ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\n\nFix /etc/ldap/ldap.conf:\n\nTLS_CACERTDIR /etc/ssl/certs\n\n\n7.4.5 LDAPTrustedGlobalCert error\nSymptoms:\nLDAPTrustedGlobalCert cannot occur within &lt;VirtualHost&gt; section\nFix:\nMove it to a global Apache config or comment it out (if not needed).\n\n\n7.4.6 LDAP works, but /sequencing-app/ returns 404\nSymptom\n\ncurl -Ik -u USER https://host/sequencing-app/ returns 404\ncurl -I http://localhost:3838/sequencing-app/ returns 200\n\nCause\nApache is proxying the wrong path (often due to an older ProxyPass / rule or a backup file in sites-enabled).\nFix\n\nEnsure only these lines exist in the active config:\n\nProxyPass /sequencing-app/ http://localhost:3838/sequencing-app/\nProxyPassReverse /sequencing-app/ http://localhost:3838/sequencing-app/\n\nRemove or move any backup config files out of /etc/apache2/sites-enabled (Apache can accidentally parse them).\nRestart Apache:\n\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n7.4.7 ERR_SSL_PROTOCOL_ERROR for https://bcf-vm/\nSymptom\n\nBrowser shows: This site can’t provide a secure connection / ERR_SSL_PROTOCOL_ERROR\nUsually appears while testing the new bcf-vm host over HTTPS.\n\nCommon causes\n\nHostname is not mapped on your local machine (/etc/hosts missing).\nApache default site (000-default.conf) is still active and interferes on :80.\nSSL vhost/modules are not fully enabled.\n\nFix\n\nOn your local machine, map VM IP to hostnames:\n\nsudo sh -c 'echo \"10.33.0.55 bcf-vm bcf-vm.biochem.mpg.de\" &gt;&gt; /etc/hosts'\nsudo dscacheutil -flushcache\nsudo killall -HUP mDNSResponder\n\nOn bcf-vm, keep only the intended site active and enable SSL:\n\nsudo a2dissite 000-default.conf\nsudo a2ensite bcf-vm.conf\nsudo a2enmod ssl headers rewrite proxy proxy_http\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\nVerify listeners/vhosts:\n\nsudo ss -ltnp | grep -E ':80|:443'\nsudo apache2ctl -S\n\nValidate with curl:\n\ncurl -vk https://bcf-vm/\ncurl -vk https://bcf-vm.biochem.mpg.de/\nIf needed, test locally on VM with explicit host header:\ncurl -kI -H 'Host: bcf-vm.biochem.mpg.de' https://127.0.0.1/\nConfig path used\n\n/etc/apache2/sites-available/bcf-vm.conf\n\n\n\n7.4.8 Debug logging too noisy (Apache or Shiny)\nSymptom\nLots of LDAP debug output in logs during normal use.\nFix (Apache)\nIn mpiseq2/ngs-vm_01-main.conf, use normal logging:\nLogLevel warn\n# LogLevel authnz_ldap:debug ldap:debug   # enable only when debugging\nFix (Shiny app)\nThe app prints LDAP debug logs when:\n\nLDAP_DEBUG=1\n\nSo for production:\n\nRemove LDAP_DEBUG=1 from /srv/shiny-server/sequencing-app/.Renviron (or set it to 0).\nRestart Shiny:\n\nsudo systemctl restart shiny-server\nIf I need debugging later, I can temporarily set:\nLDAP_DEBUG=1\nand restart the service again.\n\n\n7.4.9 LDAP mode configured, but app still shows local page\nSymptom\n\nApache LDAP prompt appears and credentials are accepted.\nApp opens, but shows local login / local-mode content.\n\nCause\nAUTH_MODE=ldap exists in systemd override, but those env vars are not reliably visible inside the Shiny R worker.\nFix\nSet LDAP env in app-local .Renviron (runtime source used by R):\nsudo tee /srv/shiny-server/sequencing-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_DEBUG=1\nEOF\nsudo chown shiny:shiny /srv/shiny-server/sequencing-app/.Renviron\nsudo chmod 640 /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nVerify in Shiny log:\nLATEST=$(sudo ls -1t /var/log/shiny-server/sequencing-app-shiny-*.log | head -n1)\nsudo tail -n 120 \"$LATEST\"\nExpected:\n\nLDAP DEBUG: startup env AUTH_MODE= ldap ...\n\nAfter confirmation, remove LDAP_DEBUG=1 and restart again.\n\n\n7.4.10 LDAP DEBUG ERROR (onFlushed): Operation not allowed without an active reactive context\nMeaning\n\nThis is a debug-only logging issue, not an LDAP login failure.\n\nAction\n\nSafe to ignore while LDAP_DEBUG=1 is enabled.\nDisable debug in production (LDAP_DEBUG unset) to stop this message.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#ngs-vm-cutover-4439443",
-    "href": "chapters/troubleshooting.html#ngs-vm-cutover-4439443",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.5 ngs-vm Cutover (443/9443)",
-    "text": "7.5 ngs-vm Cutover (443/9443)\n\n7.5.1 Main URL still serves Perl after cutover\nCheck active vhosts:\nsudo apache2ctl -S\nFix:\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo a2dissite 02-testing.conf || true\nsudo a2dissite default-ssl.conf || true\nsudo apache2ctl -t\nsudo systemctl restart apache2\nOr run the scripted cutover:\ncd /home/yeroslaviz/BCFNGS-project-management\n./scripts/cutover_ngs_vm_ports.sh cutover\n\n\n7.5.2 Perl fallback on :9443 returns connection refused\nCommon causes:\n\nListen 9443 missing in /etc/apache2/ports.conf\nfallback site not enabled\n\nFix:\ngrep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf\nsudo a2ensite ngs-vm-perl-9443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n7.5.3 LDAP login works on :8443 but fails on no-port :443\nCause:\n\nngs-vm-shiny-443.conf is missing LDAP &lt;Location /sequencing-app/&gt; auth block or is not the active :443 vhost.\n\nFix:\n\nCopy from repo template and re-enable:\n\nsudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf\nsudo a2ensite ngs-vm-shiny-443.conf\nsudo apache2ctl -t\nsudo systemctl restart apache2",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#sql-moved",
-    "href": "chapters/troubleshooting.html#sql-moved",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.6 SQL (moved)",
-    "text": "7.6 SQL (moved)\nAll SQL database commands and explanations are documented in the SQL Handling chapter (Documentation/chapters/sql-handling.qmd).\nThis includes admin promotion in LDAP mode, SQLite inspection commands, budget holder updates, and the legacy import workflow.\n\n7.6.1 SQLite: “attempt to write a readonly database”\nIf you see sqlite3.OperationalError: attempt to write a readonly database when running setup/import scripts, you are usually running as the wrong user.\n\nOn the VM, the live DB under /srv/shiny-server/sequencing-app/ is typically owned by shiny.\nStop Shiny Server, run the command as shiny, then start it again:\n\nsudo systemctl stop shiny-server\nsudo -u shiny &lt;your command here&gt;\nsudo systemctl start shiny-server\nIf it still fails, check DB ownership/permissions:\nls -l /srv/shiny-server/sequencing-app/sequencing_projects.db",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#auth-mode-switching",
-    "href": "chapters/troubleshooting.html#auth-mode-switching",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.7 Auth mode switching",
-    "text": "7.7 Auth mode switching\nLDAP mode (preferred: app .Renviron)\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nLocal mode (preferred: app .Renviron)\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/sequencing-app/.Renviron\nsudo systemctl restart shiny-server\nAlternative (systemd override) is still valid:\nsudo systemctl edit shiny-server\nThen set Environment=AUTH_MODE=... and restart.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#apache-proxy",
-    "href": "chapters/troubleshooting.html#apache-proxy",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.8 Apache proxy",
-    "text": "7.8 Apache proxy\n\n7.8.1 /sequencing-app/ returns 404\nSymptoms:\n\ncurl -Ik -u USER https://host/sequencing-app/ returns 404\ncurl -I http://localhost:3838/sequencing-app/ returns 200\n\nCause:\nConflicting ProxyPass / rules or backup config files in sites-enabled.\nFix:\n\nEnsure only these lines are active:\n\nProxyPass /sequencing-app/ http://localhost:3838/sequencing-app/\nProxyPassReverse /sequencing-app/ http://localhost:3838/sequencing-app/\n\nRemove or move backup files from /etc/apache2/sites-enabled.\nRestart Apache:\n\nsudo apache2ctl -t\nsudo systemctl restart apache2\n\n\n7.8.2 Redirect to / shows “No UI defined”\nCause:\nRoot path is not proxied correctly.\nFix:\nUse /sequencing-app/ as the app path and update redirects accordingly.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#shiny",
-    "href": "chapters/troubleshooting.html#shiny",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.9 Shiny",
-    "text": "7.9 Shiny\n\n7.9.1 App works locally but fails via Apache\nCheck:\n\nApache logs for LDAP errors\nShiny logs for app startup errors\n\n\n\n7.9.2 LDAP mode enabled but no user\nCause:\nShiny does not receive a user identity.\nFix:\n\nUse /sequencing-app/?auth_user=&lt;user&gt; redirect fallback.\nConfirm redirect works with curl -Ik -u USER https://host/.\n\n\n\n7.9.3 Missing environment variables in Shiny\nCheck:\nsudo systemctl show shiny-server --property=Environment\nRestart after changes:\nsudo systemctl restart shiny-server",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#deployment",
-    "href": "chapters/troubleshooting.html#deployment",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.10 Deployment",
-    "text": "7.10 Deployment\n\n7.10.1 Deploy script ran but app unchanged\nFix:\n\nVerify scripts/deploy.sh ran successfully.\nConfirm files in /srv/shiny-server/sequencing-app/ updated.\n\n\n\n7.10.2 Database overwritten\nFix:\n\nEnsure scripts/deploy.sh excludes sequencing_projects.db.\nKeep *.db ignored in git.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#quick-validation-commands",
-    "href": "chapters/troubleshooting.html#quick-validation-commands",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.11 Quick validation commands",
-    "text": "7.11 Quick validation commands\n# Apache\nsudo apache2ctl -t\nsudo apache2ctl -S\n\n# LDAP\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\n\n# App (proxy)\ncurl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/\n\n# App (backend)\ncurl -I http://localhost:3838/sequencing-app/",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#references",
-    "href": "chapters/troubleshooting.html#references",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.12 References",
-    "text": "7.12 References\n\nServer_preparations.qmd\nnotes/sql-handling.qmd\nnotes/ubuntu-bare-server-setup-howto.qmd",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#ldap-deploy-troubleshooting-by-symptom",
-    "href": "chapters/troubleshooting.html#ldap-deploy-troubleshooting-by-symptom",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.13 LDAP Deploy Troubleshooting (by symptom)",
-    "text": "7.13 LDAP Deploy Troubleshooting (by symptom)",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#troubleshooting-by-symptom",
-    "href": "chapters/troubleshooting.html#troubleshooting-by-symptom",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.14 Troubleshooting by symptom",
-    "text": "7.14 Troubleshooting by symptom\n\n7.14.1 ERR_TOO_MANY_REDIRECTS\nLikely cause:\n\nApache rewrite rule loop in /etc/apache2/sites-enabled/01-main.conf.\n\nFix:\nsudo cp ~/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-available/01-main.conf\nsudo ln -sf /etc/apache2/sites-available/01-main.conf /etc/apache2/sites-enabled/01-main.conf\nsudo apache2ctl configtest\nsudo systemctl restart apache2\nsudo systemctl restart shiny-server\nThen re-run curl checks from section 4.\n\n\n7.14.2 App shows local login page + LDAP mode enabled but no authenticated user found\nLikely cause:\n\nShiny is in LDAP mode, but proxy trust/query fallback settings are missing.\n\nChecks:\nsudo systemctl show shiny-server --property=Environment\nRequired:\n\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\n\n\n\n7.14.3 Disconnected from the server. Reload\nLikely causes:\n\nShiny worker restarted/terminated\nApache websocket/proxy path mismatch\n\nChecks:\nsudo journalctl -u shiny-server -n 200 --no-pager\nsudo tail -n 200 /var/log/shiny-server/$(sudo ls -t /var/log/shiny-server | head -n 1)\nsudo tail -n 200 /var/log/apache2/sequencing-app-ssl-error.log\nAlso ensure Apache modules are enabled:\nsudo apache2ctl -M | egrep 'headers_module|rewrite_module|proxy_module|proxy_http_module|proxy_wstunnel_module|ldap_module|authnz_ldap_module'\n\n\n7.14.4 User can impersonate another user via URL query\nExpected fixed behavior:\n\ntampered auth_user should always be rewritten to the authenticated LDAP username.\n\nIf not fixed, re-apply mpiseq2/ngs-vm_01-main.conf from repo and restart Apache + Shiny (section 5A).",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#certificate-warning-note",
-    "href": "chapters/troubleshooting.html#certificate-warning-note",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.15 Certificate warning note",
-    "text": "7.15 Certificate warning note\nIf Apache restart shows:\n\nAH01909: server certificate does NOT include an ID which matches the server name\n\nThis is a certificate/SAN mismatch warning for host naming. It is separate from LDAP auth logic and redirect rewrite behavior.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#vm-ldap-rollout-errors-from-server-preparations",
-    "href": "chapters/troubleshooting.html#vm-ldap-rollout-errors-from-server-preparations",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.16 VM LDAP Rollout Errors (from Server Preparations)",
-    "text": "7.16 VM LDAP Rollout Errors (from Server Preparations)",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#possible-errors-and-fixes-vm-ldap-rollout",
-    "href": "chapters/troubleshooting.html#possible-errors-and-fixes-vm-ldap-rollout",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.17 Possible errors and fixes (VM LDAP rollout)",
-    "text": "7.17 Possible errors and fixes (VM LDAP rollout)\nThis section captures the real errors I hit during the VM rollout and the fixes that worked. It is meant as a troubleshooting reference.\n\n7.17.1 Apache won’t restart after LDAP change\nSymptom\nAH00526: Syntax error ... Bad LDAP URL while parsing.\nCause\nApache’s AuthLDAPURL is very strict. Each URL must be complete (host + base DN + query), and some Apache builds don’t accept multiple URLs in a single directive.\nFix\nUse a single server (most stable on my VM):\nAuthLDAPURL \"ldaps://ldapserv1.biochem.mpg.de:636/dc=biochem,dc=mpg,dc=de?uid?sub?(objectClass=posixAccount)\"\nIf the multi‑server line fails, I keep one server and fall back manually if needed.\n\n\n7.17.2 LDAPTLS_CACERTDIR breaks Apache\nSymptom\nInvalid command 'LDAPTLS_CACERTDIR'\nCause\nLDAPTLS_CACERTDIR is not an Apache directive. It belongs to the OpenLDAP client config.\nFix\nRemove it from Apache. If I need TLS trust, I configure it in /etc/ldap/ldap.conf instead.\n\n\n7.17.3 LDAP login shows 500 Internal Server Error\nSymptom\n\nBrowser shows Internal Server Error\nApache log shows:\n\nldap_simple_bind() failed][Can't contact LDAP server]\nCause\nLDAP TLS handshake fails (certificate trust not configured).\nFix\n\nConfirm port reachability:\n\nnc -vz ldapserv1.biochem.mpg.de 636\n\nTest LDAP with TLS bypass to confirm trust problem:\n\nLDAPTLS_REQCERT=never ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\n\nFix trust in /etc/ldap/ldap.conf:\n\nTLS_CACERTDIR /etc/ssl/certs\nImportant: I had a typo (TLS_CACERETDIR) which prevented TLS trust from loading. Fixing the spelling made LDAP work.\n\nVerify normal LDAP now works:\n\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\nThen restart Apache:\nsudo systemctl restart apache2\n\n\n7.17.4 Shiny app runs locally but crashes via Apache\nSymptom\n\nApp works with shiny::runApp()\nBut Apache shows 500 and Shiny worker terminates\n\nCause",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#vibe-coding",
-    "href": "chapters/troubleshooting.html#vibe-coding",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.18 Vibe Coding",
-    "text": "7.18 Vibe Coding\n\n7.18.1 AI session restart (quick resume)\nIf I need to resume work in a new AI session, I point it to:\n\nQuick Start — how to run locally/VM, and environment variables.\nSetup & Infrastructure — system setup, Apache/Shiny layout, base assumptions.\nDeploy & Operations — rollout steps, backups, and validation checks.\nLDAP Authentication — proxy/LDAP flow and expected headers.\nSQL Handling — DB inspection, rebuild, and admin/user updates.\nChange Log — latest decisions and what changed recently.\n\nLDAP authentication failure in Apache (not an app crash).\nFix\nCheck Apache log for authnz_ldap errors and fix TLS trust as above.",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/troubleshooting.html#comprehensive-errorchecking-checklist",
-    "href": "chapters/troubleshooting.html#comprehensive-errorchecking-checklist",
-    "title": "7  VM Troubleshooting Guide",
-    "section": "7.19 Comprehensive Error‑Checking Checklist",
-    "text": "7.19 Comprehensive Error‑Checking Checklist\nWhen something breaks, I run through this list in order:\n\nApache syntax\n\nsudo apache2ctl -t\n\nWhich vhost is active\n\nsudo apache2ctl -S\n\nProxy path\n\nsudo grep -n \"ProxyPass\" -R /etc/apache2/sites-enabled /etc/apache2/conf-enabled\n\nLDAP connectivity + TLS\n\nnc -vz ldapserv1.biochem.mpg.de 636\nldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \\\n  -b \"dc=biochem,dc=mpg,dc=de\" \"(uid=USER)\" mail\nIf that fails, verify /etc/ldap/ldap.conf has:\nTLS_CACERTDIR /etc/ssl/certs\n\nLDAP auth prompt vs app redirect\n\ncurl -Ik https://HOST/\ncurl -Ik -u USER https://HOST/\nExpected: 401 without user, 302 to /sequencing-app/?auth_user=USER with user.\n\nShiny backend is reachable\n\ncurl -I http://localhost:3838/sequencing-app/\n\nApache app path\n\ncurl -Ik -u USER https://HOST/sequencing-app/\n\nShiny logs\n\nsudo ls -t /var/log/shiny-server/ | head -n 1\nsudo tail -n 200 /var/log/shiny-server/FILE.log\n\nShiny environment variables\n\nsudo systemctl show shiny-server --property=Environment\n\nDatabase permissions\n\nls -l /srv/shiny-server/sequencing-app/sequencing_projects.db\n\nReload after config change\n\nsudo systemctl restart apache2\nsudo systemctl restart shiny-server",
-    "crumbs": [
-      "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Troubleshooting Guide</span>"
+      "<span class='chapter-number'>6</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html",
     "href": "chapters/change-log.html",
-    "title": "8  Change Log",
+    "title": "7  Change Log",
     "section": "",
-    "text": "8.1 Change Log",
+    "text": "7.1 Change Log",
     "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#change-log",
     "href": "chapters/change-log.html#change-log",
-    "title": "8  Change Log",
+    "title": "7  Change Log",
     "section": "",
-    "text": "8.1.1 Contents\n\nChanges on 03.03.2026\nChanges on 02.03.2026\nChanges on 27.02.2026\nChanges on 25.02.2026\nChanges on 23.02.2026\nChanges on 20.02.2026\nChanges on 16.02.2026\nChanges on 13.02.2026\nChanges on 12.02.2026\nChanges on 11.02.2026\nChanges on 09.02.2026\nChanges on 06.02.2026\nChanges on 14.11.2026",
+    "text": "7.1.1 Contents\n\nChanges on 03.03.2026",
     "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
-    "objectID": "chapters/change-log.html#changes-on-03.03.2026",
-    "href": "chapters/change-log.html#changes-on-03.03.2026",
-    "title": "8  Change Log",
-    "section": "8.2 Changes on 03.03.2026",
-    "text": "8.2 Changes on 03.03.2026\n\nUpdated admin cost-notification recipient routing:\n\nreplaced project creator (projects.user_id) email with responsible user email resolution.\nresolution order now supports:\n\nusername match in users\nunique full-name match in users\ndirect email stored in responsible_user (legacy/manual fallback).\n\nrecipient set for admin cost-notification remains:\n\nbudget holder email\nresolved responsible user email\nngs@biochem.mpg.de.\n\n\nFixed responsible-user normalization crash on larger user tables:\n\nnormalize_key() is now vector-safe and no longer applies scalar %||% logic to full vectors.\nresolves runtime error: length = &lt;n&gt; in coercion to logical(1) seen in project table rendering and responsible-user migration flow.\n\nStandardized user-facing terminology:\n\nchanged Service Type(s) to Sample Service Type(s) across the app UI, notifications, and source docs.\ndatabase schema/table names remain unchanged (service_types, service_type_id).\n\nUpdated admin cost-estimation HTML email formatting:\n\nadded Sequencing Platform line to the email details payload/body.\nboth lines are now emphasized in red:\n\nSample Service Type: ...\nSequencing Platform: ....\n\n\nAdded compatibility rewrite for project-creation email templates:\n\nif an existing DB template still contains - Service Type:, the send path rewrites it to - Sample Service Type: at runtime.",
+    "objectID": "chapters/change-log.html#changes-on-16.06.2027",
+    "href": "chapters/change-log.html#changes-on-16.06.2027",
+    "title": "7  Change Log",
+    "section": "7.2 Changes on 16.06.2027",
+    "text": "7.2 Changes on 16.06.2027\n\ngithub repository was set up\nmscf-vm was set-up for and a https certificate was applied for.\nconnect VM to github\nrun bash scripts/check_requirements.sh to install requirements, both R packages and ubuntu packages\nmodify script deploy.sh to fit the new VM specifications\nsetting up the shiny-server, connect to ldap server",
     "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-02.03.2026",
-    "href": "chapters/change-log.html#changes-on-02.03.2026",
-    "title": "8  Change Log",
-    "section": "8.3 Changes on 02.03.2026",
-    "text": "8.3 Changes on 02.03.2026\n\nReworked responsible-user handling in sequencing-app/app.R:\n\nadded canonicalization helpers so new/edited projects store stable username values in projects.responsible_user.\nkept legacy compatibility for historical entries (full-name only and label-like values).\n\nUpdated responsible-user dropdown behavior in Create/Edit project dialogs:\n\nchoices now use named values (label -&gt; username).\nlabel format is Full Name (username) when full name is available.\nchoices are sorted alphabetically and duplicate full names are disambiguated by username.\nedit modal preserves unresolved legacy values via a single Legacy entry: ... option.\n\nAdded startup normalization/migration for legacy responsible-user values:\n\nexact matches are auto-normalized to canonical username.\nunresolved values are reported and not overwritten.\n\nUpdated permissions and project visibility checks to support mixed historical formats:\n\ncanonical username\nlegacy full name\nlabel format Full Name (username).\n\nUpdated display and notifications:\n\nprojects table now renders responsible users in friendly format (Full Name (username) where resolvable).\nproject creation and cost-notification emails now use the same friendly responsible-user display.\n\nFixed startup error on larger user tables (length = 78 in coercion to logical(1)):\n\nhardened scalar coercion in responsible-user helper functions.\nwrapped legacy normalization at startup in tryCatch to avoid blocking app startup if migration encounters unexpected data.\n\nValidated the feature on bcf-vm after deploy from the feature branch; dropdown behavior and responsible-user flow worked as expected.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-27.02.2026",
-    "href": "chapters/change-log.html#changes-on-27.02.2026",
-    "title": "8  Change Log",
-    "section": "8.4 Changes on 27.02.2026",
-    "text": "8.4 Changes on 27.02.2026\n\nAdded support for admin-managed additional project costs:\n\nnew DB column projects.additional_cost\nautomatic runtime migration in app startup (ALTER TABLE ... ADD COLUMN when missing)\nsetup_database.R now creates additional_cost for fresh DB rebuilds.\n\nUpdated Cost Calculation blocks in Create/Edit project dialogs:\n\ninserted new row: Additional costs:\nrow is empty by default on project creation\ntotals now compute as base_cost + additional_cost when set.\n\nAdded admin-only Additional costs (€) input in Edit Project:\n\naccepts non-negative decimals (. or ,), normalizes to numeric\nempty value is stored as NULL\nnon-admin edits preserve existing additional costs.\n\nAdded admin-only Notifications button in Edit Project footer:\n\nbutton color #a1d99b\nsends cost-estimation mail to project creator + budget holder + ngs@biochem.mpg.de.\n\nAdded dedicated HTML email sender for notifications:\n\nsubject format: P&lt;id&gt; - New Sequencing Project Created - cost estimation\ncost line is bold + underlined and includes formatted value (e.g. 2460.00€).\n\nUpdated project-creation email wording:\n\nreplaced numeric total-cost line with:\n\nTotal Project Costs will be provided soon after project assessment by the NGS core facility.\n\n\nDocumentation updates:\n\nDeploy & Operations: feature-branch deploy workflow on test VMs; explicit note that deploy keeps DB content.\nGit & GitHub: added end-to-end feature branch workflow (create, push, test, merge, cleanup).\n\nUpdated email recipient routing:\n\nproject-creation email now goes only to ngs@biochem.mpg.de\nadmin-triggered notification email remains the detailed 3-recipient mail (project creator + budget holder + ngs@biochem.mpg.de).\n\nAdded a compact Quick Branch-To-Production Flow section to Git & GitHub for day-to-day branch/testing/merge/deploy operations.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-25.02.2026",
-    "href": "chapters/change-log.html#changes-on-25.02.2026",
-    "title": "8  Change Log",
-    "section": "8.5 Changes on 25.02.2026",
-    "text": "8.5 Changes on 25.02.2026\n\nAdded a production cutover runbook for ngs-vm with the final target routing:\n\nhttps://ngs-vm.biochem.mpg.de -&gt; Shiny on :443\nhttps://ngs-vm.biochem.mpg.de:9443 -&gt; Perl fallback\n\nAdded new Apache templates for this routing model:\n\nscripts/ngs-vm-shiny-443.conf\nscripts/ngs-vm-perl-9443.conf\n\nAdded a dedicated cutover automation helper:\n\nscripts/cutover_ngs_vm_ports.sh (cutover / rollback)\n\nUpdated Deploy & Operations with explicit deploy scope:\n\nscripts/deploy.sh remains code-only (no rebuild/import)\nrestart does not delete DB content\nsnapshot/rebuild/restore runbook documented as separate maintenance flow\n\nUpdated VM Installation Guide with manual and scripted cutover steps, plus post-cutover validation and rollback commands.\nUpdated Troubleshooting with new cutover-specific checks:\n\nno-port URL still serving Perl\n:9443 fallback connection refused\nLDAP works on :8443 but not on :443\n\nMarked scripts/switch_vhosts.sh as legacy (hostname-redirect strategy) and pointed to the new port-based cutover script.\nImproved scripts/cutover_ngs_vm_ports.sh to auto-disable competing :443 sites (including default-ssl.conf when enabled) and made rollback re-enable the first available legacy :443 site (PERL_443_SITE -&gt; 02-testing.conf -&gt; default-ssl.conf).\nAdded admin-editable landing text management for post-login panels:\n\nnew DB tables: announcement_panels, announcement_items\nadmin UI: Manage Landing Text (add/edit/delete/reorder boxes)\nmarkdown-lite support in each white box (**bold**, lists, links)\n\nReplaced hardcoded landing text rendering in sequencing-app/app.R with DB-backed rendering and safe markdown-lite parsing.\nAdded automatic table creation + default seeding for landing text on app startup (no manual DB rebuild needed).\nUpdated setup_database.R to create/seed announcement tables during full DB rebuild.\nUpdated documentation:\n\nSetup & Infrastructure: how admins edit landing text + markdown syntax\nDeploy & Operations: landing text persistence across deploy/restart",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-23.02.2026",
-    "href": "chapters/change-log.html#changes-on-23.02.2026",
-    "title": "8  Change Log",
-    "section": "8.6 Changes on 23.02.2026",
-    "text": "8.6 Changes on 23.02.2026\n\nExpanded VM installation documentation with explicit GitHub onboarding for fresh VMs (SSH key setup, deploy key vs user key decision, clone/pull/push workflow, and handling local changes on pull‑only VMs).\nAdded cross‑references in the VM prerequisites section so summary bullets link directly to the detailed install/config sections.\nAdded explicit Java and R mail dependency guidance (default-jdk, rJava, mailR) and clarified that Java is needed for email notifications, not LDAP authentication itself.\nAdded an explicit shiny service-user setup step with required permissions for /srv/shiny-server/sequencing-app.\nAdded LDAP dependency/install instructions to docs (Ubuntu packages + R ldapr install), including fallback install from GitHub via remotes::install_github(\"liamgilbey/ldapr\").\nUpdated scripts/check_requirements.sh to check/install LDAP build dependencies (libldap2-dev, libsasl2-dev), Java toolchain (default-jdk, java, javac), and rJava in the R package checks/installer.\nClarified deploy smoke-test guidance to use the canonical Apache template path 01-main.conf in this repo.\nExpanded ngs-vm Apache parallel-vhost instructions for :8443, including the concrete config file path (/etc/apache2/sites-available/ngs-vm-shiny.conf), RequestHeader set X-Forwarded-Proto, root redirect to /sequencing-app/, and scoped ProxyPass rules for /sequencing-app/.\nAdded missing Apache activation steps for ngs-vm rollout (Listen 8443 in ports.conf, required modules including headers, and site enable/restart sequence).\nAdded host-header based local validation commands (curl -kI -H 'Host: ...' https://127.0.0.1:8443/...) for diagnosing vhost routing issues before DNS/firewall checks.\nAdded ngs-vm runtime recovery notes for mailR/rJava startup failures (HTTP 500), including JDK alignment and explicit reinstall guidance to restore Shiny startup.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-20.02.2026",
-    "href": "chapters/change-log.html#changes-on-20.02.2026",
-    "title": "8  Change Log",
-    "section": "8.7 Changes on 20.02.2026",
-    "text": "8.7 Changes on 20.02.2026\n\nFixed local dev compatibility when the SQLite DB is missing users.full_name by falling back to u.username in project list queries.\nFixed project ID sorting in the Projects table: IDs now sort numerically while still displaying as P&lt;id&gt;; default sort is newest first (e.g. P1035 at the top).\nAdded edit buttons + edit dialogs for the missing Admin panels:\n\nBudget holders\nProject types\nSequencing platforms\nReference genomes\n\nAdded “Contents” section links to all Documentation chapters for consistent navigation.\nStandardized step-style headings in Deploy & Operations (Step 1: / Step 2: …) where headings previously used 1) / 2) formatting.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-16.02.2026",
-    "href": "chapters/change-log.html#changes-on-16.02.2026",
-    "title": "8  Change Log",
-    "section": "8.8 Changes on 16.02.2026",
-    "text": "8.8 Changes on 16.02.2026\n\nReplaced the old “New Projects” instruction list with two announcement/service blocks (boxed items) shown after login in both local and LDAP modes.\nAdded dedicated styles for the new announcement/service panels and boxed items.\nAdded a Modify Text (Announcements) section in Setup & Infrastructure with the edit location.\nRestructured the service block into grouped boxes with bullet lists and added the Inter font (extralight italic) for announcement panels.\nUpdated Setup & Infrastructure quick‑resume references and removed redundant numbering from sub‑headings.\nSoftened the announcement box border color.\nMade project deletion admin‑only (UI hides delete for non‑admins; backend enforces admin‑only delete).\nDocumented admin‑only delete policy and rollback steps in Deploy & Operations.\nAdded troubleshooting note for Quarto search requiring a local web server.\nAdded full‑name support for users (LDAP full name mapping, users.full_name, and full‑name display in project lists).\nAdded a legacy import workflow and script for perl‑VM → shiny‑VM migration, plus a separate vhost cutover script.\nFixed the perl‑VM PostgreSQL legacy export query to match the real schema (ref_genome.genome, sample_type.type, type.type, budget_group.budget).\nDocumented CSV encoding normalization (mojibake fix) and post‑import budget holder placeholder cleanup.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-13.02.2026",
-    "href": "chapters/change-log.html#changes-on-13.02.2026",
-    "title": "8  Change Log",
-    "section": "8.9 Changes on 13.02.2026",
-    "text": "8.9 Changes on 13.02.2026\n\nNew project emails now prefix the subject with the project ID (e.g., P2 - ...).\nProject description (if provided) is appended to the email body.\nEmail recipients changed to budget holder + project creator + ngs@biochem.mpg.de.\nAdmin broadcast is retained in the code but commented out for easy rollback.\nNotes were converted from .md to .qmd with a consistent header template, and the booklet generator now reads the .qmd sources.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-12.02.2026",
-    "href": "chapters/change-log.html#changes-on-12.02.2026",
-    "title": "8  Change Log",
-    "section": "8.10 Changes on 12.02.2026",
-    "text": "8.10 Changes on 12.02.2026\n\nFixed LDAP URL impersonation risk by enforcing canonical auth_user handling in Apache: tampered ?auth_user= values are rewritten to the authenticated LDAP user.\nFixed redirect-loop behavior in the Apache auth rewrite logic and validated canonical redirect behavior with curl (expected 302 to the authenticated user).\nConfirmed and documented required shiny-server environment for LDAP mode:\n\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\n\nExtended scripts/deploy.sh with post-deploy LDAP smoke tests (canonical redirect, tampered query rewrite, final 200 response) and actionable failure hints.\nAdded/merged troubleshooting guidance for LDAP login failures, disconnects, and redirect loops into the VM troubleshooting documentation.\nImproved Projects table readability in the Shiny UI (sequencing-app/app.R):\n\nexplicit DT column widths\nwrapped long cell text\nreliable column reflow on tab switch and resize\npreserved horizontal scrolling and existing formatting.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-11.02.2026",
-    "href": "chapters/change-log.html#changes-on-11.02.2026",
-    "title": "8  Change Log",
-    "section": "8.11 Changes on 11.02.2026",
-    "text": "8.11 Changes on 11.02.2026\n\nAdded a production rollout checklist with the exact commands for pull, backup, deploy, restart, and smoke‑tests.\nAdded a dedicated section for admin access in LDAP mode (pre‑create vs promote after first login).\nAdded a dedicated section on switching between LDAP and local auth on the VM (AUTH_MODE via systemd override).\nAdded the full pre‑create admin example that includes password/email for NOT NULL constraints.\nUpdated the canonical server path to /srv/shiny-server and corrected repo path on the local machine.\nMoved legacy/obsolete content to the end of the document under Obsolete / now wrong.\nReplaced the old deploy script reference (deploy_shiny_server.sh) with scripts/deploy.sh.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-09.02.2026",
-    "href": "chapters/change-log.html#changes-on-09.02.2026",
-    "title": "8  Change Log",
-    "section": "8.12 Changes on 09.02.2026",
-    "text": "8.12 Changes on 09.02.2026\n\nAdded a VM rollout HOW‑TO (GitHub SSH/deploy keys, divergent branches, DB tracking fix, backups, deploy, restart, rollback).\nDocumented production safeguards (app folder backup, DB backup, Apache config backup).\nUpdated scripts/deploy.sh to restart Shiny only if rsync succeeds (prevents restarts on failed deploys).\nCleaned up Apache LDAP logging (default to quiet logs; debug only when explicitly enabled).\nMade LDAP debug output in the Shiny app conditional on both APP_ENV=dev and LDAP_DEBUG=1 to avoid production log noise.\nDocumented the VM LDAP validation test (real user + service group user, and email routing behavior).\n\n\n8.12.1 VM rollout validation (what I tested and confirmed)\nI verified end‑to‑end behavior on the VM after fixing the Apache proxy path:\n\nLDAP login works: the browser prompts for username/password and redirects to /sequencing-app/?auth_user=&lt;user&gt;.\nUser mapping works: yeroslaviz (OU contains Cox) is mapped to the Cox group and the correct PI.\nUser mapping works: yeroslaviz-test (OU = NGS Facility) is treated as a service‑group user (no PI match).\nEmail routing works: research group users trigger mail to the PI and NGS.\nEmail routing works: service group users (no PI match) trigger mail to the administrator.\n\nIf all three happen, the LDAP→app→email flow is working as intended.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-06.02.2026",
-    "href": "chapters/change-log.html#changes-on-06.02.2026",
-    "title": "8  Change Log",
-    "section": "8.13 Changes on 06.02.2026",
-    "text": "8.13 Changes on 06.02.2026\n\nAdded LDAP login flow in the Shiny app (auto‑login via X-Remote-User, local dev simulation, and optional attribute lookup).\nLDAP attribute lookup now works with anonymous bind; uses ldapsearch fallback for older ldapr versions.\nAdded dev tools toggle (dev only) to switch between LDAP and local auth while testing.\nMapped LDAP ou values to budget holders, auto‑selecting the correct PI in the project form (with partial match fallback).\nAdded budget holder notices for multiple cost centers and missing cost center values.\nAdded “Other / not listed” budget holder option so users can enter a new PI (name/surname required; cost center optional with a warning).\nUpdated scripts/deploy.sh to use rsync and exclude sequencing_projects.db.\nUpdated Apache LDAP configuration template and added local dev testing instructions + env var cleanup.\nI do not track SQLite DB files in git because they change constantly, are environment‑specific (local vs VM), and can contain sensitive data. I ignore *.db/*.sqlite and keep only the schema/seed files in git.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
-    ]
-  },
-  {
-    "objectID": "chapters/change-log.html#changes-on-14.11.2026",
-    "href": "chapters/change-log.html#changes-on-14.11.2026",
-    "title": "8  Change Log",
-    "section": "8.14 Changes on 14.11.2026",
-    "text": "8.14 Changes on 14.11.2026\n\nchanging admin email address\nadd editing possibilities to the tables containing costs information.\nbi-weekly backup is added, but still commented out.\nlist of group leaders can now be read from an Excel sheet (must be in the same folder)\nSQL‑related commands and explanations (admin email updates, service cost updates, registration/budget holder DB updates, and DB inspection) were moved to notes/sql-handling.qmd.",
-    "crumbs": [
-      "<span class='chapter-number'>8</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>7</span>  <span class='chapter-title'>Change Log</span>"
     ]
   }
 ]

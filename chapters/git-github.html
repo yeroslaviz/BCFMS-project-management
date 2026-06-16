@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>2&nbsp; Quick Start – Documentation</title>
+<title>4&nbsp; Git and Github – Documentation</title>
 <style>
 /* Default styles provided by pandoc.
 ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
@@ -68,8 +68,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
-<link href="../chapters/setup-infrastructure.html" rel="next">
-<link href="../index.html" rel="prev">
+<link href="../chapters/vm-installation.html" rel="next">
+<link href="../chapters/setup-infrastructure.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
 <script src="../site_libs/quarto-html/popper.min.js"></script>
@@ -120,7 +120,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
       <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
         <i class="bi bi-layout-text-sidebar-reverse"></i>
       </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/quick-start.html"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Quick Start</span></a></li></ol></nav>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../chapters/git-github.html"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></a></li></ol></nav>
         <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
         </a>
       <button type="button" class="btn quarto-search-button" aria-label="Search" onclick="window.quartoOpenSearch();">
@@ -153,7 +153,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/quick-start.html" class="sidebar-item-text sidebar-link active">
+  <a href="../chapters/quick-start.html" class="sidebar-item-text sidebar-link">
  <span class="menu-text"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Quick Start</span></span></a>
   </div>
 </li>
@@ -165,7 +165,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
-  <a href="../chapters/git-github.html" class="sidebar-item-text sidebar-link">
+  <a href="../chapters/git-github.html" class="sidebar-item-text sidebar-link active">
  <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></span></a>
   </div>
 </li>
@@ -197,9 +197,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#quick-start" id="toc-quick-start" class="nav-link active" data-scroll-target="#quick-start"><span class="header-section-number">2.1</span> Quick Start</a>
+  <li><a href="#create-a-vm-ssh-key-to-connect-to-github" id="toc-create-a-vm-ssh-key-to-connect-to-github" class="nav-link active" data-scroll-target="#create-a-vm-ssh-key-to-connect-to-github"><span class="header-section-number">4.1</span> Create a VM SSH key to connect to github</a></li>
+  <li><a href="#load-key-and-pin-it-in-ssh-config" id="toc-load-key-and-pin-it-in-ssh-config" class="nav-link" data-scroll-target="#load-key-and-pin-it-in-ssh-config"><span class="header-section-number">4.2</span> Load key and pin it in SSH config</a></li>
+  <li><a href="#add-key-in-github" id="toc-add-key-in-github" class="nav-link" data-scroll-target="#add-key-in-github"><span class="header-section-number">4.3</span> Add key in GitHub</a>
   <ul class="collapse">
-  <li><a href="#contents" id="toc-contents" class="nav-link" data-scroll-target="#contents"><span class="header-section-number">2.1.1</span> Contents</a></li>
+  <li><a href="#confirm-github-access-and-pull-latest-code." id="toc-confirm-github-access-and-pull-latest-code." class="nav-link" data-scroll-target="#confirm-github-access-and-pull-latest-code."><span class="header-section-number">4.3.1</span> Confirm GitHub access and pull latest code.</a></li>
+  <li><a href="#clone-repository" id="toc-clone-repository" class="nav-link" data-scroll-target="#clone-repository"><span class="header-section-number">4.3.2</span> Clone repository</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -209,7 +212,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title"><span class="chapter-number">2</span>&nbsp; <span class="chapter-title">Quick Start</span></h1>
+<h1 class="title"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></h1>
 </div>
 
 
@@ -226,66 +229,56 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="quick-start" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="quick-start"><span class="header-section-number">2.1</span> Quick Start</h2>
-<section id="contents" class="level3" data-number="2.1.1">
-<h3 data-number="2.1.1" class="anchored" data-anchor-id="contents"><span class="header-section-number">2.1.1</span> Contents</h3>
+<p>Instruction to set up the git and github repository connection.</p>
+<section id="create-a-vm-ssh-key-to-connect-to-github" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="create-a-vm-ssh-key-to-connect-to-github"><span class="header-section-number">4.1</span> Create a VM SSH key to connect to github</h2>
+<pre class="{bash}"><code>mkdir -p ~/.ssh
+chmod 700 ~/.ssh
+ssh-keygen -t ed25519 -C "&lt;your-github-email&gt;" -f ~/.ssh/id_ed25519_bcfms_vm
+chmod 600 ~/.ssh/id_ed25519_bcfms_vm
+chmod 644 ~/.ssh/id_ed25519_bcfms_vm.pub</code></pre>
+</section>
+<section id="load-key-and-pin-it-in-ssh-config" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="load-key-and-pin-it-in-ssh-config"><span class="header-section-number">4.2</span> Load key and pin it in SSH config</h2>
+<pre class="{bash}"><code>eval "$(ssh-agent -s)"
+ssh-add ~/.ssh/id_ed25519_bcfms_vm</code></pre>
+<div id="59bfaa5c" class="cell" data-execution_count="1">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>cat <span class="op">&gt;&gt;</span> <span class="op">~/</span>.ssh<span class="op">/</span>config <span class="op">&lt;&lt;</span><span class="st">'EOF'</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>Host github.com</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  HostName github.com</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  User git</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>  IdentityFile <span class="op">~/</span>.ssh<span class="op">/</span>id_ed25519_bcfms_vm</span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>  IdentitiesOnly yes</span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>EOF</span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>chmod <span class="dv">600</span> <span class="op">~/</span>.ssh<span class="op">/</span>config</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+</div>
+</section>
+<section id="add-key-in-github" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="add-key-in-github"><span class="header-section-number">4.3</span> Add key in GitHub</h2>
+<pre class="{bash}"><code>cat ~/.ssh/id_ed25519_bcfms_vm.pub</code></pre>
+<p>Copy the full output (public key) and paste it in GitHub. <strong>Do not paste the private key file</strong>.</p>
+<p>Choose one:</p>
 <ul>
-<li><a href="#local-dev--local-mode">Local dev — local mode</a></li>
-<li><a href="#local-dev--ldap-simulation">Local dev — LDAP simulation</a></li>
-<li><a href="#local-dev--unset">Local dev — unset</a></li>
-<li><a href="#vm--ldap-mode-production">VM — LDAP mode (production)</a></li>
-<li><a href="#vm--local-mode-maintenance">VM — local mode (maintenance)</a></li>
-<li><a href="#vm--unset-clear-overrides">VM — unset (clear overrides)</a></li>
+<li>Deploy key (read-only) on this repo: clone + pull only.</li>
 </ul>
-<section id="local-dev-local-mode" class="level4" data-number="2.1.1.1">
-<h4 data-number="2.1.1.1" class="anchored" data-anchor-id="local-dev-local-mode"><span class="header-section-number">2.1.1.1</span> Local dev — local mode</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">APP_ENV =</span> <span class="st">"dev"</span>, <span class="at">AUTH_MODE =</span> <span class="st">"local"</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"sequencing-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>(We don’t use SSH key, since we don’t plan to push from the VM to github)</p>
+<p>Where to paste:</p>
+<p>Deploy key: GitHub repo <a href="https://github.com/yeroslaviz/BCFMS-project-management">BCFMS-project-management</a> -&gt; Settings -&gt; Deploy keys -&gt; Add deploy key.</p>
+<section id="confirm-github-access-and-pull-latest-code." class="level3" data-number="4.3.1">
+<h3 data-number="4.3.1" class="anchored" data-anchor-id="confirm-github-access-and-pull-latest-code."><span class="header-section-number">4.3.1</span> Confirm GitHub access and pull latest code.</h3>
+<pre class="{bash}"><code>ssh -T git@github.com</code></pre>
 </section>
-<section id="local-dev-ldap-simulation" class="level4" data-number="2.1.1.2">
-<h4 data-number="2.1.1.2" class="anchored" data-anchor-id="local-dev-ldap-simulation"><span class="header-section-number">2.1.1.2</span> Local dev — LDAP simulation</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">APP_ENV =</span> <span class="st">"dev"</span>,</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">AUTH_MODE =</span> <span class="st">"ldap"</span>,</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">DEV_REMOTE_USER =</span> <span class="st">"your_username"</span>,</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">LDAP_URI =</span> <span class="st">"ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636"</span>,</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">LDAP_BASE_DN =</span> <span class="st">"dc=biochem,dc=mpg,dc=de"</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"sequencing-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>To run this locally, replace “your_username” with actual user name.</p>
-</section>
-<section id="local-dev-unset" class="level4" data-number="2.1.1.3">
-<h4 data-number="2.1.1.3" class="anchored" data-anchor-id="local-dev-unset"><span class="header-section-number">2.1.1.3</span> Local dev — unset</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.unsetenv</span>(<span class="fu">c</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"APP_ENV"</span>,<span class="st">"AUTH_MODE"</span>,<span class="st">"DEV_REMOTE_USER"</span>,</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"LDAP_BIND_DN"</span>,<span class="st">"LDAP_BIND_PW"</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"LDAP_URI"</span>,<span class="st">"LDAP_BASE_DN"</span>,<span class="st">"LDAP_DEBUG"</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="vm-ldap-mode-production" class="level4" data-number="2.1.1.4">
-<h4 data-number="2.1.1.4" class="anchored" data-anchor-id="vm-ldap-mode-production"><span class="header-section-number">2.1.1.4</span> VM — LDAP mode (production)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl edit shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[Service]</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">AUTH_MODE=ldap</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="vm-local-mode-maintenance" class="level4" data-number="2.1.1.5">
-<h4 data-number="2.1.1.5" class="anchored" data-anchor-id="vm-local-mode-maintenance"><span class="header-section-number">2.1.1.5</span> VM — local mode (maintenance)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[Service]</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">AUTH_MODE=local</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="vm-unset-clear-overrides" class="level4" data-number="2.1.1.6">
-<h4 data-number="2.1.1.6" class="anchored" data-anchor-id="vm-unset-clear-overrides"><span class="header-section-number">2.1.1.6</span> VM — unset (clear overrides)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl edit shiny-server</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># remove AUTH_MODE/LDAP_* lines, save, then:</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="clone-repository" class="level3" data-number="4.3.2">
+<h3 data-number="4.3.2" class="anchored" data-anchor-id="clone-repository"><span class="header-section-number">4.3.2</span> Clone repository</h3>
+<pre class="{bash}"><code>cd /home/&lt;user&gt;/
+git clone git@github.com:&lt;user&gt;/BCFMS-project-management.git
+cd /home/&lt;user&gt;/BCFMS-project-management
+git pull --ff-only origin main</code></pre>
 
 
-</section>
 </section>
 </section>
 
@@ -692,13 +685,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   </script>
 <nav class="page-navigation">
   <div class="nav-page nav-page-previous">
-      <a href="../index.html" class="pagination-link" aria-label="Documentation">
-        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">1</span>&nbsp; <span class="chapter-title">Documentation</span></span>
+      <a href="../chapters/setup-infrastructure.html" class="pagination-link" aria-label="Setup &amp; Infrastructure">
+        <i class="bi bi-arrow-left-short"></i> <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Setup &amp; Infrastructure</span></span>
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../chapters/setup-infrastructure.html" class="pagination-link" aria-label="Setup &amp; Infrastructure">
-        <span class="nav-page-text"><span class="chapter-number">3</span>&nbsp; <span class="chapter-title">Setup &amp; Infrastructure</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../chapters/vm-installation.html" class="pagination-link" aria-label="VM Installation Guide (ngs-vm &amp; bcf-vm)">
+        <span class="nav-page-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">VM Installation Guide (ngs-vm &amp; bcf-vm)</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
