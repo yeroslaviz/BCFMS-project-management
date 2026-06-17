@@ -10,7 +10,7 @@ Instruction to set up the git and github repository connection.
 
 ## Create a VM SSH key to connect to github
 
-```{bash}
+```bash
 mkdir -p ~/.ssh
 chmod 700 ~/.ssh
 ssh-keygen -t ed25519 -C "<your-github-email>" -f ~/.ssh/id_ed25519_bcfms_vm
@@ -20,12 +20,12 @@ chmod 644 ~/.ssh/id_ed25519_bcfms_vm.pub
 
 ## Load key and pin it in SSH config
 
-```{bash}
+```bash
 eval "$(ssh-agent -s)"
 ssh-add ~/.ssh/id_ed25519_bcfms_vm
 ```
 
-```{python}
+```bash
 cat >> ~/.ssh/config <<'EOF'
 Host github.com
   HostName github.com
@@ -38,7 +38,7 @@ chmod 600 ~/.ssh/config
 
 ## Add key in GitHub
 
-```{bash}
+```bash
 cat ~/.ssh/id_ed25519_bcfms_vm.pub
 ```
 
@@ -56,14 +56,14 @@ Deploy key: GitHub repo [BCFMS-project-management](https://github.com/yeroslaviz
 
 ## Confirm GitHub access and pull latest code.
 
-```{bash}
+```bash
 ssh -T git@github.com
 git ls-remote git@github.com:example-org/example-repo.git
 ```
 
 ## Clone repository
 
-```{bash}
+```bash
 cd /home/<user>/
 git clone git@github.com:<user>/BCFMS-project-management.git
 cd /home/<user>/BCFMS-project-management
@@ -76,14 +76,14 @@ If the VM currently uses a deploy key, like we do on this VM, `push` will be den
 
 Set Git identity on the VM:
 
-```{bash}
+```bash
 git config --global user.name "Example User"
 git config --global user.email "example.user@example.org"
 git config --global pull.rebase false
 ```
 Optional write test:
 
-```{bash}
+```bash
 cd /home/<user>/BCFNGS-project-management
 git checkout -b test/vm-write-check
 git push -u origin test/vm-write-check
@@ -91,7 +91,7 @@ git push -u origin test/vm-write-check
 
 If push succeeds, delete the test branch:
 
-```{bash}
+```bash
 git checkout main
 git branch -D test/vm-write-check
 git push origin --delete test/vm-write-check

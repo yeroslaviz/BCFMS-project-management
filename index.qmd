@@ -34,13 +34,3 @@ quarto render Documentation/
 ```
 
 This booklet consolidates all operational and technical documentation for the sequencing Shiny app.
-
-
-TODO
-
-split the docs into (for now) three parts
-
-1. github-related (move sections from deploy-operations)
-2. installation-related (server,shiny, apache2, etc.)
-3. set up inside server.
-4. ???? deploy steps
