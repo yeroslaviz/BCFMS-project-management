@@ -21,7 +21,7 @@ execute:
 
 ```r
 Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
-shiny::runApp("sequencing-app")
+shiny::runApp("ms-app")
 ```
 
 #### Local dev — LDAP simulation
@@ -34,7 +34,7 @@ Sys.setenv(
   LDAP_URI = "ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636",
   LDAP_BASE_DN = "dc=biochem,dc=mpg,dc=de"
 )
-shiny::runApp("sequencing-app")
+shiny::runApp("ms-app")
 ```
 To run this locally, replace "your_username" with actual user name.
 

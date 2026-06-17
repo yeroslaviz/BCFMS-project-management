@@ -10,7 +10,7 @@ execute:
 
 ### Install packages
 
-This should be done at the beginning after the VM  was set up by the IT.
+This should be done at the beginning, after the VM  was set up by the IT.
 
 ```{bash}
 mkdir -p /home/yeroslaviz/BCFMS-project-management
@@ -18,8 +18,10 @@ cd /home/yeroslaviz/BCFMS-project-management
 bash scripts/check_requirements.sh
 ```
 
+We are runing here R version 4.6.0.
+
 ::: {.callout-tip}
-## The scripts ends with 
+## The scripts ends with
 
 ```
 Manual steps still required:
@@ -28,6 +30,7 @@ Manual steps still required:
 ```
 :::
 
+After the run has eneded, the [shiny server](#install-shiny-server) and the [apachae2](#configure-apache-test-https-redirect) were manually installed. The [`ldapr` package](#install-ldap-packages-ubuntu--r) must be installed from github separately.
 
 ### Install Shiny Server
 
@@ -65,7 +68,7 @@ sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
 
 These packages should already be installed via the installation script above, but just to make sure!
 
-#### Configure OpenLDAP 
+#### Configure OpenLDAP
 
 The client trust in `/etc/ldap/ldap.conf`:
 
@@ -90,7 +93,12 @@ Quick checks:
 ldapsearch -x -H ldaps://ldap01.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=yeroslaviz)" mail
 sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
 ```
+::: {.callout-important}
+## Which of the ldap servers should we use?
 
+Is it `ldapserv1` or `ldap01` - not sure if it makes a difference, but needs to remember that the two options exist. Both of them returns the output as expected.
+
+:::
 
 ## Configure the Shiny app folder
 
@@ -136,6 +144,13 @@ sudo systemctl restart apache2
 cd /srv/shiny-server/ms-app
 sudo -u shiny Rscript setup_database.R
 ```
+## Next steps (from VM installation guide)
+
+- [configure ldap](vm-installation.html#bcf-configure-ldap-systemd)
+- [configure .Renviron](vm-installation.html#bcf-app-renviron)
+- [configure apache vhost](vm-installation.html#bcf-configure-apache-vhost)
+- [Switch between LDAP and local modes on VM](#switch-between-ldap-and-local-modes-on-vm)
+
 
 
 ### Deploy the app files:
@@ -144,9 +159,6 @@ sudo -u shiny Rscript setup_database.R
 cd /home/yeroslaviz/BCFMS-project-management
 ./scripts/deploy.sh
 ```
-
-
-## Server Infrastructure
 
 ## Modify Text (Announcements)
 
@@ -189,7 +201,7 @@ If tables are missing, the app auto-creates them and seeds default content on st
 
 ### SQL handling (moved)
 
-All SQL database commands and explanations were moved to **`notes/sql-handling.qmd`**.  
+All SQL database commands and explanations were moved to **`notes/sql-handling.qmd`**.
 This includes:
 
 - DB rebuild procedure

@@ -13,7 +13,7 @@ execute:
 - [Changes on 03.03.2026](#changes-on-16.06.2026)
 
 
-## Changes on 16.06.2027
+## Changes on 16.06.2026
 
 1. [github repository](https://github.com/yeroslaviz/BCFMS-project-management) was set up
 2. mscf-vm was set-up for and a https certificate was applied for.
@@ -22,4 +22,7 @@ execute:
 5. modify script `deploy.sh` to fit the new VM specifications
 6. setting up the shiny-server, connect to ldap server
 
+## Changes on 17,06.2026
 
+1. cleaning and shrinking documentation
+2. finish installing all packages on the VM; upgrading R version to 4.6

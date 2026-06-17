@@ -11,7 +11,7 @@ The MS Core Facility provides services such as ​
 - Interaction proteomics by Affinity Purification Mass Spectrometry (AP-MS)
 - Post-translational modification identification (e.g. phosphorylation, ubiquitination, acetylation or glycosylation). Low stoichiometry modifications can be brought into view by enrichment (e.g. Fe-IMAC for phosphorylation)
 - Crosslinking-MS (XL-MS) to extract protein structure distance information
-- Intact mass of proteins and other biomolecules as well as small molecules 
+- Intact mass of proteins and other biomolecules as well as small molecules
 - Lipidomics / Metabolomics.
 
 
@@ -24,11 +24,10 @@ If you have any further questions regarding this repository, please do not hesit
 - [Git & GitHub](chapters/git-github.html)
 - [VM installation](chapters/vm-installation.qmd)
 - [Deploy & Operations](chapters/deploy-operations.html)
-- [LDAP Authentication](chapters/ldap-authentication.html)
-- [Troubleshooting](chapters/troubleshooting.html)
 - [Change Log](chapters/change-log.html)
 
 ## How to render
+
 
 ```bash
 quarto render Documentation/
@@ -44,4 +43,4 @@ split the docs into (for now) three parts
 1. github-related (move sections from deploy-operations)
 2. installation-related (server,shiny, apache2, etc.)
 3. set up inside server.
-4. ???? deploy steps 
+4. ???? deploy steps

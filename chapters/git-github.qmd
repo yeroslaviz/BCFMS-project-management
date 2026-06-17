@@ -6,7 +6,7 @@ execute:
   warning: false
 ---
 
-Instruction to set up the git and github repository connection. 
+Instruction to set up the git and github repository connection.
 
 ## Create a VM SSH key to connect to github
 
@@ -54,13 +54,14 @@ Where to paste:
 
 Deploy key: GitHub repo [BCFMS-project-management](https://github.com/yeroslaviz/BCFMS-project-management) -> Settings -> Deploy keys -> Add deploy key.
 
-### Confirm GitHub access and pull latest code.
+## Confirm GitHub access and pull latest code.
 
 ```{bash}
 ssh -T git@github.com
+git ls-remote git@github.com:example-org/example-repo.git
 ```
 
-### Clone repository
+## Clone repository
 
 ```{bash}
 cd /home/<user>/
@@ -69,4 +70,29 @@ cd /home/<user>/BCFMS-project-management
 git pull --ff-only origin main
 ```
 
+## Enable push from the VM
 
+If the VM currently uses a deploy key, like we do on this VM, `push` will be denied. To allow `push`, we have to add an SSH key attached to a GitHub user that has write permission.
+
+Set Git identity on the VM:
+
+```{bash}
+git config --global user.name "Example User"
+git config --global user.email "example.user@example.org"
+git config --global pull.rebase false
+```
+Optional write test:
+
+```{bash}
+cd /home/<user>/BCFNGS-project-management
+git checkout -b test/vm-write-check
+git push -u origin test/vm-write-check
+```
+
+If push succeeds, delete the test branch:
+
+```{bash}
+git checkout main
+git branch -D test/vm-write-check
+git push origin --delete test/vm-write-check
+```

@@ -1,18 +1,18 @@
 ---
-title: "VM Installation Guide (ngs-vm & bcf-vm)"
+title: "VM Installation Guide"
 execute:
   eval: false
   echo: true
   warning: false
 ---
 
-## VM Installation Guide (ngs-vm & bcf-vm)
+## VM Installation Guide
+
+This would be a general installation guide for future machines.
 
 ### Contents
 
-- [Scope](#scope)
-- [Port strategy (recommended)](#port-strategy-recommended)
-- [Prerequisites (both VMs)](#prerequisites-both-vms)
+- [Prerequisites](#prerequisites)
 - [GitHub connection on a fresh VM](#github-connection-on-a-fresh-vm)
 - [bcf-vm: clean install](#bcf-vm-clean-install)
 - [ngs-vm: parallel install next to perl system](#ngs-vm-parallel-install-next-to-perl-system)
@@ -20,30 +20,16 @@ execute:
 - [Cutover and rollback](#cutover-and-rollback)
 - [Post-install verification](#post-install-verification)
 
-## Scope
 
-This guide covers a full installation of the Shiny app on two Ubuntu 24 VMs:
+## Prerequisites
 
-- `bcf-vm`: clean install, no HTTPS cert (self-signed OK for testing).
-- `ngs-vm`: already running the legacy Perl system; install the Shiny app in parallel, then redirect the public hostname when ready.
-
-## Port strategy (recommended)
-
-Recommended for parallel operation on `ngs-vm`:
-
-- Shiny Server stays on `:3838` (default).
-- Apache vhost for the **new** system listens on `:8443` (HTTPS) or another high port (e.g. `:1234` if you prefer).
-- Existing legacy system remains on `:443`.
-
-Why `8443`: it is standard for HTTPS on alternate ports and avoids conflicts.
-
-## Prerequisites (both VMs)
-
-Run the requirement check script:
+Run the [requirement](setup-infrastructure.qmd#install-all-dependencies) check script:
 
 ```bash
 bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh
 ```
+
+Continue if needed -
 
 Install missing apt packages:
 
@@ -61,21 +47,24 @@ The requirement check reports missing `rJava`/`mailR` and missing Java tools (`j
 
 Manual steps still required after package install:
 
-- Install Shiny Server from the `.deb` package (see [bcf-vm Step 2](#bcf-install-shiny-server)).
-- Install Java + R mail dependencies for email notifications (see [bcf-vm Step 2b](#bcf-java-mail)).
-- Install LDAP client/build dependencies + `ldapr` (see [bcf-vm Step 2d](#bcf-ldap-deps)).
-- Ensure the `shiny` user exists and app-folder permissions are correct (see [bcf-vm Step 2c](#bcf-shiny-user-perms)).
+- Install Shiny Server from the `.deb` package( see [here](setup-infrastructure.qmd#install-shiny-server)).
+- Install Java + R mail dependencies for email notifications (see [here](setup-infrastructure.qmd#install-java-mail-packages-required-for-email-notifications)).
+- Install LDAP client/build dependencies + `ldapr` (see [here](setup-infrastructure.qmd#install-ldap-packages-ubuntu-r)).
+- Ensure the `shiny` user exists and app-folder permissions are correct (see [here](setup-infrastructure.qmd#configure-the-shiny-app-folder)).
+
+**This step still needs to be added in the Set up and infrastrucutre part**
+
 - Configure Apache vhost, LDAP, and systemd environment (see [bcf-vm Step 6](#bcf-configure-ldap-systemd), [bcf-vm Step 7](#bcf-configure-apache-vhost), and [ngs-vm Step 2](#ngs-parallel-shiny-vhost)).
 
 ## GitHub connection on a fresh VM
 
-Before cloning on either VM, configure GitHub access.
+Before cloning on the VM, configure GitHub access.
 
 Use these sections in **Git & GitHub**:
 
-- [GitHub connection on VM (clone/pull/push)](git-github.qmd#github-connection-on-vm-clonepullpush)
+- [GitHub connection on VM (clone/pull/push)](git-github.qmd#git-and-github)
 - [Enable push from the VM](git-github.qmd#enable-push-from-the-vm)
-- [Repo setup on the VM](git-github.qmd#repo-setup-on-the-vm)
+- [Repo setup on the VM](git-github.qmd#clone-repository)
 
 Minimum check before clone:
 
