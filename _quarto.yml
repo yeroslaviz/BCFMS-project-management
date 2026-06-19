@@ -17,6 +17,7 @@ book:
 
 format:
   html:
+    link-external-newwindow: true
     toc: true
     toc-depth: 3
     number-sections: true
