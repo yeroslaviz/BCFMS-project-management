@@ -8,7 +8,7 @@ execute:
 
 ## Deploy & Operations
 
-## Take backups (app folder, SQLite DB, Apache config).
+## Take backups (app folder, SQLite DB, Apache config)
 
 ```{bash}
 sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
@@ -17,7 +17,7 @@ cp /srv/shiny-server/ms-app/ms_projects.db \
 sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
   /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
-The `ms-vm-shiny-443.conf` file is the latest config file, supporting both the LDAP system as well as the https certificate. 
+The `ms-vm-shiny-443.conf` file is the latest config file, supporting both the LDAP system as well as the https certificate.
 
 
 3.  Deploy.
@@ -274,51 +274,3 @@ Notes:
 
 - `scripts/deploy.sh` does not rebuild or replace the SQLite DB.
 - DB-backed content (projects, landing text, additional costs) persists across deploy and restart.
-
-## ngs-vm Cutover (443/9443)
-
-Target state:
-
-- `https://mscf-vm.biochem.mpg.de` -> Shiny on `:443`
-
-This avoids TLS hostname mismatch (same hostname for both endpoints).
-
-### Step 1: Prepare vhost templates
-
-Use these repo templates:
-
-- `scripts/mscf-vm-shiny-443.conf`
-
-Copy to Apache:
-
-```bash
-sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
-```
-
-### Step 2: Enable routing and switch traffic
-
-```bash
-grep -q '^Listen 443$' /etc/apache2/ports.conf || echo 'Listen 443' | sudo tee -a /etc/apache2/ports.conf
-sudo a2enmod ssl proxy proxy_http proxy_wstunnel rewrite headers ldap authnz_ldap
-sudo a2ensite ngs-vm-shiny-443.conf
-sudo a2dissite default-ssl.conf || true
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-### Step 3: Validate
-
-```bash
-curl -kI https://ms-vm.biochem.mpg.de/
-curl -kI -u USER https://ms-vm.biochem.mpg.de/sequencing-app/
-curl -kI https://ms-vm.biochem.mpg.de:9443/
-```
-
-### Step 4: Rollback
-
-```bash
-sudo a2ensite 02-testing.conf
-sudo a2dissite ngs-vm-shiny-443.conf
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```

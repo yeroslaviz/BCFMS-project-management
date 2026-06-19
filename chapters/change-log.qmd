@@ -18,7 +18,7 @@ execute:
 
 ## Changes on 19.06.2026
 
-1.
+1. clean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.
 
 ## Changes on 18.06.2026
 
