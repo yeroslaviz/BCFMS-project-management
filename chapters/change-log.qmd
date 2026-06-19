@@ -10,8 +10,26 @@ execute:
 
 ### Contents
 
-- [Changes on 03.03.2026](#changes-on-16.06.2026)
+- [Changes on 16.06.2026](#changes-on-16.06.2026)
+- [Changes on 17.06.2026](#changes-on-17.06.2026)
+- [Changes on 18.06.2026](#changes-on-18.06.2026)
+- [Changes on 19.06.2026](#changes-on-19.06.2026)
 
+
+## Changes on 19.06.2026
+
+1.
+
+## Changes on 18.06.2026
+
+1. Cleaning the documentation further.
+2. Install https certificate from HARICA and successfully test https connection
+3. configure `.Renviron` and LDAP on the VM to work with the shiny server
+
+## Changes on 17.06.2026
+
+1. cleaning and shrinking documentation
+2. finish installing all packages on the VM; upgrading R version to 4.6
 
 ## Changes on 16.06.2026
 
@@ -21,8 +39,3 @@ execute:
 4. run `bash scripts/check_requirements.sh` to install requirements, both R packages and ubuntu packages
 5. modify script `deploy.sh` to fit the new VM specifications
 6. setting up the shiny-server, connect to ldap server
-
-## Changes on 17,06.2026
-
-1. cleaning and shrinking documentation
-2. finish installing all packages on the VM; upgrading R version to 4.6

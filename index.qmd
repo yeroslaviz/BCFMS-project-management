@@ -33,4 +33,4 @@ If you have any further questions regarding this repository, please do not hesit
 quarto render Documentation/
 ```
 
-This booklet consolidates all operational and technical documentation for the sequencing Shiny app.
+This booklet is a short manaul on setting and configuring the mscf-vm for the MS core facility. A more extensive instructions and trouble. shooting can be found in the manaul for the BCFNGS-VM.
