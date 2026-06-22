@@ -16,6 +16,15 @@ execute:
 - [Changes on 19.06.2026](#changes-on-19.06.2026)
 
 
+## Cahnges on 22.06.2026
+
+1. App was set locally. database was modified to include the appropriate fields
+2. changes were done to the documentation to make them cleaner and more ms-core facility related.
+3. App now include landing pages as well.
+4. multiple fields were changes and modified after discussion with MSCF-admins
+5. mail communication needs to be adjusted.
+
+
 ## Changes on 19.06.2026
 
 1. clean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.
