@@ -84,7 +84,7 @@ git config --global pull.rebase false
 Optional write test:
 
 ```bash
-cd /home/<user>/BCFNGS-project-management
+cd /home/<user>/BCFMS-project-management
 git checkout -b test/vm-write-check
 git push -u origin test/vm-write-check
 ```

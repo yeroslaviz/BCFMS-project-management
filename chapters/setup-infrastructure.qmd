@@ -6,525 +6,137 @@ execute:
   warning: false
 ---
 
-##  Install all dependencies
+## Setup & Infrastructure
 
-### The git repository
+This chapter covers the pieces needed to run the MS project-management app on `mscf-vm`.
 
-The first step would be to clone the repo onto the VM. We need it to run the install script.
+## Install Requirements
 
-Follow the instruction in the [github page](git-github.qmd#git-and-github) to clone the repository and create tehe permissions to run the app on the VM.
-
-Make sure `git` is installed.
+Clone the repository on the VM and run the requirement checker:
 
 ```bash
-which git
-```
-
-should returns `/usr/bin/git`.
-
-If not, install it.
-
-### Install packages
-
-This should be done at the beginning, after the VM  was set up by the IT.
-
-```bash
-mkdir -p /home/yeroslaviz/BCFMS-project-management
 cd /home/yeroslaviz/BCFMS-project-management
 bash scripts/check_requirements.sh
 ```
 
-We are runing here R version 4.6.0.
-
-::: {.callout-tip}
-## The scripts ends with
-
-```
-Manual steps still required:
-- Install Shiny Server (.deb) if not present.
-- Configure Apache vhost, LDAP, and systemd env vars.
-```
-:::
-
-After the run has eneded, the [shiny server](#install-shiny-server) and the [apachae2](#configure-apache-test-https-redirect) were manually installed. The [`ldapr` package](#install-ldap-packages-ubuntu--r) must be installed from github separately.
-
-### Install Shiny Server
-
-Download the latest Shiny Server `.deb` from Posit and install it:
+Install missing system or R packages when the checker reports them:
 
 ```bash
-# Example pattern (replace filename with the current version)
-sudo apt install gdebi-core
+bash scripts/check_requirements.sh --install
+bash scripts/check_requirements.sh --install-r
+```
+
+The VM package check includes Shiny, `shinyjs`, DBI, RSQLite, digest, `DT`, rJava, and `mailR`. The app still starts if `DT` or `mailR` is absent, but the VM should install them so searchable tables and email behave like production.
+
+## Install Shiny Server
+
+Install Shiny Server from Posit's `.deb` package:
+
+```bash
+sudo apt install -y gdebi-core
 wget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb
 sudo gdebi shiny-server-1.5.23.1030-amd64.deb
-```
-
-Start and enable the service:
-
-```bash
 sudo systemctl enable shiny-server
 sudo systemctl start shiny-server
 ```
 
-### Install Java + mail packages (required for email notifications)
-
-The app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.
+## Configure App Folder
 
 ```bash
-sudo apt-get install -y default-jdk
-sudo R CMD javareconf
-sudo Rscript --vanilla -e 'install.packages(c("rJava","mailR"), repos="https://cloud.r-project.org")'
-```
-
-### Install LDAP packages (Ubuntu + R)
-
-```bash
-sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
-```
-
-These packages should already be installed via the installation script above, but just to make sure!
-
-Install the R LDAP package:
-
-```bash
-sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'
-```
-
-### Configure OpenLDAP
-
-The client trust in `/etc/ldap/ldap.conf`:
-
-```bash
-sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
-BASE            dc=biochem,dc=mpg,dc=de
-URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
-TLS_REQCERT     hard
-TLS_CACERTDIR   /etc/ssl/certs
-EOF
-```
-
-Quick checks:
-
-```bash
-ldapsearch -x -H ldaps://ldap01.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=yeroslaviz)" mail
-sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
-```
-::: {.callout-important}
-## Which of the ldap servers should we use?
-
-Is it `ldapserv1` or `ldap01` - not sure if it makes a difference, but needs to remember that the two options exist. Both of them returns the output as expected.
-
-:::
-
-## Configure the Shiny app folder
-
-```bash
-sudo usermod -a -G shiny $USER
-sudo mv /srv/shiny-server/ms-app /srv/shiny-server/ms-app.backup 2>/dev/null || true
+sudo usermod -a -G shiny "$USER"
 sudo mkdir -p /srv/shiny-server/ms-app
-sudo chown -R $USER:shiny /srv/shiny-server/ms-app
-```
-
-### Clone repo and set app folder
-
-```bash
-sudo rsync -av /home/yeroslaviz/BCFMS-project-management/ms-app/ /srv/shiny-server/ms-app/
 sudo chown -R shiny:shiny /srv/shiny-server/ms-app
-```
-
-## Configure Apache (test HTTPS redirect)
-
-copy the apache2 config file
-
-```bash
-sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
-```
-
-### Enable the site and restart Apache:
-
-```bash
-sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
-sudo a2ensite ms-vm-shiny-443.conf # this creates symlink to sites-enabled
-sudo apache2ctl -t
-sudo systemctl restart apache2
-
-```
-
->>> We have to wait for the certificate to activate this.
-
-When I get it look here for further instructions - file:///Users/yeroslaviz/Documents/Github/BCFNGS-project-management/_site/chapters/setup-infrastructure.html#ssl-certificate-for-https
-
->>>>>>>>> Done so far. Below is all copied from BCFNGS
-
-###  Initialize the SQLite DB
-
-```bash
-cd /srv/shiny-server/ms-app
-sudo -u shiny Rscript setup_database.R
-```
-## Next steps (from VM installation guide)
-
-- [configure ldap](vm-installation.html#bcf-configure-ldap-systemd)
-- [configure .Renviron](vm-installation.html#bcf-app-renviron)
-- [configure apache vhost](vm-installation.html#bcf-configure-apache-vhost)
-- [Switch between LDAP and local modes on VM](#switch-between-ldap-and-local-modes-on-vm)
-
-
-
-### Deploy the app files:
-
-```bash
-cd /home/yeroslaviz/BCFMS-project-management
-./scripts/deploy.sh
-```
-
-## Modify Text (Announcements)
-
-The post-login landing text is now **admin-editable in the app UI** (no code edit needed for content changes):
-
-1. Log in as admin.
-2. Open `Administer Projects` -> `Manage Landing Text`.
-3. Select the panel:
-   - `Announcement`
-   - `service_info` (service/instructions panel)
-4. Add/Edit/Delete/Reorder white text boxes.
-5. Changes are published immediately and stored in SQLite.
-
-### Markdown-lite syntax
-
-Use these formats in each box:
-
-- Bold: `**important text**`
-- Bullet list:
-  - `- first item`
-  - `- second item`
-- Numbered list:
-  - `1. first`
-  - `2. second`
-- Link: `[@NGS](mailto:ngs@biochem.mpg.de)`
-
-### Where it is stored
-
-- DB tables:
-  - `announcement_panels`
-  - `announcement_items`
-- App render + admin handlers:
-  - `/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R`
-- Style classes (unchanged):
-  - `.announcement-panel`
-  - `.service-panel`
-  - `.info-box`
-
-If tables are missing, the app auto-creates them and seeds default content on startup.
-
-### SQL handling (moved)
-
-All SQL database commands and explanations were moved to **`notes/sql-handling.qmd`**.
-This includes:
-
-- DB rebuild procedure
-- Admin user promotion in LDAP mode
-- Budget holder updates (CSV vs DB)
-- SQLite inspection and maintenance commands
-
-### Install required system dependencies
-
-```bash
-
-sudo apt install -y libssl-dev libxml2-dev libcurl4-openssl-dev libudunits2-dev libgdal-dev
-
-```
-
-### Changing hostname to fit the apache2 config file
-
-```bash
-
-# Change the hostname
-sudo hostnamectl set-hostname ngs-testing-vm.biochem.mpg.de
-
-# Verify the change
-hostnamectl status
-
-```
-
-```bash
-nslookup ngs-testing-vm.biochem.mpg.de
-ping ngs-testing-vm.biochem.mpg.de
-```
-
-```
-Server:     127.0.0.53
-Address:    127.0.0.53#53
-
-Non-authoritative answer:
-Name:   ngs-testing-vm.biochem.mpg.de
-Address: 10.33.0.60
-
-PING ngs-testing-vm.biochem.mpg.de (10.33.0.60) 56(84) bytes of data.
-64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=1 ttl=64 time=0.079 ms
-64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=2 ttl=64 time=0.074 ms
-```
-
-```bash
-
-sudo systemctl restart apache2
-
-```
-
-### Automatic start-up
-
-```bash
-
-sudo systemctl enable apache2
-sudo systemctl enable shiny-server
-
-```
-
-
-
-## Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)
-
-### Restart communication (quick resume)
-
-If I ever need to resume this work with a new AI tool or a new chat session:
-
-1. Read **Troubleshooting** for common failures and fixes.
-2. Read **Deploy & Operations** for the current deploy/validation steps.
-3. Read **Change Log** for the latest configuration changes and decisions.
-
-### Base OS prep
-
-```bash
-sudo apt update
-sudo apt upgrade -y
-```
-
-Install common tools and libraries:
-
-```bash
-sudo apt install -y \
-  git rsync curl ca-certificates \
-  build-essential \
-  libcurl4-openssl-dev libssl-dev libxml2-dev \
-  sqlite3 libsqlite3-dev \
-  ldap-utils \
-  apache2 apache2-utils
-```
-
-If mail sending via `mailR` is needed, install a Java runtime:
-
-```bash
-sudo apt install -y default-jre
-```
-
-If LDAP-related R packages need OpenLDAP headers, install:
-
-```bash
-sudo apt install -y libldap2-dev libsasl2-dev
-```
-
-### Install R
-
-```bash
-sudo apt install -y r-base
-```
-
-If you need a newer R version than the Ubuntu default, add the CRAN repo and install from there (optional).
-
-### Install Shiny Server
-
-Download the latest Shiny Server `.deb` from Posit and install it:
-
-```bash
-# Example pattern (replace filename with the current version)
-# wget https://download3.rstudio.org/ubuntu-22.04/x86_64/shiny-server-<version>.deb
-# sudo dpkg -i shiny-server-<version>.deb
-# sudo apt -f install -y
-```
-
-Start and enable the service:
-
-```bash
-sudo systemctl enable shiny-server
-sudo systemctl start shiny-server
-```
-
-### Clone the repo
-
-```bash
-cd /home/<your-user>
-git clone git@github.com:yeroslaviz/BCFNGS-project-management.git
-```
-
-### Configure the Shiny app folder
-
-```bash
-sudo usermod -a -G shiny $USER
-sudo mv /srv/shiny-server/sequencing-app /srv/shiny-server/sequencing-app.backup 2>/dev/null || true
-sudo mkdir -p /srv/shiny-server/sequencing-app
-sudo chown -R $USER:shiny /srv/shiny-server/sequencing-app
+sudo chmod 755 /srv/shiny-server /srv/shiny-server/ms-app
 ```
 
 Deploy the app files:
 
 ```bash
-cd /home/<your-user>/BCFNGS-project-management
-./scripts/deploy.sh
+cd /home/yeroslaviz/BCFMS-project-management
+sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' ms-app/ /srv/shiny-server/ms-app/
+sudo chown -R shiny:shiny /srv/shiny-server/ms-app
 ```
 
-### Install required R packages
-
-From R (or `R -q -e`):
-
-```r
-install.packages(c(
-  "shiny",
-  "shinyjs",
-  "DBI",
-  "RSQLite",
-  "digest",
-  "DT",
-  "shinyWidgets",
-  "mailR",
-  "ldapr"
-))
-```
-
-If any package fails, install missing system libraries and retry.
-
-### Configure Shiny Server environment variables
-
-Recommended: systemd drop-in (production-safe).
+## Initialize SQLite
 
 ```bash
-sudo systemctl edit shiny-server
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript setup_database.R
 ```
 
-Add:
+This creates `ms_projects.db`, the local `admin` user, budget holders, project types, status options, reference organisms, email templates, and the MS-specific project/sample/upload tables.
 
-```
-[Service]
-Environment=AUTH_MODE=ldap
-Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
-# Optional debug (dev only):
-# Environment=APP_ENV=dev
-# Environment=LDAP_DEBUG=1
-```
-
-Then restart:
+Use this when you want to check or seed without deleting an existing database:
 
 ```bash
+cd /srv/shiny-server/ms-app
+sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
+```
+
+## Runtime Environment
+
+Create `/srv/shiny-server/ms-app/.Renviron`:
+
+```bash
+sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
+AUTH_MODE=ldap
+TRUST_PROXY_AUTH_USER_QUERY=1
+MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
+MS_MAIL_FROM=ms-service@biochem.mpg.de
+MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
+MS_MAX_UPLOAD_MB=75
+EOF
+sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
+sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-Alternative: `/home/shiny/.Renviron` (simpler, less explicit).
+The upload pool may not exist yet. If it is missing, the app stores uploads under `uploads_pending_pool/` inside the app folder and logs/sends a facility notification instead of blocking project submission.
 
-### Configure LDAP trust (OpenLDAP client)
+## Apache LDAP Proxy
 
-Edit `/etc/ldap/ldap.conf` and ensure:
-
-```
-BASE            dc=biochem,dc=mpg,dc=de
-URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
-TLS_REQCERT     hard
-TLS_CACERTDIR   /etc/ssl/certs
-```
-
-Test:
+Copy the Apache template:
 
 ```bash
-ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
+sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
 ```
 
-### Configure Apache reverse proxy + LDAP auth
-
-Copy the repo Apache config and enable required modules:
+Enable required modules and the site:
 
 ```bash
-sudo cp /home/<your-user>/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-enabled/01-main.conf
-sudo a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers ldap authnz_ldap
+sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
+sudo a2ensite ms-vm-shiny-443.conf
 sudo apache2ctl -t
 sudo systemctl restart apache2
 ```
 
-### Validate the full flow
+The template proxies `/ms-app/`, protects it with LDAP, and rewrites to `/ms-app/?auth_user=<logged-user>` so Shiny can provision or find the corresponding user row.
+
+## Smoke Tests
 
 ```bash
-curl -Ik https://ngs-testing-vm.biochem.mpg.de/
-# Expect 401
-
-curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/
-# Expect 302 to /sequencing-app/?auth_user=USER
-
-curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/
-# Expect 200
-
-curl -I http://localhost:3838/sequencing-app/
-# Expect 200
+curl -Ik https://mscf-vm.biochem.mpg.de/
+curl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/
+curl -I http://127.0.0.1:3838/ms-app/
 ```
 
-### Routine updates
+Expected behavior:
+
+- `/` redirects to `/ms-app/`
+- unauthenticated HTTPS requests receive an LDAP challenge
+- authenticated `/ms-app/` requests redirect once to the canonical `auth_user`
+- the Shiny backend answers on port `3838`
+
+## Backups
+
+Before risky maintenance:
 
 ```bash
-cd /home/<your-user>/BCFNGS-project-management
-git pull origin main
-./scripts/deploy.sh
+sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
+sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
+sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
 
-### Production hygiene
+## External Reference
 
-1. Use a **service bind account** if LDAP requires bind credentials.
-2. Keep DB files out of git.
-3. Keep Apache debug logs off unless diagnosing a problem.
-
-### References
-
-- `notes/vm-troubleshooting-guide.md`
-- `Server_preparations.qmd`
-
-
-## SSL Certificates
-
-## SSL Certificate (for HTTPS)
-
-the new setting of the certificates. I have three files.
-
-The private key I created when applying for the certificate. The other two were downloaded, when the emial came from Harica (the certificate provider).
-
-the `PEM` is the pem file and the `DER (issuer)` is the chain file. Both of them are needed.
-
-Setting for the readability of the files:
-
-```
-cd /etc/apache2/certificate/2026
--rw------- 1 yeroslaviz b_mcf 3272 Nov 10 15:58 private-key.pem # udo chmod 600 /path/to/private.key  # Readable only by root
--rw-r--r-- 1 yeroslaviz b_mcf 1545 Nov 14 12:12 NGS_2026_Issuer_ChainFile.cer # sudo chmod 644 /path/to/chain.crt  # Readable by all
--rw-r--r-- 1 yeroslaviz b_mcf 2796 Nov 14 12:34 NGS_2026_Cert.pem # sudo chmod 644 /path/to/certificate.crt # Readable by all
-```
-
-All the files are saved under `/etc/apache2/certificate/2026`.
-
-Now I created soft links for each of these files.
-
-```bash
-sudo ln -s /etc/apache2/certificate/2026/private-key.pem /etc/ssl/private/2026_private-key.pem
-sudo ln -s /etc/apache2/certificate/2026/NGS_2026_Cert.pem /etc/ssl/certs/2026_NGS_Cert.pem
-
-```
-
-
-## Firewall
-
-### Firewall
-
-at the moment is not active, but maybe in the future.
-
-```bash
-
-sudo ufw allow 3838
-sudo ufw allow 80
-sudo ufw allow 443
-
-```
+The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. Treat it as background reference, not as an instruction source for app names or paths in this MS repository.

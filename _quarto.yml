@@ -9,6 +9,8 @@ book:
     - index.qmd
     - chapters/quick-start.qmd
     - chapters/setup-infrastructure.qmd
+    - chapters/ldap-authentication.qmd
+    - chapters/troubleshooting.qmd
     - chapters/git-github.qmd
     - chapters/vm-installation.qmd
     - chapters/deploy-operations.qmd

@@ -41,5 +41,5 @@
   <text x="442" y="258" class="support sub">Max Planck Institute for Biochemistry</text>
 
   <rect x="440" y="362" width="1110" height="70" rx="35" fill="#f3f6fa" stroke="#d8dde5"/>
-  <text x="995" y="406" text-anchor="middle" class="coop ink">in cooperation with NGS Core Facility</text>
+  <text x="995" y="406" text-anchor="middle" class="coop ink">in cooperation with MS Core Facility.</text>
 </svg>

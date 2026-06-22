@@ -1,891 +1,116 @@
 ---
-title: "VM Troubleshooting Guide"
+title: "Troubleshooting"
 execute:
   eval: false
   echo: true
   warning: false
 ---
 
-## VM Troubleshooting Guide
+## Troubleshooting
 
-### Contents
+## App Shows a Database Error
 
-- [Documentation](#documentation)
-- [Git / GitHub](#git--github)
-- [Apache / LDAP](#apache--ldap)
-- [ngs-vm Cutover (443/9443)](#ngs-vm-cutover-4439443)
-- [SQL (moved)](#sql-moved)
-- [Auth mode switching](#auth-mode-switching)
-- [Apache proxy](#apache-proxy)
-- [LDAP Deploy Troubleshooting (by symptom)](#ldap-deploy-troubleshooting-by-symptom)
-
-This checklist covers the most common issues we hit and how to fix them quickly.
-
-## Documentation
-
-### Book search not working (file://)
-Quarto search requires a web server. If you open the docs directly via `file://`, search is disabled.
-
-**Fix (local server):**
+Initialize the MS database:
 
 ```bash
-cd /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/Documentation/_site
-python3 -m http.server 8000
-```
-
-Then open:
-
-```
-http://localhost:8000
-```
-
-**Alternative:**
-
-```bash
-quarto preview /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/Documentation
-```
-
-## Git / GitHub
-
-### Permission denied (publickey)
-
-Symptoms:
-
-- `git@github.com: Permission denied (publickey)`
-- `fatal: Could not read from remote repository`
-
-Fix:
-
-1. Verify SSH auth:
-
-```
-ssh -T git@github.com
-```
-
-2. Confirm repo URL:
-
-```
-git remote -v
-```
-
-3. Ensure the correct SSH key is loaded (or add it to `~/.ssh/config`).
-
-### Divergent branches during pull
-
-Symptoms:
-
-```
-fatal: Need to specify how to reconcile divergent branches.
-```
-
-Fix:
-
-```
-git config pull.rebase false
-# or git config pull.rebase true
-```
-
-### Local changes block pull
-
-Symptoms:
-
-```
-error: Your local changes ... would be overwritten by merge
-```
-
-Fix:
-
-```
-git stash push -m "vm local changes"
-git pull origin main
-git stash pop
-```
-
-Resolve conflicts if they appear.
-
-### Merge conflict in config files
-
-Fix options:
-
-```
-# Keep repo version
-git checkout --ours <file>
-
-# Keep local version
-git checkout --theirs <file>
-```
-
-### Untracked files in the VM
-
-Symptoms:
-
-```
-?? sequencing-app/test_detailed.R
-```
-
-Fix:
-
-- Ignore, delete, or add to `.gitignore`.
-
-## Apache / LDAP
-
-### Apache won’t restart after LDAP change
-
-Symptoms:
-
-```
-AH00526: Syntax error ... Bad LDAP URL while parsing.
-```
-
-Fix:
-
-Use a single, complete LDAP URL:
-
-```
-AuthLDAPURL "ldaps://ldapserv1.biochem.mpg.de:636/dc=biochem,dc=mpg,dc=de?uid?sub?(objectClass=posixAccount)"
-```
-
-### `Invalid command 'RequestHeader'`
-
-Symptoms:
-
-```
-Invalid command 'RequestHeader', perhaps misspelled or defined by a module not included
-```
-
-Fix:
-
-```bash
-sudo a2enmod headers
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-### Invalid command `LDAPTLS_CACERTDIR`
-
-Cause:
-
-`LDAPTLS_CACERTDIR` is **not** an Apache directive.
-
-Fix:
-
-Remove from Apache config. Put TLS trust in `/etc/ldap/ldap.conf` instead.
-
-### `ldap_simple_bind()` failed: Can't contact LDAP server
-
-Fix:
-
-1. Check port:
-
-```
-nc -vz ldapserv1.biochem.mpg.de 636
-```
-
-2. Test TLS bypass:
-
-```
-LDAPTLS_REQCERT=never ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
-```
-
-3. Fix `/etc/ldap/ldap.conf`:
-
-```
-TLS_CACERTDIR /etc/ssl/certs
-```
-
-### `LDAPTrustedGlobalCert` error
-
-Symptoms:
-
-```
-LDAPTrustedGlobalCert cannot occur within <VirtualHost> section
-```
-
-Fix:
-
-Move it to a global Apache config or comment it out (if not needed).
-
-### LDAP works, but `/sequencing-app/` returns 404
-
-**Symptom**
-
-- `curl -Ik -u USER https://host/sequencing-app/` returns **404**
-- `curl -I http://localhost:3838/sequencing-app/` returns **200**
-
-**Cause**
-
-Apache is proxying the wrong path (often due to an older `ProxyPass /` rule or a backup file in `sites-enabled`).
-
-**Fix**
-
-1.  Ensure **only** these lines exist in the active config:
-
-```
-ProxyPass /sequencing-app/ http://localhost:3838/sequencing-app/
-ProxyPassReverse /sequencing-app/ http://localhost:3838/sequencing-app/
-```
-
-2.  Remove or move any backup config files out of `/etc/apache2/sites-enabled` (Apache can accidentally parse them).
-3.  Restart Apache:
-
-```
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-### `ERR_SSL_PROTOCOL_ERROR` for `https://bcf-vm/`
-
-**Symptom**
-
-- Browser shows: `This site can’t provide a secure connection` / `ERR_SSL_PROTOCOL_ERROR`
-- Usually appears while testing the new `bcf-vm` host over HTTPS.
-
-**Common causes**
-
-- Hostname is not mapped on your local machine (`/etc/hosts` missing).
-- Apache default site (`000-default.conf`) is still active and interferes on `:80`.
-- SSL vhost/modules are not fully enabled.
-
-**Fix**
-
-1.  On your **local machine**, map VM IP to hostnames:
-
-```
-sudo sh -c 'echo "10.33.0.55 bcf-vm bcf-vm.biochem.mpg.de" >> /etc/hosts'
-sudo dscacheutil -flushcache
-sudo killall -HUP mDNSResponder
-```
-
-2.  On `bcf-vm`, keep only the intended site active and enable SSL:
-
-```
-sudo a2dissite 000-default.conf
-sudo a2ensite bcf-vm.conf
-sudo a2enmod ssl headers rewrite proxy proxy_http
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-3.  Verify listeners/vhosts:
-
-```
-sudo ss -ltnp | grep -E ':80|:443'
-sudo apache2ctl -S
-```
-
-4.  Validate with curl:
-
-```
-curl -vk https://bcf-vm/
-curl -vk https://bcf-vm.biochem.mpg.de/
-```
-
-If needed, test locally on VM with explicit host header:
-
-```
-curl -kI -H 'Host: bcf-vm.biochem.mpg.de' https://127.0.0.1/
-```
-
-**Config path used**
-
-- `/etc/apache2/sites-available/bcf-vm.conf`
-
-### Debug logging too noisy (Apache or Shiny)
-
-**Symptom**
-
-Lots of LDAP debug output in logs during normal use.
-
-**Fix (Apache)**
-
-In `mpiseq2/ngs-vm_01-main.conf`, use normal logging:
-
-```
-LogLevel warn
-# LogLevel authnz_ldap:debug ldap:debug   # enable only when debugging
-```
-
-**Fix (Shiny app)**
-
-The app prints LDAP debug logs when:
-
-- `LDAP_DEBUG=1`
-
-So for production:
-
-- Remove `LDAP_DEBUG=1` from `/srv/shiny-server/sequencing-app/.Renviron` (or set it to `0`).
-- Restart Shiny:
-
-```
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript setup_database.R
 sudo systemctl restart shiny-server
 ```
 
-If I need debugging later, I can temporarily set:
-
-```
-LDAP_DEBUG=1
-```
-
-and restart the service again.
-
-### LDAP mode configured, but app still shows local page
-
-**Symptom**
-
-- Apache LDAP prompt appears and credentials are accepted.
-- App opens, but shows local login / local-mode content.
-
-**Cause**
-
-`AUTH_MODE=ldap` exists in systemd override, but those env vars are not reliably visible inside the Shiny R worker.
-
-**Fix**
-
-Set LDAP env in app-local `.Renviron` (runtime source used by R):
+If data already exists and you only want schema/seed checks:
 
 ```bash
-sudo tee /srv/shiny-server/sequencing-app/.Renviron >/dev/null <<'EOF'
-AUTH_MODE=ldap
-LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
-TRUST_PROXY_AUTH_USER_QUERY=1
-LDAP_DEBUG=1
-EOF
-sudo chown shiny:shiny /srv/shiny-server/sequencing-app/.Renviron
-sudo chmod 640 /srv/shiny-server/sequencing-app/.Renviron
-sudo systemctl restart shiny-server
+sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
 ```
 
-Verify in Shiny log:
+Check ownership:
 
 ```bash
-LATEST=$(sudo ls -1t /var/log/shiny-server/sequencing-app-shiny-*.log | head -n1)
-sudo tail -n 120 "$LATEST"
+ls -l /srv/shiny-server/ms-app/ms_projects.db
+sudo chown shiny:shiny /srv/shiny-server/ms-app/ms_projects.db
 ```
 
-Expected:
+## `/ms-app/` Returns 404
 
-- `LDAP DEBUG: startup env AUTH_MODE= ldap ...`
-
-After confirmation, remove `LDAP_DEBUG=1` and restart again.
-
-### `LDAP DEBUG ERROR (onFlushed): Operation not allowed without an active reactive context`
-
-**Meaning**
-
-- This is a debug-only logging issue, not an LDAP login failure.
-
-**Action**
-
-- Safe to ignore while `LDAP_DEBUG=1` is enabled.
-- Disable debug in production (`LDAP_DEBUG` unset) to stop this message.
-
-## ngs-vm Cutover (443/9443)
-
-### Main URL still serves Perl after cutover
-
-Check active vhosts:
+Check that Shiny serves the app:
 
 ```bash
-sudo apache2ctl -S
+curl -I http://127.0.0.1:3838/ms-app/
 ```
 
-Fix:
+Check Apache proxy paths in `scripts/ms-vm-shiny-443.conf`:
+
+```apache
+ProxyPass /ms-app/ http://127.0.0.1:3838/ms-app/
+ProxyPassReverse /ms-app/ http://127.0.0.1:3838/ms-app/
+```
+
+Restart:
 
 ```bash
-sudo a2ensite ngs-vm-shiny-443.conf
-sudo a2dissite 02-testing.conf || true
-sudo a2dissite default-ssl.conf || true
 sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-Or run the scripted cutover:
-
-```bash
-cd /home/yeroslaviz/BCFNGS-project-management
-./scripts/cutover_ngs_vm_ports.sh cutover
-```
-
-### Perl fallback on `:9443` returns connection refused
-
-Common causes:
-
-- `Listen 9443` missing in `/etc/apache2/ports.conf`
-- fallback site not enabled
-
-Fix:
-
-```bash
-grep -q '^Listen 9443$' /etc/apache2/ports.conf || echo 'Listen 9443' | sudo tee -a /etc/apache2/ports.conf
-sudo a2ensite ngs-vm-perl-9443.conf
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-### LDAP login works on `:8443` but fails on no-port `:443`
-
-Cause:
-
-- `ngs-vm-shiny-443.conf` is missing LDAP `<Location /sequencing-app/>` auth block or is not the active `:443` vhost.
-
-Fix:
-
-- Copy from repo template and re-enable:
-
-```bash
-sudo cp /home/yeroslaviz/BCFNGS-project-management/scripts/ngs-vm-shiny-443.conf /etc/apache2/sites-available/ngs-vm-shiny-443.conf
-sudo a2ensite ngs-vm-shiny-443.conf
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-## SQL (moved)
-
-All SQL database commands and explanations are documented in the **SQL Handling** chapter (`Documentation/chapters/sql-handling.qmd`).  
-This includes admin promotion in LDAP mode, SQLite inspection commands, budget holder updates, and the legacy import workflow.
-
-### SQLite: "attempt to write a readonly database"
-
-If you see `sqlite3.OperationalError: attempt to write a readonly database` when running setup/import scripts, you are usually running as the wrong user.
-
-- On the VM, the live DB under `/srv/shiny-server/sequencing-app/` is typically owned by `shiny`.
-- Stop Shiny Server, run the command as `shiny`, then start it again:
-
-```bash
-sudo systemctl stop shiny-server
-sudo -u shiny <your command here>
-sudo systemctl start shiny-server
-```
-
-If it still fails, check DB ownership/permissions:
-
-```bash
-ls -l /srv/shiny-server/sequencing-app/sequencing_projects.db
-```
-
-## Auth mode switching
-
-**LDAP mode (preferred: app `.Renviron`)**
-
-```
-sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/sequencing-app/.Renviron
-sudo systemctl restart shiny-server
-```
-
-**Local mode (preferred: app `.Renviron`)**
-
-```
-sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/sequencing-app/.Renviron
-sudo systemctl restart shiny-server
-```
-
-Alternative (systemd override) is still valid:
-
-```
-sudo systemctl edit shiny-server
-```
-
-Then set `Environment=AUTH_MODE=...` and restart.
-
-## Apache proxy
-
-### `/sequencing-app/` returns 404
-
-Symptoms:
-
-- `curl -Ik -u USER https://host/sequencing-app/` returns 404
-- `curl -I http://localhost:3838/sequencing-app/` returns 200
-
-Cause:
-
-Conflicting `ProxyPass /` rules or backup config files in `sites-enabled`.
-
-Fix:
-
-1. Ensure only these lines are active:
-
-```
-ProxyPass /sequencing-app/ http://localhost:3838/sequencing-app/
-ProxyPassReverse /sequencing-app/ http://localhost:3838/sequencing-app/
-```
-
-2. Remove or move backup files from `/etc/apache2/sites-enabled`.
-
-3. Restart Apache:
-
-```
-sudo apache2ctl -t
-sudo systemctl restart apache2
-```
-
-### Redirect to `/` shows "No UI defined"
-
-Cause:
-
-Root path is not proxied correctly.
-
-Fix:
-
-Use `/sequencing-app/` as the app path and update redirects accordingly.
-
-## Shiny
-
-### App works locally but fails via Apache
-
-Check:
-
-- Apache logs for LDAP errors
-- Shiny logs for app startup errors
-
-### LDAP mode enabled but no user
-
-Cause:
-
-Shiny does not receive a user identity.
-
-Fix:
-
-- Use `/sequencing-app/?auth_user=<user>` redirect fallback.
-- Confirm redirect works with `curl -Ik -u USER https://host/`.
-
-### Missing environment variables in Shiny
-
-Check:
-
-```
-sudo systemctl show shiny-server --property=Environment
-```
-
-Restart after changes:
-
-```
-sudo systemctl restart shiny-server
-```
-
-## Deployment
-
-### Deploy script ran but app unchanged
-
-Fix:
-
-- Verify `scripts/deploy.sh` ran successfully.
-- Confirm files in `/srv/shiny-server/sequencing-app/` updated.
-
-### Database overwritten
-
-Fix:
-
-- Ensure `scripts/deploy.sh` excludes `sequencing_projects.db`.
-- Keep `*.db` ignored in git.
-
-## Quick validation commands
-
-```
-# Apache
-sudo apache2ctl -t
-sudo apache2ctl -S
-
-# LDAP
-ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
-
-# App (proxy)
-curl -Ik -u USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/
-
-# App (backend)
-curl -I http://localhost:3838/sequencing-app/
-```
-
-## References
-
-- `Server_preparations.qmd`
-- `notes/sql-handling.qmd`
-- `notes/ubuntu-bare-server-setup-howto.qmd`
-
-
-## LDAP Deploy Troubleshooting (by symptom)
-
-## Troubleshooting by symptom
-
-### `ERR_TOO_MANY_REDIRECTS`
-
-Likely cause:
-
-- Apache rewrite rule loop in `/etc/apache2/sites-enabled/01-main.conf`.
-
-Fix:
-
-```bash
-sudo cp ~/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-available/01-main.conf
-sudo ln -sf /etc/apache2/sites-available/01-main.conf /etc/apache2/sites-enabled/01-main.conf
-sudo apache2ctl configtest
 sudo systemctl restart apache2
 sudo systemctl restart shiny-server
 ```
 
-Then re-run curl checks from section 4.
+## LDAP Prompt Works but App Does Not Log In
 
-### App shows local login page + `LDAP mode enabled but no authenticated user found`
-
-Likely cause:
-
-- Shiny is in LDAP mode, but proxy trust/query fallback settings are missing.
-
-Checks:
+Confirm the runtime mode:
 
 ```bash
-sudo systemctl show shiny-server --property=Environment
+sudo cat /srv/shiny-server/ms-app/.Renviron
 ```
 
 Required:
 
-- `AUTH_MODE=ldap`
-- `TRUST_PROXY_AUTH_USER_QUERY=1`
+```ini
+AUTH_MODE=ldap
+TRUST_PROXY_AUTH_USER_QUERY=1
+```
 
-### `Disconnected from the server. Reload`
-
-Likely causes:
-
-- Shiny worker restarted/terminated
-- Apache websocket/proxy path mismatch
-
-Checks:
+Check the redirect:
 
 ```bash
-sudo journalctl -u shiny-server -n 200 --no-pager
-sudo tail -n 200 /var/log/shiny-server/$(sudo ls -t /var/log/shiny-server | head -n 1)
-sudo tail -n 200 /var/log/apache2/sequencing-app-ssl-error.log
+curl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/
 ```
 
-Also ensure Apache modules are enabled:
+Expected: `Location: https://mscf-vm.biochem.mpg.de/ms-app/?auth_user=USER`.
+
+## Upload Pool Missing
+
+Configured root:
+
+```text
+/fs/pool/pool-bcfngs-ms-projects
+```
+
+If this path does not exist, the app stores uploads in `uploads_pending_pool/` under the app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.
+
+Check fallback files:
 
 ```bash
-sudo apache2ctl -M | egrep 'headers_module|rewrite_module|proxy_module|proxy_http_module|proxy_wstunnel_module|ldap_module|authnz_ldap_module'
+sudo find /srv/shiny-server/ms-app/uploads_pending_pool -maxdepth 2 -type f
 ```
 
-### User can impersonate another user via URL query
+## Logs
 
-Expected fixed behavior:
-
-- tampered `auth_user` should always be rewritten to the authenticated LDAP username.
-
-If not fixed, re-apply `mpiseq2/ngs-vm_01-main.conf` from repo and restart Apache + Shiny (section 5A).
-
-
-## Certificate warning note
-
-If Apache restart shows:
-
-- `AH01909: server certificate does NOT include an ID which matches the server name`
-
-This is a certificate/SAN mismatch warning for host naming. It is separate from LDAP auth logic and redirect rewrite behavior.
-
-
-## VM LDAP Rollout Errors (from Server Preparations)
-
-## Possible errors and fixes (VM LDAP rollout)
-
-This section captures the real errors I hit during the VM rollout and the fixes that worked. It is meant as a troubleshooting reference.
-
-### Apache won’t restart after LDAP change
-
-**Symptom**
-
-```
-AH00526: Syntax error ... Bad LDAP URL while parsing.
+```bash
+sudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log
+sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log
+sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log
 ```
 
-**Cause**
+## Local Maintenance Mode
 
-Apache’s `AuthLDAPURL` is very strict. Each URL must be complete (host + base DN + query), and some Apache builds don’t accept multiple URLs in a single directive.
-
-**Fix**
-
-Use a single server (most stable on my VM):
-
-```
-AuthLDAPURL "ldaps://ldapserv1.biochem.mpg.de:636/dc=biochem,dc=mpg,dc=de?uid?sub?(objectClass=posixAccount)"
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/ms-app/.Renviron
+sudo systemctl restart shiny-server
 ```
 
-If the multi‑server line fails, I keep one server and fall back manually if needed.
+Return to LDAP:
 
-### `LDAPTLS_CACERTDIR` breaks Apache
-
-**Symptom**
-
-```
-Invalid command 'LDAPTLS_CACERTDIR'
-```
-
-**Cause**
-
-`LDAPTLS_CACERTDIR` is **not** an Apache directive. It belongs to the OpenLDAP client config.
-
-**Fix**
-
-Remove it from Apache. If I need TLS trust, I configure it in `/etc/ldap/ldap.conf` instead.
-
-### LDAP login shows 500 Internal Server Error
-
-**Symptom**
-
-- Browser shows `Internal Server Error`
-- Apache log shows:
-
-```
-ldap_simple_bind() failed][Can't contact LDAP server]
-```
-
-**Cause**
-
-LDAP TLS handshake fails (certificate trust not configured).
-
-**Fix**
-
-1. Confirm port reachability:
-
-```
-nc -vz ldapserv1.biochem.mpg.de 636
-```
-
-2. Test LDAP with **TLS bypass** to confirm trust problem:
-
-```
-LDAPTLS_REQCERT=never ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
-```
-
-3. Fix trust in `/etc/ldap/ldap.conf`:
-
-```
-TLS_CACERTDIR /etc/ssl/certs
-```
-
-**Important:** I had a typo (`TLS_CACERETDIR`) which prevented TLS trust from loading. Fixing the spelling made LDAP work.
-
-4. Verify normal LDAP now works:
-
-```
-ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
-```
-
-Then restart Apache:
-
-```
-sudo systemctl restart apache2
-```
-
-### Shiny app runs locally but crashes via Apache
-
-**Symptom**
-
-- App works with `shiny::runApp()`
-- But Apache shows 500 and Shiny worker terminates
-
-**Cause**
-
-## Vibe Coding
-
-### AI session restart (quick resume)
-
-If I need to resume work in a new AI session, I point it to:
-
-1. **Quick Start** — how to run locally/VM, and environment variables.
-2. **Setup & Infrastructure** — system setup, Apache/Shiny layout, base assumptions.
-3. **Deploy & Operations** — rollout steps, backups, and validation checks.
-4. **LDAP Authentication** — proxy/LDAP flow and expected headers.
-5. **SQL Handling** — DB inspection, rebuild, and admin/user updates.
-6. **Change Log** — latest decisions and what changed recently.
-
-LDAP authentication failure in Apache (not an app crash).
-
-**Fix**
-
-Check Apache log for `authnz_ldap` errors and fix TLS trust as above.
-
-## Comprehensive Error‑Checking Checklist
-
-When something breaks, I run through this list in order:
-
-1.  **Apache syntax**
-
-```
-sudo apache2ctl -t
-```
-
-2.  **Which vhost is active**
-
-```
-sudo apache2ctl -S
-```
-
-3.  **Proxy path**
-
-```
-sudo grep -n "ProxyPass" -R /etc/apache2/sites-enabled /etc/apache2/conf-enabled
-```
-
-4.  **LDAP connectivity + TLS**
-
-```
-nc -vz ldapserv1.biochem.mpg.de 636
-ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 \
-  -b "dc=biochem,dc=mpg,dc=de" "(uid=USER)" mail
-```
-
-If that fails, verify `/etc/ldap/ldap.conf` has:
-
-```
-TLS_CACERTDIR /etc/ssl/certs
-```
-
-5.  **LDAP auth prompt vs app redirect**
-
-```
-curl -Ik https://HOST/
-curl -Ik -u USER https://HOST/
-```
-
-Expected:
-401 without user, 302 to `/sequencing-app/?auth_user=USER` with user.
-
-6.  **Shiny backend is reachable**
-
-```
-curl -I http://localhost:3838/sequencing-app/
-```
-
-7.  **Apache app path**
-
-```
-curl -Ik -u USER https://HOST/sequencing-app/
-```
-
-8.  **Shiny logs**
-
-```
-sudo ls -t /var/log/shiny-server/ | head -n 1
-sudo tail -n 200 /var/log/shiny-server/FILE.log
-```
-
-9.  **Shiny environment variables**
-
-```
-sudo systemctl show shiny-server --property=Environment
-```
-
-10. **Database permissions**
-
-```
-ls -l /srv/shiny-server/sequencing-app/sequencing_projects.db
-```
-
-11. **Reload after config change**
-
-```
-sudo systemctl restart apache2
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```

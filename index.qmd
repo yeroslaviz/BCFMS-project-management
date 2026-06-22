@@ -15,7 +15,7 @@ The MS Core Facility provides services such as ​
 - Lipidomics / Metabolomics.
 
 
-If you have any further questions regarding this repository, please do not hesitate to [contact us @ omicsdesk](mailto:omicsdesk.biochem.mpg.de)!
+If you have any further questions regarding this repository, please do not hesitate to [contact us @ omicsdesk](mailto:omicsdesk@biochem.mpg.de)!
 
 # Chapters
 
@@ -33,4 +33,4 @@ If you have any further questions regarding this repository, please do not hesit
 quarto render Documentation/
 ```
 
-This booklet is a short manaul on setting and configuring the mscf-vm for the MS core facility. A more extensive instructions and trouble. shooting can be found in the manaul for the BCFNGS-VM.
+This booklet is a short manual for setting up and maintaining `mscf-vm` for the MS core facility. The older BCFNGS VM documentation can still be used as a deeper reference for Apache, certificates, and LDAP troubleshooting, but app names and paths in this repository should always use the MS conventions.

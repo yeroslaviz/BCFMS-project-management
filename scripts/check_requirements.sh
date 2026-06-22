@@ -44,6 +44,17 @@ packages=(
   libxml2-dev
 )
 
+r_packages=(
+  shiny
+  shinyjs
+  DBI
+  RSQLite
+  digest
+  DT
+  rJava
+  mailR
+)
+
 check_missing_r_packages() {
   missing_r_packages=()
   if ! command -v Rscript >/dev/null 2>&1; then
@@ -54,10 +65,10 @@ check_missing_r_packages() {
     [[ -n "${pkg}" ]] && missing_r_packages+=("${pkg}")
   done < <(
     Rscript --vanilla -e '
-      pkgs <- c("shiny","shinyjs","DBI","RSQLite","digest","DT","shinyWidgets","rJava","mailR","ldapr")
+      pkgs <- commandArgs(trailingOnly = TRUE)
       missing <- pkgs[!vapply(pkgs, requireNamespace, logical(1), quietly = TRUE)]
       if (length(missing)) writeLines(missing)
-    ' 2>/dev/null || true
+    ' "${r_packages[@]}" 2>/dev/null || true
   )
 }
 
@@ -146,13 +157,15 @@ if ((INSTALL_R == 1)); then
   fi
 
   if ((${#missing_r_packages[@]})); then
-    echo "Installing missing R packages..."
+    echo "Installing missing R packages: ${missing_r_packages[*]}"
     if [[ $EUID -eq 0 ]]; then
       Rscript --vanilla -e \
-        'install.packages(c("shiny","shinyjs","DBI","RSQLite","digest","DT","shinyWidgets","rJava","mailR","ldapr"), repos="https://cloud.r-project.org")'
+        'install.packages(commandArgs(trailingOnly = TRUE), repos="https://cloud.r-project.org")' \
+        "${missing_r_packages[@]}"
     else
       sudo Rscript --vanilla -e \
-        'install.packages(c("shiny","shinyjs","DBI","RSQLite","digest","DT","shinyWidgets","rJava","mailR","ldapr"), repos="https://cloud.r-project.org")'
+        'install.packages(commandArgs(trailingOnly = TRUE), repos="https://cloud.r-project.org")' \
+        "${missing_r_packages[@]}"
     fi
   else
     echo "No R packages need installation."

@@ -8,126 +8,110 @@ execute:
 
 ## VM Installation Guide
 
-This would be a general installation guide for future machines.
+This is the clean-install checklist for a future MS project-management VM.
 
-### Contents
-
-- [Prerequisites](#prerequisites)
-- [GitHub connection on a fresh VM](#github-connection-on-a-fresh-vm)
-- [Future VM - clean install](#future-vm---clean-install)
-- [Backup and restore](#db-snapshot-rebuild-restore-runbook)
-- [Post-install verification](#post-install-verification)
-
-
-## Prerequisites
-
-Run the [requirement](setup-infrastructure.qmd#install-all-dependencies) check script:
+## 1. Base Packages
 
 ```bash
-bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh
+sudo apt-get update
+sudo apt-get install -y git curl rsync apache2 apache2-utils openssl sqlite3 \
+  build-essential libcurl4-openssl-dev libssl-dev libxml2-dev r-base r-base-dev \
+  default-jdk
 ```
 
-Continue if needed -
-
-Install missing apt packages:
+Run the repository checker after cloning:
 
 ```bash
-bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install
+cd /home/<user>/BCFMS-project-management
+bash scripts/check_requirements.sh
+bash scripts/check_requirements.sh --install
+bash scripts/check_requirements.sh --install-r
 ```
 
-Install missing R packages (including `rJava`):
+The R package list includes `shiny`, `shinyjs`, `DBI`, `RSQLite`, `digest`, `DT`, `rJava`, and `mailR`.
 
-```bash
-bash /Users/yeroslaviz/Documents/Github/BCFNGS-project-management/scripts/check_requirements.sh --install-r
-```
-
-The requirement check reports missing `rJava`/`mailR` and missing Java tools (`java`, `javac`) explicitly.
-
-Manual steps still required after package install:
-
-- Install Shiny Server from the `.deb` package( see [here](setup-infrastructure.qmd#install-shiny-server)).
-- Install Java + R mail dependencies for email notifications (see [here](setup-infrastructure.qmd#install-java-mail-packages-required-for-email-notifications)).
-- Install LDAP client/build dependencies + `ldapr` (see [here](setup-infrastructure.qmd#install-ldap-packages-ubuntu-r)).
-- Ensure the `shiny` user exists and app-folder permissions are correct (see [here](setup-infrastructure.qmd#configure-the-shiny-app-folder)).
-
-**This step still needs to be added in the Set up and infrastrucutre part**
-
-- Configure Apache vhost, LDAP, and systemd environment (see [bcf-vm Step 6](#bcf-configure-ldap-systemd), [bcf-vm Step 7](#bcf-configure-apache-vhost), and [mscf-vm Step 2](#ngs-parallel-shiny-vhost)).
-
-## GitHub connection on a fresh VM
-
-Before cloning on the VM, configure GitHub access.
-
-Use these sections in **Git & GitHub**:
-
-- [GitHub connection on VM (clone/pull/push)](git-github.qmd#git-and-github)
-- [Enable push from the VM](git-github.qmd#enable-push-from-the-vm)
-- [Repo setup on the VM](git-github.qmd#clone-repository)
-
-Minimum check before clone:
+## 2. GitHub Access
 
 ```bash
 ssh -T git@github.com
 ```
 
-If this fails, do not continue with clone/deploy until SSH access is fixed.
-
-## Future VM - clean install
-
-### 1) Install base packages
+If access fails, add the VM public key as a deploy key in the GitHub repository:
 
 ```bash
-sudo apt-get update
-sudo apt-get install -y git curl rsync apache2 apache2-utils openssl sqlite3 ldap-utils \
-  build-essential libcurl4-openssl-dev libssl-dev libxml2-dev r-base
+cat ~/.ssh/id_ed25519.pub
 ```
 
-One should run the requirements script afterwards to check for missing packages.
+Clone the repository:
 
-### 2) Install Shiny Server {#bcf-install-shiny-server}
+```bash
+cd /home/<user>
+git clone git@github.com:yeroslaviz/BCFMS-project-management.git
+```
 
-Copy the `.deb` to the VM and install it:
+## 3. Shiny Server
 
 ```bash
 sudo apt-get install -y gdebi-core
 wget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb
 sudo gdebi shiny-server-1.5.23.1030-amd64.deb
+sudo systemctl enable shiny-server
+sudo systemctl start shiny-server
 ```
 
-### 2b) Configure Java + mail packages (required for email notifications) {#java-mail}
-
-The app sends emails via `mailR`, which requires Java / `rJava`.
-This is for **email notifications**, not for LDAP auth itself.
+Create the app folder:
 
 ```bash
-sudo apt-get install -y default-jdk
-sudo R CMD javareconf
-sudo Rscript --vanilla -e 'install.packages(c("rJava","mailR"), repos="https://cloud.r-project.org")'
-```
-
-### 2c) Create `shiny` user + app-folder permissions {#shiny-user-perms}
-
-Shiny Server runs the app as the `shiny` service user.
-
-```bash
-getent passwd shiny || sudo useradd --system --home /var/lib/shiny-server --shell /usr/sbin/nologin shiny
 sudo mkdir -p /srv/shiny-server/ms-app
 sudo chown -R shiny:shiny /srv/shiny-server/ms-app
-sudo chmod 755 /srv/shiny-server /srv/shiny-server/ms-app
 sudo usermod -a -G shiny "$USER"
 ```
 
-If you are configuring a different account, replace `"$USER"` with that username.
+## 4. Deploy App Files
 
-### 2d) LDAP packages (Ubuntu + R) {#ldap-deps}
+```bash
+cd /home/<user>/BCFMS-project-management
+sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' ms-app/ /srv/shiny-server/ms-app/
+sudo chown -R shiny:shiny /srv/shiny-server/ms-app
+```
 
-Install LDAP client tools and build dependencies:
+## 5. Initialize Database
+
+```bash
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript setup_database.R
+```
+
+For schema/seed checks without deleting the DB:
+
+```bash
+sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
+```
+
+## 6. Runtime Environment
+
+```bash
+sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
+AUTH_MODE=ldap
+TRUST_PROXY_AUTH_USER_QUERY=1
+MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
+MS_MAIL_FROM=ms-service@biochem.mpg.de
+MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
+EOF
+sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
+sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+## 7. Apache / LDAP
+
+Install LDAP client tooling:
 
 ```bash
 sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates
 ```
 
-Configure OpenLDAP client trust in `/etc/ldap/ldap.conf`:
+Configure OpenLDAP trust:
 
 ```bash
 sudo tee /etc/ldap/ldap.conf >/dev/null <<'EOF'
@@ -138,170 +122,52 @@ TLS_CACERTDIR   /etc/ssl/certs
 EOF
 ```
 
-Install the R LDAP package:
+Copy and enable the vhost:
 
 ```bash
-sudo Rscript --vanilla -e 'install.packages("ldapr", repos="https://cloud.r-project.org")'
-```
-
-Fallback if CRAN install is unavailable on this VM:
-
-```bash
-sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'
-```
-
-Quick checks:
-
-```bash
-ldapsearch -x -H ldaps://ldapserv1.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=<user>)" mail
-sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'
-```
-
-If `ldapsearch` only works with `LDAPTLS_REQCERT=never`, your `/etc/ldap/ldap.conf` trust settings are incomplete or incorrect.
-
-### 3) Create a self-signed certificate (test only)
-
-```bash
-sudo mkdir -p /etc/ssl/localcerts
-sudo openssl req -x509 -nodes -days 365 \
-  -newkey rsa:2048 \
-  -keyout /etc/ssl/localcerts/bcf-vm.key \
-  -out /etc/ssl/localcerts/bcf-vm.crt
-```
-
-### 4) Clone repo and set app folder
-
-```bash
-cd /home/<user>
-git clone git@github.com:yeroslaviz/BCFNGS-project-management.git
-sudo rsync -av /home/<user>/BCFNGS-project-management/ms-app/ /srv/shiny-server/ms-app/
-sudo chown -R shiny:shiny /srv/shiny-server/ms-app
-```
-
-### 5) Initialize the SQLite DB
-
-```bash
-cd /srv/shiny-server/ms-app
-sudo -u shiny Rscript setup_database.R
-```
-
-### 6) Configure LDAP mode (systemd override) {#bcf-configure-ldap-systemd}
-
-```bash
-sudo systemctl edit shiny-server
-```
-
-```ini
-[Service]
-Environment=AUTH_MODE=ldap
-Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
-Environment=TRUST_PROXY_AUTH_USER_QUERY=1
-```
-
-```bash
-sudo systemctl daemon-reload
-sudo systemctl restart shiny-server
-```
-
-### 6b) Ensure app runtime env is loaded (`.Renviron`) {#app-renviron}
-
-Setting the previous apps we observed that LDAP worked reliably only after setting app env in `/srv/shiny-server/ms-app/.Renviron`.
-
-Create/update this file:
-
-```bash
-sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
-AUTH_MODE=ldap
-LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
-TRUST_PROXY_AUTH_USER_QUERY=1
-# LDAP_DEBUG=1   # only while debugging
-EOF
-sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
-sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
-sudo systemctl restart shiny-server
-```
-
-This prevents the app from falling back to local-mode UI when systemd env is present but not visible inside the R worker.
-
-### 7) Configure Apache (test HTTPS redirect) {#configure-apache-vhost}
-
-Use the versioned template from the repo `scripts/APACHE2*.vm.conf`. on this machine we use the [ms-vm config](../scripts/ms-vm-shiny-443.conf) file and copy it on VM.
-
-```bash
-sudo cp /home/<user>/BCFNGS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
-```
-
-Template includes:
-
-- HTTP→HTTPS redirect (`:80` → `:443`)
-- Scoped proxy to `/ms-app/`
-- LDAP `<Location /ms-app/>` auth block
-- Canonical `auth_user` rewrite and websocket rule
-
-Enable the site and restart Apache:
-
-```bash
+sudo cp /home/<user>/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf
 sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
-sudo a2ensite ms-vm-shiny-443.conf # this creates symlink to sites-enabled
+sudo a2ensite ms-vm-shiny-443.conf
 sudo apache2ctl -t
 sudo systemctl restart apache2
 ```
 
-This will only work, if the [https certificate](#add link to https installation) were already installed.
-
-**add link to https installation**
-
-
-## DB snapshot / rebuild / restore runbook
-
-### Take snapshots of the database
-
-```bash
-sudo systemctl stop shiny-server
-sudo cp /srv/shiny-server/ms-app/ms-_projects.db /srv/shiny-server/ms-app/ms-_projects.db.bak.$(date +%F-%H%M%S)
-sudo systemctl start shiny-server
-```
-
-```bash
-sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-cp /srv/shiny-server/ms-app/ms_projects.db \
-  /srv/shiny-server/ms_projects.db.backup_$(date +%Y%m%d_%H%M)
-sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
-  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
-```
-
-Optional rebuild:
-
-```bash
-cd /srv/shiny-server/ms-app
-sudo systemctl stop shiny-server
-sudo -u shiny Rscript setup_database.R
-sudo systemctl start shiny-server
-```
-
-Restore snapshot:
-
-```bash
-sudo systemctl stop shiny-server
-sudo cp /srv/shiny-server/ms-app/ms-_projects.db.bak.<timestamp> /srv/shiny-server/ms-app/ms-_projects.db
-sudo chown shiny:shiny /srv/shiny-server/ms-app/ms-_projects.db
-sudo systemctl start shiny-server
-```
-
-A more elaborate restore and backup procedure is explained in [deploy operation manual](deploy-operations.qmd##take-backups-app-folder-sqlite-db-apache-config)
-
-## Post-install verification
-
-Run these checks after install:
+## 8. Verification
 
 ```bash
 curl -Ik https://mscf-vm.biochem.mpg.de/
 curl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/
+curl -I http://127.0.0.1:3838/ms-app/
 ```
 
-Confirm:
+Local maintenance login:
 
-- no-port hostname opens Shiny.
-- LDAP prompt appears and login succeeds.
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/ms-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+Return to LDAP:
+
+```bash
+sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/ms-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+## 9. Backup / Restore
+
+Backup:
+
+```bash
+sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
+sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
+```
+
+Restore:
+
+```bash
+sudo systemctl stop shiny-server
+sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
+sudo chown -R shiny:shiny /srv/shiny-server/ms-app
+sudo systemctl start shiny-server
+```

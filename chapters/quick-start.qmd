@@ -8,78 +8,79 @@ execute:
 
 ## Quick Start
 
-### Contents
+### Local app run
 
-- [Local dev — local mode](#local-dev--local-mode)
-- [Local dev — LDAP simulation](#local-dev--ldap-simulation)
-- [Local dev — unset](#local-dev--unset)
-- [VM — LDAP mode (production)](#vm--ldap-mode-production)
-- [VM — local mode (maintenance)](#vm--local-mode-maintenance)
-- [VM — unset (clear overrides)](#vm--unset-clear-overrides)
-
-#### Local dev — local mode
+From the repository root:
 
 ```r
-Sys.setenv(APP_ENV = "dev", AUTH_MODE = "local")
+Sys.setenv(AUTH_MODE = "local")
 shiny::runApp("ms-app")
 ```
 
-#### Local dev — LDAP simulation
+The local test administrator is created by `setup_database.R`:
+
+- username: `admin`
+- password: `admin123` unless `MS_LOCAL_ADMIN_PASSWORD` is set
+
+### Initialize or rebuild the local database
+
+```bash
+cd ms-app
+Rscript setup_database.R
+```
+
+By default this rebuilds `ms_projects.db`. To run schema/seed checks without deleting an existing database:
+
+```bash
+cd ms-app
+MS_RESET_DB=0 Rscript setup_database.R
+```
+
+### Local LDAP/proxy simulation
+
+The production VM lets Apache do LDAP authentication and passes the authenticated username to Shiny. To simulate that locally:
 
 ```r
 Sys.setenv(
-  APP_ENV = "dev",
   AUTH_MODE = "ldap",
-  DEV_REMOTE_USER = "your_username",
-  LDAP_URI = "ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636",
-  LDAP_BASE_DN = "dc=biochem,dc=mpg,dc=de"
+  TRUST_PROXY_AUTH_USER_QUERY = "1"
 )
 shiny::runApp("ms-app")
 ```
-To run this locally, replace "your_username" with actual user name.
 
-#### Local dev — unset
+Then open the app with an `auth_user` query parameter, for example:
 
-```r
-Sys.unsetenv(c(
-  "APP_ENV","AUTH_MODE","DEV_REMOTE_USER",
-  "LDAP_BIND_DN","LDAP_BIND_PW",
-  "LDAP_URI","LDAP_BASE_DN","LDAP_DEBUG"
-))
+```text
+http://127.0.0.1:3838/?auth_user=yeroslaviz
 ```
 
-#### VM — LDAP mode (production)
+### VM LDAP mode
 
-```bash
-sudo systemctl edit shiny-server
-```
+Set the Shiny runtime environment either through a systemd override or `/srv/shiny-server/ms-app/.Renviron`:
 
 ```ini
-[Service]
-Environment=AUTH_MODE=ldap
-Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+AUTH_MODE=ldap
+TRUST_PROXY_AUTH_USER_QUERY=1
+MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
+MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
 ```
+
+Restart Shiny after changing runtime settings:
 
 ```bash
 sudo systemctl restart shiny-server
 ```
 
-#### VM — local mode (maintenance)
+### VM maintenance mode
+
+Switch temporarily to local login:
 
 ```ini
-[Service]
-Environment=AUTH_MODE=local
+AUTH_MODE=local
 ```
 
-```bash
-sudo systemctl restart shiny-server
-```
-
-#### VM — unset (clear overrides)
+Then restart:
 
 ```bash
-sudo systemctl edit shiny-server
-# remove AUTH_MODE/LDAP_* lines, save, then:
 sudo systemctl restart shiny-server
 ```

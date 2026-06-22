@@ -8,221 +8,42 @@ execute:
 
 ## Deploy & Operations
 
-## Take backups (app folder, SQLite DB, Apache config)
+## Routine Deploy
 
-```{bash}
-sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-cp /srv/shiny-server/ms-app/ms_projects.db \
-  /srv/shiny-server/ms_projects.db.backup_$(date +%Y%m%d_%H%M)
-sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
-  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
-```
-The `ms-vm-shiny-443.conf` file is the latest config file, supporting both the LDAP system as well as the https certificate.
+On the VM:
 
-
-3.  Deploy.
-
-```{bash}
-./scripts/deploy.sh
-```
-
-4.  Restart services.
-
-```{bash}
-sudo systemctl restart shiny-server
-sudo systemctl restart apache2
-```
-
-5.  Smoke‑test login and app behavior.
-
-```{bash}
-curl -Ik https://mscf-vm.biochem.mpg.de/
-curl -Ik -u USER https://mscf-vm.biochem.mpg.de/
-curl -Ik -u USER https://mscf-vm.biochem.mpg.de/sequencing-app/
-```
-
-6.  Roll back from backups if needed.
-
-```{bash}
-sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
-sudo systemctl restart shiny-server
-sudo systemctl restart apache2
-```
-
-
-### VM rollout HOW‑TO (Git + deploy + safety)
-
-This is the repeatable checklist I use when rolling out to a VM (first `ngs-testing-vm`, then `ngs-vm`).
-
-#### Step 1: Make sure GitHub access works on the VM
-
-Check which remote is set:
-
-```{bash}
-git -C /home/yeroslaviz/BCFMS-project-management remote -v
-```
-
-If the remote is SSH (`git@github.com:...`), verify SSH access:
-
-```{bash}
-ssh -T git@github.com
-```
-
-If SSH works but `git pull` still says **Permission denied (publickey)**, the VM key is **not added** to the repo. The fix is to add the VM public key as a **Deploy Key**:
-
-```{bash}
-cat ~/.ssh/id_ed25519.pub
-```
-
-Then add that key in GitHub:
-`Repo → Settings → Deploy keys → Add deploy key` (read‑only is enough for pull).
-
-#### Step 2: Pull latest code
-
-```{bash}
+```bash
 cd /home/yeroslaviz/BCFMS-project-management
 git pull origin main
+./scripts/deploy.sh
 ```
 
-If Git says **divergent branches**, I set merge as the default and pull again:
+The deploy script syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`.
 
-```{bash}
-git config pull.rebase false
-git pull origin main
-```
+## Pre-Deploy Backups
 
-If Git refuses because of the local SQLite DB file, I stop tracking the DB on the VM:
-
-```{bash}
-git rm --cached ms-app/ms_projects.db
-git commit -m "Stop tracking local SQLite DB on VM"
-git pull origin main
-```
-
-This does **not** delete the local DB file. It just removes it from Git so future pulls work.
-
-#### Step 3: Production safety backups (fast rollback)
-
-```{bash}
+```bash
 sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-cp /srv/shiny-server/ms-app/ms_projects.db \
-  /srv/shiny-server/ms-app/ms_projects.db.backup_$(date +%Y%m%d_%H%M)
-sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf \
-  /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
-```
-
-#### Step 4: Deploy
-
-```{bash}
-./scripts/deploy.sh
-```
-
-#### Step 5: Restart and smoke‑test
-
-```{bash}
-sudo systemctl restart shiny-server
-sudo systemctl restart apache2
-```
-
-Then open the app URL and verify:
-- LDAP prompt appears
-- login works
-- app loads
-
-#### Step 6: Rollback (if needed)
-
-```{bash}
-sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
-sudo systemctl restart shiny-server
-sudo systemctl restart apache2
-```
-
-## Deploy Scope and DB Behavior
-
-`scripts/deploy.sh` is **code deployment only**:
-
-- syncs app files from repo -> `/srv/shiny-server/ms-app/`
-- excludes `ms_projects.db`
-- restarts `shiny-server`
-- runs LDAP smoke tests (unless `SKIP_SMOKE_TEST=1`)
-
-It does **not**:
-
-- rebuild the DB
-- import legacy CSV
-- run `setup_database.R`
-- overwrite landing text content (`announcement_panels` / `announcement_items`)
-
-### When to run deploy
-
-Run deploy after changes to app code/config in:
-
-- `/home/yeroslaviz/BCFMS-project-management/sequencing-app/`
-
-Do not use deploy for Apache-only changes; apply Apache config separately.
-
-### Restart vs rebuild
-
-- Restarting `shiny-server` does not remove DB content.
-- Rebuild is a manual, explicit action (`setup_database.R`) and should be done only when needed.
-- Landing text edited via **Manage Landing Text** is DB-backed and survives deploy/restart.
-
-### Safe DB snapshot around risky maintenance
-
-```bash
-sudo systemctl stop shiny-server
 sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
-sudo systemctl start shiny-server
+sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
 
-Restore snapshot:
+## Restart Services
 
 ```bash
-sudo systemctl stop shiny-server
-sudo cp /srv/shiny-server/ms-app/ms_projects.db.bak.<timestamp> /srv/shiny-server/ms-app/ms_projects.db
-sudo chown shiny:shiny /srv/shiny-server/ms-app/ms_projects.db
-sudo systemctl start shiny-server
+sudo systemctl restart shiny-server
+sudo systemctl restart apache2
 ```
 
-
-## LDAP Deploy Smoke Tests
-
-### Step 1: Deploy with built-in smoke tests
-
-Run on VM:
+## Smoke Tests
 
 ```bash
-cd ~/BCFMS-project-management
-./scripts/deploy.sh
+curl -Ik https://mscf-vm.biochem.mpg.de/
+curl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/
+curl -I http://127.0.0.1:3838/ms-app/
 ```
 
-The script now:
-
-1. Deploys app files to `/srv/shiny-server/sequencing-app/`
-2. Restarts `shiny-server`
-3. Runs LDAP smoke tests:
-   - `/sequencing-app/` returns `302` to canonical `?auth_user=<logged-user>`
-   - tampered `?auth_user=other` is rewritten to `?auth_user=<logged-user>`
-   - final app load returns `200`
-
-It exits with non-zero status and prints remediation hints if any check fails.
-
-## Backups (summary)
-
-This project currently has three backup mechanisms:
-
-1. Manual **pre-deploy rollback backups** (recommended before any deploy/maintenance): copy the app folder, the SQLite DB, and the Apache vhost config with a timestamp. See “Production safety backups (fast rollback)” above.
-2. Manual **in-app backup/restore** (Admin UI): admins can download a `.sqlite` backup and restore it later (restore makes a pre-restore copy first).
-3. **Automatic bi-weekly backups**: present in the app code but **commented out / disabled** by default.
-
-Note:
-
-- `scripts/deploy.sh` syncs app code only. If you changed Apache config, apply/restart Apache separately, then run curl checks.
-
-
-### Step 2: Non-interactive usage (optional)
-
-If you do not want password prompts:
+Optional non-interactive LDAP smoke test:
 
 ```bash
 LDAP_TEST_USER="yeroslaviz-test" LDAP_TEST_PASSWORD="YOUR_PASSWORD" ./scripts/deploy.sh
@@ -234,43 +55,45 @@ Skip smoke tests only when needed:
 SKIP_SMOKE_TEST=1 ./scripts/deploy.sh
 ```
 
-Override target base URL:
+Override the public URL:
 
 ```bash
 PUBLIC_BASE_URL="https://mscf-vm.biochem.mpg.de" ./scripts/deploy.sh
 ```
 
-## Feature Branch Deploy (Test VM)
+## Database Behavior
 
-Use this when you want to validate a feature branch on `bcf-vm` or `ngs-testing-vm` before merging to `main`.
+Deploy is code-only. It does not rebuild or overwrite `ms_projects.db`.
 
-1. Switch to your feature branch on the VM and pull latest branch commits.
-
-```bash
-cd /home/<user>/BCFMS-project-management
-git fetch origin
-git checkout <feature-branch>
-git pull --ff-only origin <feature-branch>
-```
-
-2. Deploy branch code to `/srv/shiny-server/ms-app/`.
+To initialize a new database:
 
 ```bash
-PUBLIC_BASE_URL="https://<vm-hostname>" ./scripts/deploy.sh
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript setup_database.R
 ```
 
-3. Validate app behavior on that VM (LDAP/local mode, forms, emails, admin actions).
-
-4. After merge to `main`, switch VM back to `main` and deploy again:
+To apply schema/seed checks without deleting existing data:
 
 ```bash
-cd /home/<user>/BCFMS-project-management
-git checkout main
-git pull --ff-only origin main
-PUBLIC_BASE_URL="https://<vm-hostname>" ./scripts/deploy.sh
+cd /srv/shiny-server/ms-app
+sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
 ```
 
-Notes:
+## Rollback
 
-- `scripts/deploy.sh` does not rebuild or replace the SQLite DB.
-- DB-backed content (projects, landing text, additional costs) persists across deploy and restart.
+```bash
+sudo systemctl stop shiny-server
+sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
+sudo cp /srv/shiny-server/ms-app/ms_projects.db.bak.<timestamp> /srv/shiny-server/ms-app/ms_projects.db
+sudo chown -R shiny:shiny /srv/shiny-server/ms-app
+sudo systemctl start shiny-server
+sudo systemctl restart apache2
+```
+
+## Logs
+
+```bash
+sudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log
+sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log
+sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log
+```
