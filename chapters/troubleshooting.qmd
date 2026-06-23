@@ -80,6 +80,11 @@ If needed, reset it exactly:
 sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
 AUTH_MODE=ldap
 TRUST_PROXY_AUTH_USER_QUERY=1
+MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
+MS_MAIL_FROM=ms-service@biochem.mpg.de
+MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
+MS_MAX_UPLOAD_MB=75
+# Temporary: keep this only while debugging LDAP, then remove or set to 0.
 LDAP_DEBUG=1
 EOF
 sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
