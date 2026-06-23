@@ -97,3 +97,4 @@ sudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log
 ```
+

@@ -73,6 +73,32 @@ cd /srv/shiny-server/ms-app
 sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
 ```
 
+##  Deploy (VM)
+
+After the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run `deploy.sh` so `/srv/shiny-server/ms-app/app.R` gets the latest LDAP fixes and updates.
+
+On the VM:
+
+```bash
+cd /home/yeroslaviz/BCFMS-project-management
+git pull
+./scripts/deploy.sh
+```
+
+Before running it, we need to make sure `/srv/shiny-server/ms-app/.Renviron` has the [full block](#runtime-environment), because `deploy.sh` preserves `.Renviron` and does not overwrite it:
+
+After deploy, confirm the deployed app contains the new LDAP code:
+
+```bash
+sudo grep -n "client_url_search\|auth-status-box\|is_ldap_mode" /srv/shiny-server/ms-app/app.R
+```
+
+`deploy.sh` runs LDAP smoke tests and asks for an LDAP username/password unless we set `SKIP_SMOKE_TEST=1`. For a quick deploy without that prompt:
+
+```bash
+SKIP_SMOKE_TEST=1 ./scripts/deploy.sh
+```
+
 ## Runtime Environment
 
 Create `/srv/shiny-server/ms-app/.Renviron`:

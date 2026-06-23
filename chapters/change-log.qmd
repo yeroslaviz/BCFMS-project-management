@@ -10,20 +10,27 @@ execute:
 
 ### Contents
 
-- [Changes on 16.06.2026](#changes-on-16.06.2026)
-- [Changes on 17.06.2026](#changes-on-17.06.2026)
-- [Changes on 18.06.2026](#changes-on-18.06.2026)
+- [Changes on 23.06.2026](#changes-on-23.06.2026)
+- [Changes on 22.06.2026](#changes-on-22.06.2026)
 - [Changes on 19.06.2026](#changes-on-19.06.2026)
+- [Changes on 18.06.2026](#changes-on-18.06.2026)
+- [Changes on 17.06.2026](#changes-on-17.06.2026)
+- [Changes on 16.06.2026](#changes-on-16.06.2026)
 
 
-## Cahnges on 22.06.2026
+## Changes on 23.06.2026
+
+1. LDAP configuration was fixed. App on the VM now starts using LDAP. 
+2. `deploy.sh` section was added to [Setup page](setup-infrastructure.qmd#deploy-(vm))
+3. 
+
+## Changes on 22.06.2026
 
 1. App was set locally. database was modified to include the appropriate fields
 2. changes were done to the documentation to make them cleaner and more ms-core facility related.
 3. App now include landing pages as well.
 4. multiple fields were changes and modified after discussion with MSCF-admins
 5. mail communication needs to be adjusted.
-
 
 ## Changes on 19.06.2026
 
