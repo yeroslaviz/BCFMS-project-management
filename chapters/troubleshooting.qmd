@@ -56,7 +56,12 @@ sudo systemctl restart shiny-server
 
 ## LDAP Prompt Works but App Does Not Log In
 
-Confirm the runtime mode:
+This is the same failure mode documented for BCFNGS: Apache LDAP works, but
+the Shiny R worker is still running with local-mode environment settings.
+Do not rely only on `systemctl show shiny-server --property=Environment`;
+the working BCFNGS setup uses the app-local `.Renviron`.
+
+Confirm the app-local runtime mode:
 
 ```bash
 sudo cat /srv/shiny-server/ms-app/.Renviron
@@ -67,6 +72,34 @@ Required:
 ```ini
 AUTH_MODE=ldap
 TRUST_PROXY_AUTH_USER_QUERY=1
+```
+
+If needed, reset it exactly:
+
+```bash
+sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
+AUTH_MODE=ldap
+TRUST_PROXY_AUTH_USER_QUERY=1
+LDAP_DEBUG=1
+EOF
+sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
+sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
+sudo systemctl restart shiny-server
+```
+
+Verify that the deployed code is current:
+
+```bash
+sudo grep -n "client_url_search\\|auth-status-box\\|is_ldap_mode" /srv/shiny-server/ms-app/app.R
+```
+
+Expected: all three terms should be found. If not, redeploy the latest `ms-app/`.
+
+Then inspect the latest Shiny log:
+
+```bash
+LATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)
+sudo tail -n 120 "$LATEST"
 ```
 
 Check the redirect:

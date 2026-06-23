@@ -31,6 +31,10 @@ tryCatch(
 
 mail_available <- requireNamespace("mailR", quietly = TRUE)
 
+to_bool <- function(x) {
+  tolower(trimws(x %||% "")) %in% c("1", "true", "yes", "on")
+}
+
 auth_mode <- function() {
   tolower(trimws(Sys.getenv("AUTH_MODE", "local")))
 }
@@ -40,7 +44,7 @@ is_ldap_mode <- function() {
 }
 
 trust_proxy_auth_user_query <- function() {
-  Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "0") == "1"
+  to_bool(Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "0"))
 }
 
 scalar_text <- function(x, default = "") {
@@ -678,17 +682,55 @@ server <- function(input, output, session) {
   admin_edit_option_id <- reactiveVal(NULL)
   admin_edit_landing_id <- reactiveVal(NULL)
   client_url_search <- reactiveVal("")
+  ldap_warned <- reactiveVal(FALSE)
+
+  if (to_bool(Sys.getenv("LDAP_DEBUG", "0"))) {
+    cat(
+      "LDAP DEBUG: startup env",
+      "AUTH_MODE=", Sys.getenv("AUTH_MODE", "<unset>"),
+      "TRUST_PROXY_AUTH_USER_QUERY=", Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "<unset>"),
+      "\n",
+      file = stderr()
+    )
+    flush.console()
+  }
 
   observeEvent(input$client_url_search, {
     client_url_search(trim_scalar(input$client_url_search))
   }, ignoreInit = FALSE)
 
+  get_req_header <- function(req, header_name) {
+    if (is.null(req) || is.null(header_name) || !nzchar(header_name)) return("")
+
+    key_upper <- toupper(gsub("-", "_", header_name))
+    env_key <- paste0("HTTP_", key_upper)
+    candidates <- c(req[[env_key]], req[[key_upper]])
+
+    hdrs <- req$HEADERS
+    if (is.null(hdrs) || !is.list(hdrs)) hdrs <- req$headers
+    if (is.list(hdrs)) {
+      candidates <- c(
+        candidates,
+        hdrs[[tolower(header_name)]],
+        hdrs[[header_name]],
+        hdrs[[key_upper]]
+      )
+    }
+
+    for (value in candidates) {
+      value <- trim_scalar(value)
+      if (nzchar(value)) return(value)
+    }
+    ""
+  }
+
   get_proxy_username <- function() {
     req <- session$request
     candidates <- c(
-      req$HTTP_X_REMOTE_USER %||% "",
-      req$REMOTE_USER %||% "",
-      req$HTTP_X_FORWARDED_USER %||% ""
+      get_req_header(req, "x-remote-user"),
+      get_req_header(req, "remote-user"),
+      scalar_text(req$REMOTE_USER, ""),
+      get_req_header(req, "x-forwarded-user")
     )
 
     query_user <- ""
@@ -733,7 +775,25 @@ server <- function(input, output, session) {
     if (isTRUE(user$logged_in) || isTRUE(proxy_login_attempted())) return()
     if (!is_ldap_mode()) return()
     proxy_username <- get_proxy_username()
-    if (!nzchar(proxy_username)) return()
+    if (!nzchar(proxy_username)) {
+      if (!isTRUE(ldap_warned()) && to_bool(Sys.getenv("LDAP_DEBUG", "0"))) {
+        req <- session$request
+        cat(
+          "LDAP DEBUG: LDAP mode active but no authenticated user found",
+          "X_REMOTE_USER=", get_req_header(req, "x-remote-user") %||% "<missing>",
+          "REMOTE_USER=", scalar_text(req$REMOTE_USER, "<missing>"),
+          "X_FORWARDED_USER=", get_req_header(req, "x-forwarded-user") %||% "<missing>",
+          "CLIENT_URL_SEARCH=", client_url_search() %||% "<missing>",
+          "SESSION_URL_SEARCH=", scalar_text(session$clientData$url_search, "<missing>"),
+          "REQ_QUERY_STRING=", scalar_text(req$QUERY_STRING, "<missing>"),
+          "\n",
+          file = stderr()
+        )
+        flush.console()
+      }
+      ldap_warned(TRUE)
+      return()
+    }
 
     proxy_login_attempted(TRUE)
     con <- ms_db_connect()

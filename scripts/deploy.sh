@@ -44,8 +44,9 @@ smoke_fail() {
   echo "   sudo apache2ctl -S" >&2
   echo "   sudo apache2ctl configtest && sudo systemctl restart apache2 && sudo systemctl restart shiny-server" >&2
   echo "2) Verify Shiny environment:" >&2
-  echo "   sudo systemctl show shiny-server --property=Environment" >&2
-  echo "   Required: AUTH_MODE=ldap and TRUST_PROXY_AUTH_USER_QUERY=1" >&2
+  echo "   sudo cat /srv/shiny-server/ms-app/.Renviron" >&2
+  echo "   sudo -u shiny bash -lc 'cd /srv/shiny-server/ms-app && Rscript -e \"cat(Sys.getenv(\\\"AUTH_MODE\\\"), Sys.getenv(\\\"TRUST_PROXY_AUTH_USER_QUERY\\\"), \\\"\\\\n\\\")\"'" >&2
+  echo "   Required in app-local .Renviron: AUTH_MODE=ldap and TRUST_PROXY_AUTH_USER_QUERY=1" >&2
   echo "3) Inspect logs for redirects/auth failures:" >&2
   echo "   sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log" >&2
   echo "   sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log" >&2
@@ -75,13 +76,22 @@ run_ldap_smoke_tests() {
   echo
   echo "Running LDAP smoke tests..."
 
-  local env_line
-  env_line="$(sudo systemctl show shiny-server --property=Environment)"
-  if [[ "${env_line}" != *"AUTH_MODE=ldap"* ]]; then
-    smoke_fail "AUTH_MODE=ldap is not set in shiny-server environment."
+  local app_env_file app_env_runtime
+  app_env_file="$(sudo cat "${APP_TARGET}.Renviron" 2>/dev/null || true)"
+  if [[ "${app_env_file}" != *"AUTH_MODE=ldap"* ]]; then
+    smoke_fail "AUTH_MODE=ldap is not set in ${APP_TARGET}.Renviron."
   fi
-  if [[ "${env_line}" != *"TRUST_PROXY_AUTH_USER_QUERY=1"* ]]; then
-    smoke_fail "TRUST_PROXY_AUTH_USER_QUERY=1 is not set in shiny-server environment."
+  if [[ "${app_env_file}" != *"TRUST_PROXY_AUTH_USER_QUERY=1"* ]]; then
+    smoke_fail "TRUST_PROXY_AUTH_USER_QUERY=1 is not set in ${APP_TARGET}.Renviron."
+  fi
+
+  app_env_runtime="$(sudo -u shiny bash -lc "cd '${APP_TARGET}' && Rscript -e 'cat(Sys.getenv(\"AUTH_MODE\"), Sys.getenv(\"TRUST_PROXY_AUTH_USER_QUERY\"), \"\\n\")'" 2>/dev/null || true)"
+  if [[ "${app_env_runtime}" != "ldap 1"* ]]; then
+    smoke_fail "The shiny user does not read LDAP settings from ${APP_TARGET}.Renviron (saw: ${app_env_runtime:-<empty>})."
+  fi
+
+  if ! sudo grep -q "client_url_search" "${APP_TARGET}app.R"; then
+    smoke_fail "Deployed app.R does not contain the current LDAP query handoff code. Redeploy the latest ms-app/app.R."
   fi
 
   local ldap_user="${LDAP_TEST_USER:-}"
