@@ -31,6 +31,18 @@ tryCatch(
 
 mail_available <- requireNamespace("mailR", quietly = TRUE)
 
+auth_mode <- function() {
+  tolower(trimws(Sys.getenv("AUTH_MODE", "local")))
+}
+
+is_ldap_mode <- function() {
+  identical(auth_mode(), "ldap")
+}
+
+trust_proxy_auth_user_query <- function() {
+  Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "0") == "1"
+}
+
 scalar_text <- function(x, default = "") {
   if (is.null(x) || length(x) == 0 || is.na(x[[1]])) return(default)
   as.character(x[[1]])
@@ -611,6 +623,18 @@ ui <- fluidPage(
   tags$head(
     includeCSS("styles.css"),
     tags$script(HTML("
+      function publishUrlSearch() {
+        if (window.Shiny && Shiny.setInputValue) {
+          Shiny.setInputValue('client_url_search', window.location.search || '', {priority: 'event'});
+        }
+      }
+
+      document.addEventListener('shiny:connected', publishUrlSearch);
+      document.addEventListener('DOMContentLoaded', function() {
+        window.setTimeout(publishUrlSearch, 0);
+      });
+      window.addEventListener('popstate', publishUrlSearch);
+
       document.addEventListener('keyup', function(event) {
         var target = event.target;
         if (!target || (target.id !== 'login_username' && target.id !== 'login_password')) return;
@@ -653,6 +677,11 @@ server <- function(input, output, session) {
   admin_edit_organism_id <- reactiveVal(NULL)
   admin_edit_option_id <- reactiveVal(NULL)
   admin_edit_landing_id <- reactiveVal(NULL)
+  client_url_search <- reactiveVal("")
+
+  observeEvent(input$client_url_search, {
+    client_url_search(trim_scalar(input$client_url_search))
+  }, ignoreInit = FALSE)
 
   get_proxy_username <- function() {
     req <- session$request
@@ -663,12 +692,22 @@ server <- function(input, output, session) {
     )
 
     query_user <- ""
-    query <- scalar_text(req$QUERY_STRING, "")
-    if (nzchar(query)) {
-      parsed <- parseQueryString(paste0("?", query))
-      query_user <- parsed$auth_user %||% ""
+    query_candidates <- unique(c(
+      client_url_search(),
+      scalar_text(session$clientData$url_search, ""),
+      scalar_text(req$QUERY_STRING, "")
+    ))
+    query_candidates <- query_candidates[nzchar(trimws(query_candidates))]
+    if (trust_proxy_auth_user_query()) {
+      for (query in query_candidates) {
+        parsed <- parseQueryString(query)
+        if (!is.null(parsed$auth_user) && nzchar(trim_scalar(parsed$auth_user))) {
+          query_user <- trim_scalar(parsed$auth_user)
+          break
+        }
+      }
     }
-    if (Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "0") == "1" || Sys.getenv("AUTH_MODE", "") == "ldap") {
+    if (nzchar(query_user)) {
       candidates <- c(candidates, query_user)
     }
 
@@ -692,7 +731,7 @@ server <- function(input, output, session) {
   proxy_login_attempted <- reactiveVal(FALSE)
   observe({
     if (isTRUE(user$logged_in) || isTRUE(proxy_login_attempted())) return()
-    if (Sys.getenv("AUTH_MODE", "local") == "local") return()
+    if (!is_ldap_mode()) return()
     proxy_username <- get_proxy_username()
     if (!nzchar(proxy_username)) return()
 
@@ -704,18 +743,37 @@ server <- function(input, output, session) {
   })
 
   login_panel <- function() {
+    ldap_mode <- is_ldap_mode()
     div(
       class = "login-page",
       div(
         class = "login-box",
-        h2("Mass Spectrometry Project Submission"),
+        h2(if (ldap_mode) "LDAP Authentication" else "Mass Spectrometry Project Submission"),
         guideline_panel(),
         if (!is.null(startup_db_error)) {
           div(class = "error-box", strong("Database issue detected: "), startup_db_error)
         },
-        textInput("login_username", "Username", placeholder = "Local test user or MPIB username"),
-        passwordInput("login_password", "Password", placeholder = "Password"),
-        actionButton("login_btn", "Login", class = "btn btn-primary login-button")
+        if (ldap_mode) {
+          div(
+            class = "auth-status-box",
+            strong("LDAP proxy mode is active."),
+            p("Waiting for Apache to pass the authenticated user to Shiny."),
+            if (trust_proxy_auth_user_query()) {
+              p("For local proxy simulation, reopen this app URL with ?auth_user=<username>.")
+            },
+            div(
+              class = "auth-env",
+              tags$span("AUTH_MODE=", tags$code(auth_mode())),
+              tags$span("TRUST_PROXY_AUTH_USER_QUERY=", tags$code(Sys.getenv("TRUST_PROXY_AUTH_USER_QUERY", "0")))
+            )
+          )
+        } else {
+          tagList(
+            textInput("login_username", "Username", placeholder = "Local test user or MPIB username"),
+            passwordInput("login_password", "Password", placeholder = "Password"),
+            actionButton("login_btn", "Login", class = "btn btn-primary login-button")
+          )
+        }
       )
     )
   }
@@ -772,6 +830,10 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$login_btn, {
+    if (is_ldap_mode()) {
+      showNotification("Local password login is disabled in LDAP mode.", type = "warning")
+      return()
+    }
     req(input$login_username, input$login_password)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
