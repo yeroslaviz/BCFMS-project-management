@@ -91,10 +91,13 @@ LDAP_ATTR_GIVENNAME=givenName
 LDAP_ATTR_SN=sn
 MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
 MS_MAIL_FROM=ms-service@biochem.mpg.de
+MS_POOL_FALLBACK_EMAIL=omics@bochem.mpg.de
 SMTP_HOST=msx.biochem.mpg.de
 SMTP_PORT=25
 SMTP_SSL=0
 SMTP_TLS=0
+# Optional: comma-separated recipient domains, for example biochem.mpg.de.
+# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
 MS_MAX_UPLOAD_MB=75
 # Temporary: keep this only while debugging LDAP, then remove or set to 0.
@@ -127,6 +130,12 @@ curl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/
 ```
 
 Expected: `Location: https://mscf-vm.biochem.mpg.de/ms-app/?auth_user=USER`.
+
+## SMTP Relay Rejections
+
+If `scripts/test.mailR.R` can send mail from the VM but the app logs `550 5.7.54 SMTP; Unable to relay recipient in non-accepted domain`, first compare the script's `from` address with `MS_MAIL_FROM` in `/srv/shiny-server/ms-app/.Renviron`. The relay must accept the app's sender address, not only the standalone test sender.
+
+The app sends one SMTP message per recipient and logs each result separately. This means one rejected address should no longer prevent the other recipients from receiving the message. If the relay should only receive internal recipients while testing, set `MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de` in `.Renviron`; otherwise leave it unset.
 
 ## Upload Pool Missing
 

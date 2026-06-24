@@ -123,12 +123,13 @@ body {
   padding: 14px 16px;
   border-radius: 6px;
   margin: 12px 0 18px;
+  font-size: 16px;
   line-height: 1.45;
 }
 
 .submission-warning.compact {
   padding: 10px 12px;
-  font-size: 13px;
+  font-size: 16px;
 }
 
 .guideline-panel {
@@ -176,18 +177,29 @@ body {
   margin: 14px 0;
 }
 
+.project-table-filter {
+  max-width: 280px;
+  margin: 8px 0 12px;
+}
+
+.modal-dialog.modal-lg {
+  width: min(1120px, calc(100vw - 32px)) !important;
+  max-width: calc(100vw - 32px);
+}
+
 .measurement-select {
   margin: 18px 0;
 }
 
 .measurement-select .shiny-options-group {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
+  grid-template-columns: repeat(3, minmax(260px, 1fr));
+  gap: 12px;
 }
 
 .measurement-select .radio {
   margin: 0;
+  width: 100%;
 }
 
 .measurement-select .radio label {
@@ -201,21 +213,33 @@ body {
 }
 
 .measurement-select .radio input[type="radio"] {
-  margin: 18px 0 0;
+  grid-column: 1;
+  margin: 18px 0 0 !important;
+  position: static !important;
+}
+
+.measurement-select .radio label > span {
+  display: block;
+  grid-column: 2;
+  min-width: 0;
+  width: 100%;
 }
 
 .measurement-choice {
   display: flex;
   flex-direction: column;
   gap: 5px;
-  min-height: 72px;
+  height: 100%;
+  min-height: 124px;
   border: 1px solid #d9dde1;
   border-top: 6px solid #88ccee;
   border-radius: 8px;
   background: #ffffff;
-  padding: 12px;
+  box-sizing: border-box;
+  padding: 12px 14px;
   margin-left: 0;
   min-width: 0;
+  width: 100%;
 }
 
 .measurement-choice strong {
@@ -223,8 +247,20 @@ body {
 }
 
 .measurement-choice span {
+  display: block;
+  line-height: 1.35;
+}
+
+.measurement-choice span {
   color: #546e7a;
   font-size: 13px;
+}
+
+.template-card-download {
+  align-self: flex-start;
+  margin-top: auto;
+  white-space: normal;
+  text-align: left;
 }
 
 .template-downloads,
@@ -460,10 +496,17 @@ pre {
   }
 
   .measurement-select .shiny-options-group {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(3, minmax(210px, 1fr));
+    overflow-x: auto;
   }
 
   .admin-form-row-wide {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 700px) {
+  .measurement-select .shiny-options-group {
     grid-template-columns: 1fr;
   }
 }

@@ -9,6 +9,7 @@ library(digest)
 MS_DB_FILE <- Sys.getenv("MS_DB_FILE", "ms_projects.db")
 MS_FACILITY_EMAIL <- Sys.getenv("MS_FACILITY_EMAIL", "ms-service@biochem.mpg.de")
 MS_MAIL_FROM <- Sys.getenv("MS_MAIL_FROM", MS_FACILITY_EMAIL)
+MS_POOL_FALLBACK_EMAIL <- Sys.getenv("MS_POOL_FALLBACK_EMAIL", "omics@bochem.mpg.de")
 MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-bcfngs-ms-projects")
 MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv("MS_LOCAL_UPLOAD_FALLBACK", "uploads_pending_pool")
 MS_INSTITUTE_ADDRESS <- paste(
@@ -36,7 +37,7 @@ ms_project_types <- data.frame(
   color = c("#DDCC77", "#88CCEE", "#CC6677"),
   description = c(
     "Intact mass measurements for proteins or other biomolecules.",
-    "Protein identification, quantification, PTM, AP-MS, XL-MS, HDX-MS, or related proteomics work.",
+    "Protein identification, quantification, PTM, AP-MS, XL-MS, or related proteomics work.",
     "Metabolomics submissions with species/sample metadata and optional target lists."
   ),
   display_order = c(1L, 2L, 3L),
@@ -582,6 +583,17 @@ ms_seed_defaults <- function(con) {
       ms_project_types$color[i],
       ms_project_types$description[i],
       ms_project_types$display_order[i]
+    ))
+    dbExecute(con, "
+      UPDATE project_types
+      SET name = ?, color = ?, description = ?, display_order = ?
+      WHERE slug = ?
+    ", params = list(
+      ms_project_types$name[i],
+      ms_project_types$color[i],
+      ms_project_types$description[i],
+      ms_project_types$display_order[i],
+      ms_project_types$slug[i]
     ))
   }
 

@@ -72,10 +72,13 @@ LDAP_ATTR_GIVENNAME=givenName
 LDAP_ATTR_SN=sn
 MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
 MS_MAIL_FROM=ms-service@biochem.mpg.de
+MS_POOL_FALLBACK_EMAIL=omics@bochem.mpg.de
 SMTP_HOST=msx.biochem.mpg.de
 SMTP_PORT=25
 SMTP_SSL=0
 SMTP_TLS=0
+# Optional: comma-separated recipient domains, for example biochem.mpg.de.
+# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
 ```
 

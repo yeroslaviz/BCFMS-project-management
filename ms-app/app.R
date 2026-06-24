@@ -177,7 +177,7 @@ field_label <- function(text, help, example = NULL) {
 warning_banner <- function(compact = FALSE) {
   div(
     class = if (compact) "submission-warning compact" else "submission-warning",
-    strong("Sample storage warning: "),
+    strong("Warning: "),
     MS_SUBMISSION_WARNING
   )
 }
@@ -407,7 +407,7 @@ budget_holder_notice_ui <- function(holders, selected_group, selected_budget_id 
   }
 
   selected_id <- suppressWarnings(as.integer(selected_budget_id))
-  if (!is.na(selected_id)) {
+  if (length(selected_id) == 1 && !is.na(selected_id)) {
     selected <- rows[rows$id == selected_id, , drop = FALSE]
     if (nrow(selected) > 0) {
       cc <- trim_scalar(selected$cost_center[[1]])
@@ -501,8 +501,9 @@ ldapsearch_lookup <- function(uri, base_dn, filter, attrs, bind_dn = "", bind_pw
   }, add = TRUE)
 
   args <- c(args, filter, attrs)
+  shell_args <- shQuote(args)
   output <- tryCatch(
-    system2(ldapsearch_cmd, args = args, stdout = TRUE, stderr = TRUE),
+    system2(ldapsearch_cmd, args = shell_args, stdout = TRUE, stderr = TRUE),
     warning = function(w) {
       out <- conditionMessage(w)
       attr(out, "status") <- 1L
@@ -885,16 +886,37 @@ mail_smtp_config <- function() {
 
 normalize_recipients <- function(recipients) {
   recipients <- unique(trimws(as.character(recipients %||% character())))
-  recipients[!is.na(recipients) & nzchar(recipients)]
+  recipients <- recipients[!is.na(recipients) & nzchar(recipients)]
+  recipients[vapply(recipients, is_email_like, logical(1))]
+}
+
+recipient_domain_allowed <- function(recipient) {
+  allowed <- trimws(unlist(strsplit(Sys.getenv("MS_EMAIL_ALLOWED_DOMAINS", ""), ",")))
+  allowed <- tolower(allowed[nzchar(allowed)])
+  if (length(allowed) == 0) return(TRUE)
+  domain <- sub("^.*@", "", tolower(trim_scalar(recipient)))
+  domain %in% allowed
 }
 
 send_mail_safe <- function(con, project_id, recipients, subject, body, attachments = NULL, html = FALSE) {
-  recipients <- normalize_recipients(recipients)
+  requested_recipients <- unique(trimws(as.character(recipients %||% character())))
+  requested_recipients <- requested_recipients[!is.na(requested_recipients) & nzchar(requested_recipients)]
+  invalid_recipients <- requested_recipients[!vapply(requested_recipients, is_email_like, logical(1))]
+  recipients <- normalize_recipients(requested_recipients)
+  blocked_recipients <- recipients[!vapply(recipients, recipient_domain_allowed, logical(1))]
+  recipients <- recipients[vapply(recipients, recipient_domain_allowed, logical(1))]
   attachments <- as.character(attachments %||% character())
   attachments <- attachments[!is.na(attachments) & nzchar(attachments) & file.exists(attachments)]
 
+  if (length(invalid_recipients) > 0) {
+    log_email(con, project_id, invalid_recipients, subject, "skipped", "Invalid email address")
+  }
+  if (length(blocked_recipients) > 0) {
+    log_email(con, project_id, blocked_recipients, subject, "skipped", "Recipient domain not allowed by MS_EMAIL_ALLOWED_DOMAINS")
+  }
+
   if (length(recipients) == 0) {
-    log_email(con, project_id, recipients, subject, "skipped", "No recipients")
+    log_email(con, project_id, requested_recipients, subject, "skipped", "No valid recipients")
     return(list(success = FALSE, error = "No recipients"))
   }
 
@@ -905,10 +927,11 @@ send_mail_safe <- function(con, project_id, recipients, subject, body, attachmen
 
   smtp_config <- mail_smtp_config()
 
-  tryCatch({
+  results <- lapply(recipients, function(recipient) {
+    tryCatch({
     mail_args <- list(
       from = MS_MAIL_FROM,
-      to = recipients,
+      to = recipient,
       subject = subject,
       body = body,
       smtp = smtp_config$smtp,
@@ -919,12 +942,26 @@ send_mail_safe <- function(con, project_id, recipients, subject, body, attachmen
     )
     if (length(attachments) > 0) mail_args$attach.files <- attachments
     do.call(mailR::send.mail, mail_args)
-    log_email(con, project_id, recipients, subject, "sent", "")
-    list(success = TRUE)
+    log_email(con, project_id, recipient, subject, "sent", "")
+    list(success = TRUE, recipient = recipient)
   }, error = function(e) {
-    log_email(con, project_id, recipients, subject, "failed", conditionMessage(e))
-    list(success = FALSE, error = conditionMessage(e))
+    log_email(con, project_id, recipient, subject, "failed", conditionMessage(e))
+    list(success = FALSE, recipient = recipient, error = conditionMessage(e))
   })
+  })
+
+  successes <- vapply(results, function(x) isTRUE(x$success), logical(1))
+  if (any(successes)) {
+    return(list(
+      success = TRUE,
+      partial = any(!successes) || length(invalid_recipients) > 0 || length(blocked_recipients) > 0,
+      failed = results[!successes],
+      skipped = c(invalid_recipients, blocked_recipients)
+    ))
+  }
+
+  first_error <- results[[1]]$error %||% "Email sending failed for all recipients"
+  list(success = FALSE, error = first_error, failed = results)
 }
 
 resolve_project_user_email <- function(con, project) {
@@ -1164,12 +1201,18 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
   expected_rows <- suppressWarnings(as.integer(num_samples))
   if (is.na(expected_rows) || expected_rows < 1) {
     errors <- c(errors, "Number of samples must be at least 1 before the sample table can be validated.")
+  } else if (nrow(table) == 0 && expected_rows > 0) {
+    errors <- c(errors, paste0("The uploaded sample overview table contains no sample rows. Add ", expected_rows, " sample row", ifelse(expected_rows == 1, "", "s"), " below the header, or adjust Number of samples."))
   } else if (nrow(table) != expected_rows) {
     errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Number of samples is ", expected_rows, "."))
   }
 
+  sample_table_column <- function(table, column_name) {
+    if (column_name %in% names(table)) as.character(table[[column_name]]) else rep("", nrow(table))
+  }
+
   if ("Tube_ID" %in% names(table)) {
-    tube_ids <- trimws(as.character(table[["Tube_ID"]] %||% ""))
+    tube_ids <- trimws(sample_table_column(table, "Tube_ID"))
     if (any(!nzchar(tube_ids))) errors <- c(errors, "Every sample row needs a Tube_ID.")
     duplicates <- unique(tube_ids[duplicated(tube_ids) & nzchar(tube_ids)])
     if (length(duplicates) > 0) {
@@ -1179,7 +1222,7 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
   }
 
   if ("Control?" %in% names(table)) {
-    controls <- trimws(as.character(table[["Control?"]] %||% ""))
+    controls <- trimws(sample_table_column(table, "Control?"))
     invalid_controls <- unique(controls[!tolower(controls) %in% c("yes", "no")])
     invalid_controls <- invalid_controls[nzchar(invalid_controls)]
     if (length(invalid_controls) > 0) {
@@ -1190,7 +1233,7 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
   }
 
   for (col in names(table)) {
-    table[[col]] <- trimws(as.character(table[[col]] %||% ""))
+    table[[col]] <- trimws(as.character(table[[col]]))
   }
 
   list(errors = errors[nzchar(errors)], table = if (length(errors) > 0) NULL else table)
@@ -1399,6 +1442,120 @@ ui <- fluidPage(
           }, 25);
         }
       });
+
+      (function() {
+        var savedUploadScroll = null;
+        var restoreUploadUntil = 0;
+
+        function uploadAnchor() {
+          return document.getElementById('sample_overview_section') || document.querySelector('.sample-upload-actions');
+        }
+
+        function scrollTargetsFor(target) {
+          var targets = [];
+          var add = function(element) {
+            if (element && targets.indexOf(element) === -1) targets.push(element);
+          };
+          if (target && target.closest) {
+            add(target.closest('.modal-body'));
+            add(target.closest('.modal'));
+          }
+          add(document.scrollingElement);
+          add(document.documentElement);
+          add(document.body);
+          return targets;
+        }
+
+        function currentScroll(target) {
+          return {
+            targets: scrollTargetsFor(target).map(function(element) {
+              return {
+                element: element,
+                top: element.scrollTop || 0,
+                left: element.scrollLeft || 0
+              };
+            })
+          };
+        }
+
+        function isUploadTrigger(target) {
+          if (!target || !target.closest) return false;
+          if (target.matches && target.matches('input[type=\"file\"]')) return true;
+          var uploadArea = target.closest('.sample-upload-actions');
+          return !!(uploadArea && uploadArea.querySelector('input[type=\"file\"]'));
+        }
+
+        function rememberUploadScroll(target) {
+          if (!isUploadTrigger(target)) return;
+          savedUploadScroll = currentScroll(target);
+          restoreUploadUntil = Date.now() + 3000;
+        }
+
+        function restoreUploadScroll() {
+          if (!savedUploadScroll) return;
+          var state = savedUploadScroll;
+          var apply = function() {
+            state.targets.forEach(function(item) {
+              if (!item.element) return;
+              item.element.scrollTop = item.top;
+              item.element.scrollLeft = item.left;
+            });
+            var anchor = uploadAnchor();
+            if (anchor && anchor.scrollIntoView) {
+              anchor.scrollIntoView({block: 'center', inline: 'nearest'});
+            }
+          };
+          apply();
+          if (Date.now() < restoreUploadUntil) {
+            window.setTimeout(function() {
+              apply();
+              if (Date.now() < restoreUploadUntil) restoreUploadScroll();
+            }, 75);
+          }
+        }
+
+        ['pointerdown', 'mousedown', 'click', 'focusin'].forEach(function(eventName) {
+          document.addEventListener(eventName, function(event) {
+            rememberUploadScroll(event.target);
+          }, true);
+        });
+
+        document.addEventListener('change', function(event) {
+          if (isUploadTrigger(event.target)) {
+            restoreUploadUntil = Date.now() + 3000;
+            restoreUploadScroll();
+          }
+        }, true);
+
+        window.addEventListener('focus', function() {
+          if (savedUploadScroll) {
+            restoreUploadUntil = Date.now() + 1500;
+            restoreUploadScroll();
+          }
+        });
+
+        document.addEventListener('shiny:inputchanged', function(event) {
+          if (event.name && event.name.indexOf('sample_table_upload') !== -1) {
+            restoreUploadUntil = Date.now() + 3000;
+            restoreUploadScroll();
+          }
+        });
+
+        document.addEventListener('shiny:value', function(event) {
+          if (event.name === 'sample_table_validation_preview') {
+            restoreUploadUntil = Date.now() + 1500;
+            restoreUploadScroll();
+          }
+        });
+
+        ['pointerdown', 'mousedown', 'click'].forEach(function(eventName) {
+          document.addEventListener(eventName, function(event) {
+            if (event.target && event.target.closest && event.target.closest('.template-card-download')) {
+              event.stopPropagation();
+            }
+          }, true);
+        });
+      })();
     "))
   ),
   uiOutput("app_ui")
@@ -1614,6 +1771,7 @@ server <- function(input, output, session) {
           downloadButton("download_invoice_btn", "Invoice"),
           if (can_delete_projects()) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
         ),
+        uiOutput("project_type_filter_ui"),
         DTOutput("projects_table")
       )
     )
@@ -1689,8 +1847,16 @@ server <- function(input, output, session) {
                p.responsible_user, p.submitter_email,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
-               bh.surname || ', ' || bh.name AS budget_holder,
-               bh.cost_center, p.num_samples, p.status, p.total_cost, p.created_at
+               trim(
+                 COALESCE(bh.name, '') || ' ' ||
+                 COALESCE(bh.surname, '') ||
+                 CASE
+                   WHEN bh.cost_center IS NOT NULL AND trim(bh.cost_center) != ''
+                   THEN ' - ' || bh.cost_center
+                   ELSE ''
+                 END
+               ) AS budget_holder,
+               p.num_samples, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
@@ -1703,8 +1869,16 @@ server <- function(input, output, session) {
                p.responsible_user, p.submitter_email,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
-               bh.surname || ', ' || bh.name AS budget_holder,
-               bh.cost_center, p.num_samples, p.status, p.total_cost, p.created_at
+               trim(
+                 COALESCE(bh.name, '') || ' ' ||
+                 COALESCE(bh.surname, '') ||
+                 CASE
+                   WHEN bh.cost_center IS NOT NULL AND trim(bh.cost_center) != ''
+                   THEN ' - ' || bh.cost_center
+                   ELSE ''
+                 END
+               ) AS budget_holder,
+               p.num_samples, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
@@ -1716,15 +1890,46 @@ server <- function(input, output, session) {
     projects_data(projects)
   }
 
-  output$projects_table <- renderDT({
+  output$project_type_filter_ui <- renderUI({
     dat <- projects_data()
+    if (is.null(dat) || nrow(dat) == 0 || !("project_type" %in% names(dat))) return(NULL)
+    types <- sort(unique(trimws(as.character(dat$project_type %||% ""))))
+    types <- types[nzchar(types)]
+    if (length(types) <= 1) return(NULL)
+    div(
+      class = "project-table-filter",
+      selectInput("project_type_filter", "Project Type", choices = c("All project types" = "", setNames(types, types)), selected = "")
+    )
+  })
+
+  filtered_projects_data <- reactive({
+    dat <- projects_data()
+    if (is.null(dat) || nrow(dat) == 0) return(dat)
+    selected_type <- trim_scalar(input$project_type_filter)
+    if (nzchar(selected_type) && "project_type" %in% names(dat)) {
+      dat <- dat[trimws(as.character(dat$project_type)) == selected_type, , drop = FALSE]
+    }
+    dat
+  })
+
+  output$projects_table <- renderDT({
+    dat <- filtered_projects_data()
     if (is.null(dat) || nrow(dat) == 0) {
       return(datatable(data.frame(Message = "No projects yet."), rownames = FALSE, options = list(dom = "t")))
     }
-    display <- dat
+    display <- dat[, c(
+      "project_code", "project_name", "responsible_user", "last_status_update_at",
+      "technician", "status", "project_type", "budget_holder",
+      "num_samples", "total_cost", "created_at"
+    ), drop = FALSE]
     display$status <- vapply(display$status, function(x) as.character(status_badge(x)), character(1))
+    names(display) <- c(
+      "Project ID", "Project Name", "Responsible user", "Last Update",
+      "Technician", "Status", "Project Type", "Budget holder",
+      "Samples", "Total Cost", "Created"
+    )
     table <- datatable(
-      display[, setdiff(names(display), "id"), drop = FALSE],
+      display,
       escape = FALSE,
       selection = "single",
       rownames = FALSE,
@@ -1734,7 +1939,7 @@ server <- function(input, output, session) {
     if (dt_available) {
       table <- formatStyle(
         table,
-        "project_type",
+        "Project Type",
         target = "row",
         backgroundColor = styleEqual(
           c("Intact / Native Mass", "Proteomics", "Metabolomics"),
@@ -1746,13 +1951,18 @@ server <- function(input, output, session) {
   })
 
   selected_project_row <- reactive({
-    dat <- projects_data()
+    dat <- filtered_projects_data()
     selected <- input$projects_table_rows_selected
     if (is.null(selected) || length(selected) == 0 || nrow(dat) < selected[1]) return(NULL)
     dat[selected[1], , drop = FALSE]
   })
 
   measurement_selector <- function(types) {
+    template_download_ids <- c(
+      intact_mass = "download_intact_template",
+      proteomics = "download_proteomics_template",
+      metabolomics = "download_metabolomics_template"
+    )
     div(
       class = "measurement-select",
       h4("Step 1 - Measurement Type Selection"),
@@ -1762,21 +1972,17 @@ server <- function(input, output, session) {
         label = NULL,
         selected = character(0),
         choiceNames = lapply(seq_len(nrow(types)), function(i) {
+          download_id <- unname(template_download_ids[types$slug[i]])
           div(
             class = "measurement-choice",
             style = paste0("border-top-color:", types$color[i], ";"),
             strong(types$name[i]),
-            span(types$description[i])
+            span(types$description[i]),
+            downloadButton(download_id, paste(types$name[i], "Template"), class = "btn btn-default btn-sm template-card-download")
           )
         }),
         choiceValues = types$slug,
         width = "100%"
-      ),
-      div(
-        class = "template-downloads",
-        downloadButton("download_intact_template", "Intact Template"),
-        downloadButton("download_proteomics_template", "Proteomics Template"),
-        downloadButton("download_metabolomics_template", "Metabolomics Template")
       )
     )
   }
@@ -1915,6 +2121,7 @@ server <- function(input, output, session) {
         }
       ),
       div(
+        id = "sample_overview_section",
         class = "form-section",
         h4("5. Sample Overview Table"),
         div(class = "info-note", "Download the template for the selected project type, fill it locally, then upload it as CSV or tab-delimited TXT/TSV. Excel files must be converted before upload."),
@@ -2366,7 +2573,7 @@ server <- function(input, output, session) {
         send_mail_safe(
           con,
           project_id,
-          MS_FACILITY_EMAIL,
+          MS_POOL_FALLBACK_EMAIL,
           paste(project$project_code, "upload pool fallback used", sep = " - "),
           paste(
             "The configured upload pool was not available.",
@@ -2990,7 +3197,17 @@ server <- function(input, output, session) {
     admin_refresh()
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    datatable(dbGetQuery(con, "SELECT id, project_id, sent_to, subject, sent_at, status, error_message FROM email_logs ORDER BY id DESC LIMIT 200"), rownames = FALSE, options = list(pageLength = 20, scrollX = TRUE))
+    logs <- dbGetQuery(con, "
+      SELECT el.id,
+             COALESCE(p.project_code, CAST(el.project_id AS TEXT), '') AS project_code,
+             el.sent_to, el.subject, el.sent_at, el.status, el.error_message
+      FROM email_logs el
+      LEFT JOIN projects p ON el.project_id = p.id
+      ORDER BY el.id DESC
+      LIMIT 200
+    ")
+    names(logs) <- c("id", "Project ID", "Sent to", "Subject", "Sent at", "Status", "Error message")
+    datatable(logs, rownames = FALSE, options = list(pageLength = 20, scrollX = TRUE))
   })
 
   output$admin_landing_table <- renderDT({
