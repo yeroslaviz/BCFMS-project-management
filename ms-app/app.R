@@ -60,6 +60,16 @@ non_empty <- function(x) {
   !is.null(x) && length(x) > 0 && !is.na(x[[1]]) && nzchar(trimws(as.character(x[[1]])))
 }
 
+first_non_empty <- function(..., default = "") {
+  values <- trimws(as.character(c(...)))
+  values <- values[!is.na(values) & nzchar(values)]
+  if (length(values) == 0) default else values[[1]]
+}
+
+is_email_like <- function(value) {
+  grepl("^[^@[:space:]]+@[^@[:space:]]+\\.[^@[:space:]]+$", trim_scalar(value))
+}
+
 role_is_admin <- function(role) {
   identical(ms_normalize_user_role(role), "admin")
 }
@@ -118,6 +128,39 @@ project_type_template_label <- function(project_type) {
   )
   label <- unname(labels[trim_scalar(project_type)])
   if (is.na(label) || !nzchar(label)) "Template" else label
+}
+
+html_escape <- function(value) {
+  value <- scalar_text(value)
+  value <- gsub("&", "&amp;", value, fixed = TRUE)
+  value <- gsub("<", "&lt;", value, fixed = TRUE)
+  value <- gsub(">", "&gt;", value, fixed = TRUE)
+  value <- gsub('"', "&quot;", value, fixed = TRUE)
+  value
+}
+
+status_is_data_released <- function(status) {
+  tolower(trim_scalar(status)) %in% c("data released", "data release")
+}
+
+parse_optional_nonnegative_number <- function(value, label) {
+  text <- trim_scalar(value)
+  if (!nzchar(text)) return(list(valid = TRUE, empty = TRUE, value = NA_real_))
+  number <- suppressWarnings(as.numeric(text))
+  if (length(number) == 0 || is.na(number) || number < 0) {
+    return(list(
+      valid = FALSE,
+      empty = FALSE,
+      value = NA_real_,
+      error = paste0(label, " must be a non-negative number, for example 125 or 125.50.")
+    ))
+  }
+  list(valid = TRUE, empty = FALSE, value = number)
+}
+
+format_cost_value <- function(value) {
+  number <- suppressWarnings(as.numeric(value))
+  if (length(number) == 0 || is.na(number)) "To be confirmed" else sprintf("EUR %.2f", number)
 }
 
 field_label <- function(text, help, example = NULL) {
@@ -810,10 +853,45 @@ log_email <- function(con, project_id, recipients, subject, status, error_messag
   ))
 }
 
-send_mail_safe <- function(con, project_id, recipients, subject, body, attachments = NULL) {
+mail_smtp_config <- function() {
+  host <- first_non_empty(
+    Sys.getenv("SMTP_HOST", ""),
+    Sys.getenv("MS_SMTP_HOST", ""),
+    "msx.biochem.mpg.de"
+  )
+  port <- suppressWarnings(as.numeric(first_non_empty(
+    Sys.getenv("SMTP_PORT", ""),
+    Sys.getenv("MS_SMTP_PORT", ""),
+    "25"
+  )))
+  if (is.na(port)) port <- 25
+  username <- first_non_empty(Sys.getenv("SMTP_USER", ""), Sys.getenv("MS_SMTP_USER", ""))
+  password <- first_non_empty(Sys.getenv("SMTP_PASSWORD", ""), Sys.getenv("MS_SMTP_PASSWORD", ""))
+
+  smtp <- list(
+    host.name = host,
+    port = port,
+    ssl = to_bool(first_non_empty(Sys.getenv("SMTP_SSL", ""), Sys.getenv("MS_SMTP_SSL", ""), "0")),
+    tls = to_bool(first_non_empty(Sys.getenv("SMTP_TLS", ""), Sys.getenv("MS_SMTP_TLS", ""), "0"))
+  )
+  authenticate <- nzchar(username)
+  if (authenticate) {
+    smtp$user.name <- username
+    smtp$passwd <- password
+  }
+
+  list(smtp = smtp, authenticate = authenticate)
+}
+
+normalize_recipients <- function(recipients) {
   recipients <- unique(trimws(as.character(recipients %||% character())))
-  recipients <- recipients[nzchar(recipients)]
-  attachments <- attachments[file.exists(attachments %||% character())]
+  recipients[!is.na(recipients) & nzchar(recipients)]
+}
+
+send_mail_safe <- function(con, project_id, recipients, subject, body, attachments = NULL, html = FALSE) {
+  recipients <- normalize_recipients(recipients)
+  attachments <- as.character(attachments %||% character())
+  attachments <- attachments[!is.na(attachments) & nzchar(attachments) & file.exists(attachments)]
 
   if (length(recipients) == 0) {
     log_email(con, project_id, recipients, subject, "skipped", "No recipients")
@@ -825,35 +903,127 @@ send_mail_safe <- function(con, project_id, recipients, subject, body, attachmen
     return(list(success = TRUE, skipped = TRUE))
   }
 
-  smtp <- list(
-    host.name = Sys.getenv("SMTP_HOST", "localhost"),
-    port = as.numeric(Sys.getenv("SMTP_PORT", "25")),
-    user.name = Sys.getenv("SMTP_USER", ""),
-    passwd = Sys.getenv("SMTP_PASSWORD", ""),
-    ssl = Sys.getenv("SMTP_SSL", "0") == "1"
-  )
-  if (!nzchar(smtp$user.name)) {
-    smtp$user.name <- NULL
-    smtp$passwd <- NULL
-  }
+  smtp_config <- mail_smtp_config()
 
   tryCatch({
-    mailR::send.mail(
+    mail_args <- list(
       from = MS_MAIL_FROM,
       to = recipients,
       subject = subject,
       body = body,
-      smtp = smtp,
-      authenticate = !is.null(smtp$user.name),
+      smtp = smtp_config$smtp,
+      authenticate = smtp_config$authenticate,
       send = TRUE,
-      attach.files = if (length(attachments) > 0) attachments else NULL
+      encoding = "utf-8",
+      html = isTRUE(html)
     )
+    if (length(attachments) > 0) mail_args$attach.files <- attachments
+    do.call(mailR::send.mail, mail_args)
     log_email(con, project_id, recipients, subject, "sent", "")
     list(success = TRUE)
   }, error = function(e) {
     log_email(con, project_id, recipients, subject, "failed", conditionMessage(e))
     list(success = FALSE, error = conditionMessage(e))
   })
+}
+
+resolve_project_user_email <- function(con, project) {
+  candidates <- c(
+    scalar_text(project$submitter_email),
+    if (is_email_like(project$responsible_user)) trim_scalar(project$responsible_user) else ""
+  )
+
+  responsible <- trim_scalar(project$responsible_user)
+  if (nzchar(responsible)) {
+    rows <- dbGetQuery(con, "
+      SELECT email
+      FROM users
+      WHERE lower(username) = lower(?)
+         OR lower(trim(full_name)) = lower(trim(?))
+      LIMIT 1
+    ", params = list(responsible, responsible))
+    if (nrow(rows) > 0) candidates <- c(candidates, rows$email[[1]])
+  }
+
+  user_id <- suppressWarnings(as.integer(project$user_id[[1]] %||% NA_integer_))
+  if (!is.na(user_id)) {
+    rows <- dbGetQuery(con, "SELECT email FROM users WHERE id = ? LIMIT 1", params = list(user_id))
+    if (nrow(rows) > 0) candidates <- c(candidates, rows$email[[1]])
+  }
+
+  normalize_recipients(candidates)
+}
+
+project_data_location <- function(project) {
+  folder <- trim_scalar(project$project_folder)
+  if (nzchar(folder)) return(folder)
+  root <- trim_scalar(project$upload_root, MS_UPLOAD_ROOT)
+  if (!nzchar(root)) root <- MS_UPLOAD_ROOT
+  file.path(root, sanitize_path_part(scalar_text(project$project_code, "project")))
+}
+
+send_ms_submission_email <- function(con, project, samples, sample_table_path, handoff_pdf = NULL) {
+  recipients <- unique(c(resolve_project_user_email(con, project), MS_FACILITY_EMAIL))
+  subject <- paste(project$project_code, "MS project submitted", sep = " - ")
+  body <- paste(
+    "A new Mass Spectrometry Core Facility project was submitted.",
+    "",
+    "The tab-delimited sample overview table is attached.",
+    "",
+    MS_SUBMISSION_WARNING,
+    "",
+    project_summary_text(project, samples),
+    "",
+    MS_SAMPLE_TABLE_STATEMENT,
+    sep = "\n"
+  )
+  send_mail_safe(con, project$id[[1]], recipients, subject, body, c(sample_table_path, handoff_pdf))
+}
+
+send_ms_cost_estimation_email <- function(con, project) {
+  recipients <- unique(c(resolve_project_user_email(con, project), scalar_text(project$budget_email)))
+  cost_text <- format_cost_value(project$total_cost)
+  additional_text <- format_cost_value(project$additional_cost)
+  show_additional <- nzchar(trim_scalar(project$additional_cost))
+  subject <- paste(project$project_code, "MS project cost estimation", sep = " - ")
+
+  body <- paste0(
+    "<html><body style='font-family: Arial, sans-serif; color: #263238;'>",
+    "<p>Dear user,</p>",
+    "<p>The Mass Spectrometry Core Facility has reviewed your project.</p>",
+    "<p><strong>Project:</strong> ", html_escape(project$project_code), " - ", html_escape(project$project_name), "<br>",
+    "<strong>Budget holder:</strong> ", html_escape(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname))), "<br>",
+    "<strong>Cost center:</strong> ", html_escape(project$cost_center), "</p>",
+    "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
+    if (show_additional) paste0("<p>Additional Cost: ", html_escape(additional_text), "</p>") else "",
+    "<p>Please contact the facility if the estimate does not match the planned work.</p>",
+    "<p>Best regards,<br>Mass Spectrometry Core Facility</p>",
+    "</body></html>"
+  )
+
+  send_mail_safe(con, project$id[[1]], recipients, subject, body, html = TRUE)
+}
+
+send_ms_data_released_email <- function(con, project) {
+  recipients <- resolve_project_user_email(con, project)
+  subject <- paste(project$project_code, "MS data released", sep = " - ")
+  data_path <- project_data_location(project)
+  body <- paste(
+    paste0("Dear ", scalar_text(project$responsible_user, "user"), ","),
+    "",
+    paste0("Data for Mass Spectrometry Core Facility project ", scalar_text(project$project_code), " (", scalar_text(project$project_name), ") are now available."),
+    "",
+    "You can find the data in the project folder:",
+    data_path,
+    "",
+    "Please contact the MS Core Facility if you have questions about the released data.",
+    "",
+    "Best regards,",
+    "Mass Spectrometry Core Facility",
+    sep = "\n"
+  )
+
+  send_mail_safe(con, project$id[[1]], recipients, subject, body)
 }
 
 validate_fasta_file <- function(path) {
@@ -2190,19 +2360,7 @@ server <- function(input, output, session) {
       handoff_pdf <- tempfile(fileext = ".pdf")
       write_sample_handoff_pdf(project, saved_samples, handoff_pdf)
 
-      recipients <- unique(c(project$submitter_email, project$budget_email, MS_FACILITY_EMAIL))
-      body <- paste(
-        "A new Mass Spectrometry Core Facility project was submitted.",
-        "",
-        MS_SUBMISSION_WARNING,
-        "",
-        project_summary_text(project, saved_samples),
-        "",
-        MS_SAMPLE_TABLE_STATEMENT,
-        sep = "\n"
-      )
-      submission_attachments <- c(handoff_pdf, unlist(stored_paths$sample_table, use.names = FALSE))
-      send_mail_safe(con, project_id, recipients, paste(project$project_code, "MS project submitted", sep = " - "), body, submission_attachments)
+      send_ms_submission_email(con, project, saved_samples, unlist(stored_paths$sample_table, use.names = FALSE), handoff_pdf)
 
       if (!identical(storage$status, "pool")) {
         send_mail_safe(
@@ -2247,7 +2405,7 @@ server <- function(input, output, session) {
       easyClose = FALSE,
       footer = tagList(
         modalButton("Close"),
-        if (can_edit_all_projects()) actionButton("send_cost_email_btn", "Send Cost Email", class = "btn btn-info"),
+        if (can_edit_all_projects()) actionButton("send_cost_email_btn", "Send Cost Estimation", class = "btn btn-info"),
         actionButton("update_project_btn", "Save Changes", class = "btn btn-primary")
       ),
       tabsetPanel(
@@ -2423,6 +2581,7 @@ server <- function(input, output, session) {
     if (can_edit_all_projects()) {
       new_status <- trim_scalar(input$edit_status, "Submitted")
       values$status <- new_status
+      should_send_data_release <- !status_is_data_released(project_before$status) && status_is_data_released(new_status)
       if (!identical(new_status, scalar_text(project_before$status))) {
         values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
       }
@@ -2430,10 +2589,22 @@ server <- function(input, output, session) {
       values$technician_user_id <- if (is.na(technician_id)) NA_integer_ else technician_id
       values$additional_cost <- suppressWarnings(as.numeric(input$edit_additional_cost))
       values$total_cost <- suppressWarnings(as.numeric(input$edit_total_cost))
+    } else {
+      should_send_data_release <- FALSE
     }
     update_record(con, "projects", values, "id = ?", list(project_id))
     load_projects()
     showNotification("Project updated.", type = "message")
+
+    if (isTRUE(should_send_data_release)) {
+      project_after <- load_project_detail(con, project_id)
+      res <- send_ms_data_released_email(con, project_after)
+      if (isTRUE(res$success)) {
+        showNotification("Data release email sent to the project user.", type = "message")
+      } else {
+        showNotification(paste("Project updated, but data release email failed:", res$error %||% "unknown error"), type = "warning", duration = 10)
+      }
+    }
   })
 
   observeEvent(input$send_cost_email_btn, {
@@ -2444,19 +2615,31 @@ server <- function(input, output, session) {
     on.exit(dbDisconnect(con), add = TRUE)
     project <- load_project_detail(con, project_id)
     if (nrow(project) == 0) return()
-    body <- paste(
-      "The Mass Spectrometry Core Facility has reviewed the project.",
-      "",
-      MS_SUBMISSION_WARNING,
-      "",
-      paste("Project:", project$project_code, project$project_name),
-      paste("Current estimated cost:", scalar_text(project$total_cost, "To be confirmed")),
-      "",
-      "This wording is a placeholder and can be adjusted from the email template table later.",
-      sep = "\n"
-    )
-    res <- send_mail_safe(con, project_id, unique(c(project$submitter_email, project$budget_email, MS_FACILITY_EMAIL)), paste(project$project_code, "cost estimation", sep = " - "), body)
-    if (isTRUE(res$success)) showNotification("Cost email logged/sent.", type = "message") else showNotification(res$error, type = "error")
+
+    parsed_additional <- parse_optional_nonnegative_number(input$edit_additional_cost, "Additional cost")
+    if (!parsed_additional$valid) {
+      showNotification(parsed_additional$error, type = "error", duration = 10)
+      return()
+    }
+    parsed_total <- parse_optional_nonnegative_number(input$edit_total_cost, "Total cost")
+    if (!parsed_total$valid) {
+      showNotification(parsed_total$error, type = "error", duration = 10)
+      return()
+    }
+
+    update_record(con, "projects", list(
+      additional_cost = if (parsed_additional$empty) NA_real_ else parsed_additional$value,
+      total_cost = if (parsed_total$empty) NA_real_ else parsed_total$value
+    ), "id = ?", list(project_id))
+
+    project <- load_project_detail(con, project_id)
+    res <- send_ms_cost_estimation_email(con, project)
+    if (isTRUE(res$success)) {
+      load_projects()
+      showNotification("Cost estimation email sent to the project user and PI.", type = "message")
+    } else {
+      showNotification(res$error %||% "Cost estimation email failed.", type = "error", duration = 10)
+    }
   })
 
   observeEvent(input$delete_project_btn, {

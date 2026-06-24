@@ -91,6 +91,10 @@ LDAP_ATTR_GIVENNAME=givenName
 LDAP_ATTR_SN=sn
 MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
 MS_MAIL_FROM=ms-service@biochem.mpg.de
+SMTP_HOST=msx.biochem.mpg.de
+SMTP_PORT=25
+SMTP_SSL=0
+SMTP_TLS=0
 MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
 MS_MAX_UPLOAD_MB=75
 # Temporary: keep this only while debugging LDAP, then remove or set to 0.

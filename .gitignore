@@ -76,3 +76,4 @@ Logos/
 /.quarto/
 **/*.quarto_ipynb
 /_site/
+/ms-app/uploads_pending_pool
