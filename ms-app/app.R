@@ -96,6 +96,30 @@ safe_file_ext <- function(path) {
   tolower(tools::file_ext(path %||% ""))
 }
 
+sample_template_files <- c(
+  intact_mass = "intact_template.csv",
+  proteomics = "proteomics_template.csv",
+  metabolomics = "metabolomics_template.csv"
+)
+
+sample_table_required_columns <- c("Tube_ID", "Condition", "Replicate", "Control?", "Concentration", "Unit", "Description", "Comments")
+
+template_path_for_project_type <- function(project_type) {
+  filename <- unname(sample_template_files[trim_scalar(project_type)])
+  if (is.na(filename) || !nzchar(filename)) filename <- unname(sample_template_files["proteomics"])
+  file.path(Sys.getenv("MS_TEMPLATE_DIR", "templates"), filename)
+}
+
+project_type_template_label <- function(project_type) {
+  labels <- c(
+    intact_mass = "Intact",
+    proteomics = "Proteomics",
+    metabolomics = "Metabolomics"
+  )
+  label <- unname(labels[trim_scalar(project_type)])
+  if (is.na(label) || !nzchar(label)) "Template" else label
+}
+
 field_label <- function(text, help, example = NULL) {
   title <- help
   if (!is.null(example) && nzchar(example)) {
@@ -627,7 +651,6 @@ project_summary_text <- function(project, samples = NULL) {
     paste("Submission date:", scalar_text(project$submission_date)),
     paste("Number of samples:", scalar_text(project$num_samples)),
     paste("Buffer / solvent:", scalar_text(project$sample_buffer)),
-    paste("Concentration:", paste(trim_scalar(project$sample_concentration), trim_scalar(project$sample_concentration_unit))),
     paste("Concentration determination:", paste(trim_scalar(project$concentration_determination), trim_scalar(project$concentration_method))),
     paste("Volume submitted:", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit))),
     paste("Sample amount:", scalar_text(project$sample_amount)),
@@ -662,8 +685,12 @@ project_summary_text <- function(project, samples = NULL) {
 
   if (scalar_text(project$project_type) == "metabolomics") {
     lines <- c(lines,
-      paste("Analysis type:", scalar_text(project$metabolomics_analysis_type)),
+      paste("Analysis family:", scalar_text(project$metabolomics_analysis_family)),
+      paste("Approach:", scalar_text(project$metabolomics_analysis_type)),
       paste("Sample type:", scalar_text(project$metabolomics_sample_type)),
+      paste("Cell number:", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit))),
+      paste("Supernatant volume:", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit))),
+      paste("Tissue weight:", paste(trim_scalar(project$metabolomics_tissue_weight), trim_scalar(project$metabolomics_tissue_weight_unit))),
       paste("Species:", scalar_text(project$metabolomics_species)),
       paste("Targeted analyte text:", scalar_text(project$metabolomics_targeted_analyte_text))
     )
@@ -880,6 +907,168 @@ validate_uploads <- function(upload, allowed_ext, max_mb, fasta = FALSE, text_on
   errors
 }
 
+sample_table_template_headers <- function(project_type) {
+  path <- template_path_for_project_type(project_type)
+  if (!file.exists(path)) return(sample_table_required_columns)
+
+  headers <- tryCatch(
+    names(utils::read.table(
+      path,
+      header = TRUE,
+      sep = ",",
+      nrows = 0,
+      check.names = FALSE,
+      stringsAsFactors = FALSE
+    )),
+    error = function(e) character()
+  )
+  if (length(headers) == 0) sample_table_required_columns else headers
+}
+
+detect_table_separator <- function(path, ext) {
+  first_line <- tryCatch(readLines(path, warn = FALSE, n = 1), error = function(e) "")
+  tab_count <- lengths(regmatches(first_line, gregexpr("\t", first_line, fixed = TRUE)))
+  comma_count <- lengths(regmatches(first_line, gregexpr(",", first_line, fixed = TRUE)))
+  if (identical(ext, "tsv")) return("\t")
+  if (identical(ext, "txt") && tab_count >= comma_count) return("\t")
+  if (tab_count > comma_count) "\t" else ","
+}
+
+read_sample_table_upload <- function(upload, project_type, num_samples) {
+  if (is.null(upload) || nrow(upload) == 0) {
+    return(list(errors = "Sample overview table upload is required.", table = NULL))
+  }
+
+  original <- upload$name[[1]]
+  ext <- safe_file_ext(original)
+  max_mb <- as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20"))
+  max_bytes <- max_mb * 1024^2
+  errors <- character()
+
+  if (ext %in% c("xls", "xlsx")) {
+    return(list(
+      errors = paste0(original, ": Excel files are not accepted here. Please convert the template to CSV or tab-delimited TXT/TSV."),
+      table = NULL
+    ))
+  }
+  if (!(ext %in% c("csv", "txt", "tsv"))) {
+    return(list(errors = paste0(original, ": allowed extensions are .csv, .txt, or .tsv."), table = NULL))
+  }
+  if (!is.na(upload$size[[1]]) && upload$size[[1]] > max_bytes) {
+    errors <- c(errors, paste0(original, ": file is larger than ", max_mb, " MB."))
+  }
+
+  text_error <- validate_text_file(upload$datapath[[1]])
+  if (!is.null(text_error)) errors <- c(errors, paste(original, text_error))
+  if (length(errors) > 0) return(list(errors = errors, table = NULL))
+
+  sep <- detect_table_separator(upload$datapath[[1]], ext)
+  table <- tryCatch(
+    utils::read.table(
+      upload$datapath[[1]],
+      header = TRUE,
+      sep = sep,
+      quote = "\"",
+      comment.char = "",
+      check.names = FALSE,
+      stringsAsFactors = FALSE,
+      na.strings = character(),
+      strip.white = TRUE,
+      fill = FALSE
+    ),
+    error = function(e) e
+  )
+  if (inherits(table, "error")) {
+    return(list(errors = paste(original, "could not be parsed:", conditionMessage(table)), table = NULL))
+  }
+
+  expected <- sample_table_template_headers(project_type)
+  if (!identical(names(table), expected)) {
+    errors <- c(errors, paste0(
+      "Sample overview table columns must be exactly: ",
+      paste(expected, collapse = ", "),
+      "."
+    ))
+  }
+
+  expected_rows <- suppressWarnings(as.integer(num_samples))
+  if (is.na(expected_rows) || expected_rows < 1) {
+    errors <- c(errors, "Number of samples must be at least 1 before the sample table can be validated.")
+  } else if (nrow(table) != expected_rows) {
+    errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Number of samples is ", expected_rows, "."))
+  }
+
+  if ("Tube_ID" %in% names(table)) {
+    tube_ids <- trimws(as.character(table[["Tube_ID"]] %||% ""))
+    if (any(!nzchar(tube_ids))) errors <- c(errors, "Every sample row needs a Tube_ID.")
+    duplicates <- unique(tube_ids[duplicated(tube_ids) & nzchar(tube_ids)])
+    if (length(duplicates) > 0) {
+      errors <- c(errors, paste("Tube_ID values must be unique. Duplicates:", paste(duplicates, collapse = ", ")))
+    }
+    table[["Tube_ID"]] <- tube_ids
+  }
+
+  if ("Control?" %in% names(table)) {
+    controls <- trimws(as.character(table[["Control?"]] %||% ""))
+    invalid_controls <- unique(controls[!tolower(controls) %in% c("yes", "no")])
+    invalid_controls <- invalid_controls[nzchar(invalid_controls)]
+    if (length(invalid_controls) > 0) {
+      errors <- c(errors, paste("Control? accepts only Yes or No. Invalid values:", paste(invalid_controls, collapse = ", ")))
+    }
+    if (any(!nzchar(controls))) errors <- c(errors, "Every sample row needs Control? set to Yes or No.")
+    table[["Control?"]] <- ifelse(tolower(controls) == "yes", "Yes", ifelse(tolower(controls) == "no", "No", controls))
+  }
+
+  for (col in names(table)) {
+    table[[col]] <- trimws(as.character(table[[col]] %||% ""))
+  }
+
+  list(errors = errors[nzchar(errors)], table = if (length(errors) > 0) NULL else table)
+}
+
+sample_rows_from_table <- function(sample_table) {
+  if (is.null(sample_table) || nrow(sample_table) == 0) {
+    return(data.frame(
+      row_index = integer(),
+      tube_id = character(),
+      condition = character(),
+      replicate = character(),
+      is_control = integer(),
+      description = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  description <- trimws(sample_table[["Description"]] %||% "")
+  comments <- trimws(sample_table[["Comments"]] %||% "")
+  combined_description <- ifelse(
+    nzchar(description) & nzchar(comments),
+    paste(description, comments, sep = " | "),
+    ifelse(nzchar(description), description, comments)
+  )
+
+  data.frame(
+    row_index = seq_len(nrow(sample_table)),
+    tube_id = sample_table[["Tube_ID"]],
+    condition = sample_table[["Condition"]] %||% "",
+    replicate = sample_table[["Replicate"]] %||% "",
+    is_control = as.integer(tolower(sample_table[["Control?"]]) == "yes"),
+    description = combined_description,
+    stringsAsFactors = FALSE
+  )
+}
+
+write_normalized_sample_table <- function(sample_table, file) {
+  utils::write.table(
+    sample_table,
+    file = file,
+    sep = "\t",
+    row.names = FALSE,
+    quote = FALSE,
+    na = ""
+  )
+}
+
 copy_file_maybe_gzip <- function(source, destination, compress = FALSE) {
   if (!compress) {
     file.copy(source, destination, overwrite = TRUE)
@@ -945,6 +1134,35 @@ store_upload_set <- function(con, project_id, upload, file_type, folder, usernam
     saved <- c(saved, normalizePath(destination, mustWork = FALSE))
   }
   saved
+}
+
+store_sample_table_upload <- function(con, project_id, upload, sample_table, project_type, folder, username) {
+  if (is.null(sample_table) || nrow(sample_table) == 0) return(character())
+
+  original <- if (!is.null(upload) && nrow(upload) > 0) upload$name[[1]] else paste0(project_type, "_sample_table.tsv")
+  stored_name <- paste0(
+    format(Sys.time(), "%Y%m%d%H%M%S"),
+    "_sample_table_",
+    sanitize_path_part(project_type),
+    ".tsv"
+  )
+  destination <- file.path(folder, stored_name)
+  write_normalized_sample_table(sample_table, destination)
+  checksum <- digest::digest(file = destination, algo = "sha256")
+
+  insert_record(con, "project_files", list(
+    project_id = project_id,
+    file_type = "sample_table",
+    original_name = original,
+    stored_name = stored_name,
+    path = normalizePath(destination, mustWork = FALSE),
+    size_bytes = file.info(destination)$size,
+    mime_type = "text/tab-separated-values",
+    checksum = checksum,
+    uploaded_by = username
+  ))
+
+  normalizePath(destination, mustWork = FALSE)
 }
 
 load_project_detail <- function(con, project_id) {
@@ -1383,9 +1601,43 @@ server <- function(input, output, session) {
         }),
         choiceValues = types$slug,
         width = "100%"
+      ),
+      div(
+        class = "template-downloads",
+        downloadButton("download_intact_template", "Intact Template"),
+        downloadButton("download_proteomics_template", "Proteomics Template"),
+        downloadButton("download_metabolomics_template", "Metabolomics Template")
       )
     )
   }
+
+  template_download <- function(project_type) {
+    downloadHandler(
+      filename = function() {
+        basename(template_path_for_project_type(project_type()))
+      },
+      content = function(file) {
+        path <- template_path_for_project_type(project_type())
+        if (file.exists(path)) {
+          file.copy(path, file, overwrite = TRUE)
+        } else {
+          utils::write.table(
+            as.data.frame(setNames(rep(list(character()), length(sample_table_required_columns)), sample_table_required_columns)),
+            file = file,
+            sep = ",",
+            row.names = FALSE,
+            quote = FALSE
+          )
+        }
+      },
+      contentType = "text/csv"
+    )
+  }
+
+  output$download_intact_template <- template_download(function() "intact_mass")
+  output$download_proteomics_template <- template_download(function() "proteomics")
+  output$download_metabolomics_template <- template_download(function() "metabolomics")
+  output$download_selected_template <- template_download(function() trim_scalar(input$project_type, "proteomics"))
 
   observeEvent(input$new_project_btn, {
     con <- ms_db_connect()
@@ -1449,24 +1701,59 @@ server <- function(input, output, session) {
       div(
         class = "form-section",
         h4("4. Sample"),
-        textAreaInput("sample_buffer", field_label("Buffer / Solvent *", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."), rows = 3),
-        fluidRow(
-          column(4, textInput("sample_concentration", field_label("Concentration *", "Numeric value.", "1"))),
-          column(2, selectInput("sample_concentration_unit", "Unit", choices = load_choice_values(con, "concentration_unit"))),
-          column(3, radioButtons("concentration_determination", field_label("Concentration determination *", "Indicate whether concentration was determined."), choices = load_choice_values(con, "concentration_determination"), inline = TRUE)),
-          column(3, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
-        ),
-        fluidRow(
-          column(4, textInput("sample_volume", field_label("Volume submitted *", "Numeric volume submitted.", "50"))),
-          column(2, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL")),
-          column(6, textInput("sample_amount", field_label("Sample amount *", "Describe the total submitted material.", "1e6 cells, 50 uL plasma, or 5 mg tissue")))
-        )
+        if (input$project_type == "metabolomics") {
+          tagList(
+            selectizeInput(
+              "metabolomics_sample_type",
+              field_label("Sample Type *", "Select all sample material types included in this submission."),
+              choices = c("Pellet", "Supernatant", "Tissue"),
+              multiple = TRUE
+            ),
+            uiOutput("metabolomics_sample_type_details"),
+            selectizeInput(
+              "metabolomics_species",
+              field_label("Species *", "Human, mouse, rat, yeast, E. coli, other; multiple entries allowed."),
+              choices = refs,
+              multiple = TRUE
+            ),
+            fluidRow(
+              column(6, radioButtons("concentration_determination", field_label("Concentration determination *", "Indicate whether concentration was determined."), choices = load_choice_values(con, "concentration_determination"), inline = TRUE)),
+              column(6, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
+            )
+          )
+        } else {
+          tagList(
+            textAreaInput("sample_buffer", field_label("Buffer / Solvent *", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."), rows = 3),
+            fluidRow(
+              column(6, radioButtons("concentration_determination", field_label("Concentration determination *", "Indicate whether concentration was determined."), choices = load_choice_values(con, "concentration_determination"), inline = TRUE)),
+              column(6, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
+            ),
+            fluidRow(
+              column(4, textInput("sample_volume", field_label("Volume submitted *", "Numeric volume submitted.", "50"))),
+              column(2, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL")),
+              column(6, textInput("sample_amount", field_label("Sample amount *", "Describe the total submitted material.", "1e6 cells, 50 uL plasma, or 5 mg tissue")))
+            ),
+            if (input$project_type == "proteomics") {
+              selectizeInput(
+                "proteomics_species",
+                field_label("Species *", "Default search database is UniProt reference proteome for selected species. Multiple species are allowed."),
+                choices = refs,
+                multiple = TRUE
+              )
+            }
+          )
+        }
       ),
       div(
         class = "form-section",
         h4("5. Sample Overview Table"),
-        div(class = "info-note", "Label tubes with initials and a number only, for example AB-001. Keep condition names short and put details in Description / Comments."),
-        uiOutput("sample_table_ui"),
+        div(class = "info-note", "Download the template for the selected project type, fill it locally, then upload it as CSV or tab-delimited TXT/TSV. Excel files must be converted before upload."),
+        div(
+          class = "sample-upload-actions",
+          fileInput("sample_table_upload", "Upload sample overview table (.csv / .txt / .tsv)", accept = c(".csv", ".txt", ".tsv", ".xlsx", ".xls")),
+          downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
+        ),
+        uiOutput("sample_table_validation_preview"),
         div(class = "info-note", MS_SAMPLE_TABLE_STATEMENT)
       ),
       div(
@@ -1521,32 +1808,56 @@ server <- function(input, output, session) {
     budget_holder_notice_ui(holders, input$budget_pi, input$budget_id)
   })
 
-  output$sample_table_ui <- renderUI({
-    n <- suppressWarnings(as.integer(input$num_samples %||% 1))
-    if (is.na(n) || n < 1) n <- 1
-    n <- min(n, 500)
+  output$metabolomics_sample_type_details <- renderUI({
+    selected <- trimws(as.character(input$metabolomics_sample_type %||% character()))
+    selected <- selected[nzchar(selected)]
+    if (length(selected) == 0) return(NULL)
+
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    volume_units <- load_choice_values(con, "volume_unit", c("uL", "mL", "other"))
+
     div(
-      class = "sample-table-grid",
-      div(
-        class = "sample-row sample-row-header",
-        div("#"),
-        div("Tube / ID"),
-        div("Condition"),
-        div("Replicate"),
-        div("Control?"),
-        div("Description / Comments")
-      ),
-      lapply(seq_len(n), function(i) {
-        div(
-          class = "sample-row",
-          div(class = "sample-row-index", i),
-          textInput(paste0("sample_tube_", i), label = NULL, placeholder = "AB-001"),
-          textInput(paste0("sample_condition_", i), label = NULL, placeholder = "control"),
-          textInput(paste0("sample_replicate_", i), label = NULL, placeholder = "1"),
-          checkboxInput(paste0("sample_control_", i), label = NULL, value = FALSE),
-          textInput(paste0("sample_description_", i), label = NULL)
-        )
+      class = "sample-type-details",
+      lapply(selected, function(sample_type) {
+        if (identical(sample_type, "Pellet")) {
+          fluidRow(
+            class = "sample-type-detail-row",
+            column(6, textInput("metabolomics_cell_number", field_label("Cell Number *", "Number of cells in the pellet."))),
+            column(6, selectInput("metabolomics_cell_number_unit", "Unit", choices = c("cells", "million cells", "other")))
+          )
+        } else if (identical(sample_type, "Supernatant")) {
+          fluidRow(
+            class = "sample-type-detail-row",
+            column(6, textInput("metabolomics_supernatant_volume", field_label("Volumes *", "Submitted volume for supernatant samples."))),
+            column(6, selectInput("metabolomics_supernatant_volume_unit", "Unit", choices = volume_units, selected = "uL"))
+          )
+        } else if (identical(sample_type, "Tissue")) {
+          fluidRow(
+            class = "sample-type-detail-row",
+            column(6, textInput("metabolomics_tissue_weight", field_label("Weight *", "Submitted tissue weight."))),
+            column(6, selectInput("metabolomics_tissue_weight_unit", "Unit", choices = c("ug", "mg", "g", "other"), selected = "mg"))
+          )
+        } else {
+          NULL
+        }
       })
+    )
+  })
+
+  output$sample_table_validation_preview <- renderUI({
+    if (is.null(input$sample_table_upload) || nrow(input$sample_table_upload) == 0) return(NULL)
+    result <- read_sample_table_upload(input$sample_table_upload, input$project_type, input$num_samples)
+    if (length(result$errors) > 0) {
+      return(div(
+        class = "error-box",
+        tags$strong("Sample table needs attention"),
+        tags$ul(lapply(result$errors, tags$li))
+      ))
+    }
+    div(
+      class = "info-note",
+      paste0("Sample table parsed successfully: ", nrow(result$table), " rows.")
     )
   })
 
@@ -1584,7 +1895,6 @@ server <- function(input, output, session) {
           "input.proteomics_quantification_strategy == 'SILAC'",
           selectizeInput("proteomics_silac_amino_acids", "SILAC amino acids", choices = load_choice_values(con, "silac_amino_acids"), multiple = TRUE)
         ),
-        selectizeInput("proteomics_species", field_label("Species *", "Default search database is UniProt reference proteome for selected species. Multiple species are allowed."), choices = refs, multiple = TRUE),
         textInput("proteomics_expression_host", field_label("Expression host", "If recombinant, specify expression system. Write NA if not applicable.", "E. coli BL21, Sf21, HEK293T")),
         fileInput("proteomics_fasta", field_label("FASTA file upload", "Always visible; critical for non-standard constructs. Standard proteins can leave it blank."), accept = c(".fasta", ".fa", ".faa", ".fna"), multiple = TRUE),
         div(class = "info-note", "FASTA upload is critical for correct database searching of non-standard constructs. Users with standard proteins leave it blank."),
@@ -1600,13 +1910,22 @@ server <- function(input, output, session) {
     div(
       class = "form-section type-metabolomics",
       h4("7. Metabolomics"),
-      selectInput("metabolomics_analysis_type", field_label("Analysis type *", "Targeted, untargeted, lipidomics, or other."), choices = load_choice_values(con, "metabolomics_analysis_type")),
-      conditionalPanel("input.metabolomics_analysis_type == 'Other'", textInput("metabolomics_analysis_type_other", "Other analysis type")),
-      selectInput("metabolomics_sample_type", field_label("Sample type *", "Cell pellet, medium/supernatant, tissue, or other."), choices = load_choice_values(con, "metabolomics_sample_type")),
-      conditionalPanel("input.metabolomics_sample_type == 'Other'", textInput("metabolomics_sample_type_other", "Other sample type")),
-      selectizeInput("metabolomics_species", field_label("Species *", "Human, mouse, rat, yeast, E. coli, other; multiple entries allowed."), choices = refs, multiple = TRUE),
+      radioButtons(
+        "metabolomics_analysis_family",
+        field_label("Analysis Type *", "Choose the main metabolomics family."),
+        choices = c("Metabolomics", "Lipidomics"),
+        selected = "Metabolomics",
+        inline = TRUE
+      ),
+      selectInput(
+        "metabolomics_analysis_type",
+        field_label("Approach *", "Targeted, untargeted, both, or other."),
+        choices = c("Targeted", "Untargeted", "Both", "Other"),
+        selected = "Targeted"
+      ),
+      conditionalPanel("input.metabolomics_analysis_type == 'Other'", textInput("metabolomics_analysis_type_other", "Other analysis information")),
       conditionalPanel(
-        "input.metabolomics_analysis_type == 'Targeted (specific panel)'",
+        "input.metabolomics_analysis_type == 'Targeted' || input.metabolomics_analysis_type == 'Both'",
         textAreaInput("metabolomics_targeted_analyte_text", field_label("Targeted analyte list", "List compound names, CAS numbers, or HMDB IDs."), rows = 3),
         fileInput("metabolomics_library", "Targeted analyte file (.xlsx / .csv / .txt / .tsv)", accept = c(".xlsx", ".csv", ".txt", ".tsv"))
       ),
@@ -1614,23 +1933,9 @@ server <- function(input, output, session) {
     )
   }
 
-  collect_sample_rows <- function() {
-    n <- suppressWarnings(as.integer(input$num_samples %||% 1))
-    if (is.na(n) || n < 1) n <- 1
-    n <- min(n, 500)
-    data.frame(
-      row_index = seq_len(n),
-      tube_id = vapply(seq_len(n), function(i) trim_scalar(input[[paste0("sample_tube_", i)]]), character(1)),
-      condition = vapply(seq_len(n), function(i) trim_scalar(input[[paste0("sample_condition_", i)]]), character(1)),
-      replicate = vapply(seq_len(n), function(i) trim_scalar(input[[paste0("sample_replicate_", i)]]), character(1)),
-      is_control = vapply(seq_len(n), function(i) as.integer(isTRUE(input[[paste0("sample_control_", i)]])), integer(1)),
-      description = vapply(seq_len(n), function(i) trim_scalar(input[[paste0("sample_description_", i)]]), character(1)),
-      stringsAsFactors = FALSE
-    )
-  }
-
   validate_project_form <- function() {
     errors <- character()
+    selected_type <- trim_scalar(input$project_type)
     required <- c(
       project_name = "Sample name",
       submitter_first_name = "First name",
@@ -1639,13 +1944,16 @@ server <- function(input, output, session) {
       responsible_user = "Responsible user",
       budget_id = "Billing Group",
       budget_pi = "PI / Group",
-      sample_buffer = "Buffer / Solvent",
-      sample_concentration = "Concentration",
       concentration_determination = "Concentration determination",
-      sample_volume = "Volume submitted",
-      sample_amount = "Sample amount",
       sample_notes = "Biological question"
     )
+    if (!identical(selected_type, "metabolomics")) {
+      required <- c(required,
+        sample_buffer = "Buffer / Solvent",
+        sample_volume = "Volume submitted",
+        sample_amount = "Sample amount"
+      )
+    }
     for (id in names(required)) {
       if (!non_empty(input[[id]])) errors <- c(errors, paste(required[[id]], "is required."))
     }
@@ -1653,10 +1961,9 @@ server <- function(input, output, session) {
     n <- suppressWarnings(as.integer(input$num_samples %||% NA_integer_))
     if (is.na(n) || n < 1) errors <- c(errors, "Number of samples must be at least 1.")
 
-    samples <- collect_sample_rows()
-    if (any(!nzchar(samples$tube_id))) errors <- c(errors, "Every sample row needs a Tube / ID.")
+    sample_table_result <- read_sample_table_upload(input$sample_table_upload, selected_type, n)
+    errors <- c(errors, sample_table_result$errors)
 
-    selected_type <- trim_scalar(input$project_type)
     if (!(selected_type %in% c("intact_mass", "proteomics", "metabolomics"))) {
       errors <- c(errors, "Choose a measurement type.")
     }
@@ -1701,16 +2008,35 @@ server <- function(input, output, session) {
 
     if (selected_type == "metabolomics") {
       metabolomics_required <- c(
-        metabolomics_analysis_type = "Analysis type",
-        metabolomics_sample_type = "Sample type"
+        metabolomics_analysis_family = "Analysis type",
+        metabolomics_analysis_type = "Approach"
       )
       for (id in names(metabolomics_required)) {
         if (!non_empty(input[[id]])) errors <- c(errors, paste(metabolomics_required[[id]], "is required."))
       }
+      selected_sample_types <- trimws(as.character(input$metabolomics_sample_type %||% character()))
+      selected_sample_types <- selected_sample_types[nzchar(selected_sample_types)]
+      if (length(selected_sample_types) == 0) {
+        errors <- c(errors, "Sample Type is required.")
+      }
+      if ("Pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
+        errors <- c(errors, "Cell Number is required for pellet samples.")
+      }
+      if ("Supernatant" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
+        errors <- c(errors, "Volumes is required for supernatant samples.")
+      }
+      if ("Tissue" %in% selected_sample_types && !non_empty(input$metabolomics_tissue_weight)) {
+        errors <- c(errors, "Weight is required for tissue samples.")
+      }
       if (is.null(input$metabolomics_species) || length(input$metabolomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      errors <- c(errors, validate_uploads(input$metabolomics_library, c("xlsx", "csv", "txt", "tsv"), as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20")), text_only = TRUE))
+      if (identical(input$metabolomics_analysis_type, "Other") && !non_empty(input$metabolomics_analysis_type_other)) {
+        errors <- c(errors, "Other analysis information is required when Approach is Other.")
+      }
+      if (input$metabolomics_analysis_type %in% c("Targeted", "Both")) {
+        errors <- c(errors, validate_uploads(input$metabolomics_library, c("xlsx", "csv", "txt", "tsv"), as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20")), text_only = TRUE))
+      }
     }
 
     errors[nzchar(errors)]
@@ -1729,7 +2055,12 @@ server <- function(input, output, session) {
     dbExecute(con, "PRAGMA foreign_keys = ON")
 
     submitter_name <- paste(trim_scalar(input$submitter_first_name), trim_scalar(input$submitter_last_name))
-    samples <- collect_sample_rows()
+    sample_table_result <- read_sample_table_upload(input$sample_table_upload, input$project_type, input$num_samples)
+    if (length(sample_table_result$errors) > 0) {
+      showNotification(paste(sample_table_result$errors, collapse = "\n"), type = "error", duration = 12)
+      return()
+    }
+    samples <- sample_rows_from_table(sample_table_result$table)
     selected_budget_id <- as.integer(input$budget_id)
     selected_budget_group <- budget_holder_group_for_id(con, selected_budget_id)
     if (!nzchar(selected_budget_group)) selected_budget_group <- trim_scalar(input$budget_pi, user$research_group)
@@ -1747,8 +2078,6 @@ server <- function(input, output, session) {
       submission_date = trim_scalar(input$submission_date, as.character(Sys.Date())),
       num_samples = as.integer(input$num_samples),
       sample_buffer = trim_scalar(input$sample_buffer),
-      sample_concentration = trim_scalar(input$sample_concentration),
-      sample_concentration_unit = trim_scalar(input$sample_concentration_unit),
       concentration_determination = trim_scalar(input$concentration_determination),
       concentration_method = trim_scalar(input$concentration_method),
       sample_volume = trim_scalar(input$sample_volume),
@@ -1791,10 +2120,16 @@ server <- function(input, output, session) {
 
     if (input$project_type == "metabolomics") {
       project_values <- c(project_values, list(
+        metabolomics_analysis_family = trim_scalar(input$metabolomics_analysis_family),
         metabolomics_analysis_type = trim_scalar(input$metabolomics_analysis_type),
         metabolomics_analysis_type_other = trim_scalar(input$metabolomics_analysis_type_other),
-        metabolomics_sample_type = trim_scalar(input$metabolomics_sample_type),
-        metabolomics_sample_type_other = trim_scalar(input$metabolomics_sample_type_other),
+        metabolomics_sample_type = join_values(input$metabolomics_sample_type),
+        metabolomics_cell_number = trim_scalar(input$metabolomics_cell_number),
+        metabolomics_cell_number_unit = trim_scalar(input$metabolomics_cell_number_unit),
+        metabolomics_supernatant_volume = trim_scalar(input$metabolomics_supernatant_volume),
+        metabolomics_supernatant_volume_unit = trim_scalar(input$metabolomics_supernatant_volume_unit),
+        metabolomics_tissue_weight = trim_scalar(input$metabolomics_tissue_weight),
+        metabolomics_tissue_weight_unit = trim_scalar(input$metabolomics_tissue_weight_unit),
         metabolomics_species = join_values(input$metabolomics_species),
         metabolomics_targeted_analyte_text = trim_scalar(input$metabolomics_targeted_analyte_text),
         metabolomics_notes = trim_scalar(input$metabolomics_notes)
@@ -1828,6 +2163,7 @@ server <- function(input, output, session) {
       }
 
       stored_paths <- list()
+      stored_paths$sample_table <- store_sample_table_upload(con, project_id, input$sample_table_upload, sample_table_result$table, input$project_type, storage$folder, user$username)
       if (input$project_type == "intact_mass") {
         stored_paths$intact_fasta_path <- store_upload_set(con, project_id, input$intact_fasta, "intact_fasta", storage$folder, user$username, compress = TRUE)
       }
@@ -1865,7 +2201,8 @@ server <- function(input, output, session) {
         MS_SAMPLE_TABLE_STATEMENT,
         sep = "\n"
       )
-      send_mail_safe(con, project_id, recipients, paste(project$project_code, "MS project submitted", sep = " - "), body, handoff_pdf)
+      submission_attachments <- c(handoff_pdf, unlist(stored_paths$sample_table, use.names = FALSE))
+      send_mail_safe(con, project_id, recipients, paste(project$project_code, "MS project submitted", sep = " - "), body, submission_attachments)
 
       if (!identical(storage$status, "pool")) {
         send_mail_safe(

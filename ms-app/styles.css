@@ -227,6 +227,36 @@ body {
   font-size: 13px;
 }
 
+.template-downloads,
+.sample-upload-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.sample-upload-actions {
+  align-items: flex-end;
+}
+
+.sample-upload-actions .form-group {
+  flex: 1 1 300px;
+  margin-bottom: 0;
+}
+
+.sample-type-details {
+  border: 1px solid #e3e8eb;
+  background: #fbfcfd;
+  border-radius: 6px;
+  padding: 10px 12px 0;
+  margin: 8px 0 14px;
+}
+
+.sample-type-detail-row {
+  margin-bottom: 10px;
+}
+
 .form-section {
   border: 1px solid #dfe4e7;
   border-radius: 8px;
