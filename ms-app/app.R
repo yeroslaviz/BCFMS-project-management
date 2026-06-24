@@ -60,6 +60,14 @@ non_empty <- function(x) {
   !is.null(x) && length(x) > 0 && !is.na(x[[1]]) && nzchar(trimws(as.character(x[[1]])))
 }
 
+role_is_admin <- function(role) {
+  identical(ms_normalize_user_role(role), "admin")
+}
+
+role_can_edit_projects <- function(role) {
+  ms_normalize_user_role(role) %in% c("admin", "technician")
+}
+
 join_values <- function(x) {
   x <- x %||% character()
   x <- trimws(as.character(x))
@@ -243,6 +251,26 @@ load_budget_holder_choices <- function(con) {
   list(values = holders, choices = setNames(as.character(holders$id), labels))
 }
 
+load_staff_choices <- function(con, include_blank = TRUE) {
+  staff <- dbGetQuery(con, "
+    SELECT id, username, full_name, role
+    FROM users
+    WHERE role IN ('admin', 'technician') OR COALESCE(is_admin, 0) = 1
+    ORDER BY role DESC, full_name, username
+  ")
+  if (nrow(staff) == 0) {
+    labels <- character()
+  } else {
+    full_names <- trimws(as.character(staff$full_name %||% ""))
+    full_names[is.na(full_names)] <- ""
+    display_names <- ifelse(nzchar(full_names), full_names, staff$username)
+    labels <- paste0(display_names, " (", staff$role, ")")
+  }
+  choices <- setNames(as.character(staff$id), labels)
+  if (isTRUE(include_blank)) choices <- c("Unassigned" = "", choices)
+  choices
+}
+
 ensure_user <- function(con, username, full_name = NULL, email = NULL, phone = NULL, group = NULL) {
   username <- trimws(username)
   row <- dbGetQuery(con, "SELECT * FROM users WHERE lower(username) = lower(?) LIMIT 1", params = list(username))
@@ -254,11 +282,25 @@ ensure_user <- function(con, username, full_name = NULL, email = NULL, phone = N
       email = email %||% paste0(username, "@biochem.mpg.de"),
       phone = phone %||% "",
       research_group = group %||% "",
+      role = "user",
       is_admin = 0L
     ))
     row <- dbGetQuery(con, "SELECT * FROM users WHERE lower(username) = lower(?) LIMIT 1", params = list(username))
   }
   row
+}
+
+next_orbi_project_code <- function(con) {
+  rows <- dbGetQuery(con, "
+    SELECT project_code
+    FROM projects
+    WHERE project_code LIKE 'Orbi_%'
+  ")
+  codes <- rows$project_code %||% character()
+  codes <- codes[grepl("^Orbi_[0-9]+$", codes)]
+  nums <- suppressWarnings(as.integer(sub("^Orbi_", "", codes)))
+  nums <- nums[!is.na(nums)]
+  paste0("Orbi_", max(c(0L, nums)) + 1L)
 }
 
 project_summary_text <- function(project, samples = NULL) {
@@ -670,6 +712,7 @@ server <- function(input, output, session) {
     email = NULL,
     phone = NULL,
     research_group = NULL,
+    role = "user",
     is_admin = FALSE
   )
 
@@ -759,6 +802,7 @@ server <- function(input, output, session) {
   }
 
   apply_user_row <- function(row) {
+    role <- ms_normalize_user_role(row$role[[1]] %||% "", row$is_admin[[1]] %||% 0L)
     user$logged_in <- TRUE
     user$user_id <- row$id[[1]]
     user$username <- row$username[[1]]
@@ -766,8 +810,25 @@ server <- function(input, output, session) {
     user$email <- row$email[[1]]
     user$phone <- row$phone[[1]] %||% ""
     user$research_group <- row$research_group[[1]] %||% ""
-    user$is_admin <- as.integer(row$is_admin[[1]] %||% 0) == 1
+    user$role <- role
+    user$is_admin <- role_is_admin(role)
     load_projects()
+  }
+
+  current_user_role <- function() {
+    ms_normalize_user_role(user$role %||% "user", as.integer(isTRUE(user$is_admin)))
+  }
+
+  can_view_admin_panels <- function() {
+    role_is_admin(current_user_role())
+  }
+
+  can_edit_all_projects <- function() {
+    role_can_edit_projects(current_user_role())
+  }
+
+  can_delete_projects <- function() {
+    role_is_admin(current_user_role())
   }
 
   proxy_login_attempted <- reactiveVal(FALSE)
@@ -850,13 +911,13 @@ server <- function(input, output, session) {
           actionButton("edit_project_btn", "Edit Selected", class = "btn btn-secondary"),
           downloadButton("download_report_btn", "Project Report"),
           downloadButton("download_invoice_btn", "Invoice"),
-          if (isTRUE(user$is_admin)) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
+          if (can_delete_projects()) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
         ),
         DTOutput("projects_table")
       )
     )
 
-    if (isTRUE(user$is_admin)) {
+    if (can_view_admin_panels()) {
       tabs <- c(tabs, list(tabPanel("Admin", uiOutput("admin_interface"))))
     }
 
@@ -869,7 +930,8 @@ server <- function(input, output, session) {
         div(
           class = "header-right",
           span(paste("Signed in as", user$username)),
-          if (isTRUE(user$is_admin)) span(class = "admin-chip", "Admin"),
+          if (role_is_admin(current_user_role())) span(class = "admin-chip", "Admin"),
+          if (identical(current_user_role(), "technician")) span(class = "admin-chip", "Technician"),
           actionButton("logout_btn", "End Session", class = "btn btn-light")
         )
       ),
@@ -910,6 +972,7 @@ server <- function(input, output, session) {
     user$logged_in <- FALSE
     user$user_id <- NULL
     user$username <- NULL
+    user$role <- "user"
     user$is_admin <- FALSE
     projects_data(data.frame())
   })
@@ -919,26 +982,32 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
 
-    if (isTRUE(user$is_admin)) {
+    if (can_edit_all_projects()) {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_email,
+               COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
+               COALESCE(t.full_name, t.username, '') AS technician,
                bh.surname || ', ' || bh.name AS budget_holder,
                bh.cost_center, p.num_samples, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
+        LEFT JOIN users t ON p.technician_user_id = t.id
         ORDER BY p.created_at DESC, p.id DESC
       ")
     } else {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_email,
+               COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
+               COALESCE(t.full_name, t.username, '') AS technician,
                bh.surname || ', ' || bh.name AS budget_holder,
                bh.cost_center, p.num_samples, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
+        LEFT JOIN users t ON p.technician_user_id = t.id
         WHERE p.user_id = ? OR lower(p.responsible_user) = lower(?)
         ORDER BY p.created_at DESC, p.id DESC
       ", params = list(user$user_id, user$username))
@@ -1370,12 +1439,13 @@ server <- function(input, output, session) {
 
     tryCatch({
       dbBegin(con)
+      project_code <- next_orbi_project_code(con)
+      project_values$project_code <- project_code
+      project_values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
       project_id <- insert_record(con, "projects", project_values)
-      project_code <- paste0("MS", format(Sys.Date(), "%Y"), "-", sprintf("%04d", project_id))
       storage <- prepare_project_folder(project_code, project_values$project_name)
 
       update_record(con, "projects", list(
-        project_code = project_code,
         upload_root = storage$root,
         project_folder = storage$folder,
         upload_storage_status = storage$status
@@ -1467,6 +1537,7 @@ server <- function(input, output, session) {
     on.exit(dbDisconnect(con), add = TRUE)
     project <- load_project_detail(con, row$id[[1]])
     if (nrow(project) == 0) return()
+    staff_choices <- load_staff_choices(con)
     editing_project_id(project$id[[1]])
 
     showModal(modalDialog(
@@ -1475,7 +1546,7 @@ server <- function(input, output, session) {
       easyClose = FALSE,
       footer = tagList(
         modalButton("Close"),
-        if (isTRUE(user$is_admin)) actionButton("send_cost_email_btn", "Send Cost Email", class = "btn btn-info"),
+        if (can_edit_all_projects()) actionButton("send_cost_email_btn", "Send Cost Email", class = "btn btn-info"),
         actionButton("update_project_btn", "Save Changes", class = "btn btn-primary")
       ),
       tabsetPanel(
@@ -1489,6 +1560,12 @@ server <- function(input, output, session) {
           ),
           textInput("edit_responsible_user", "Responsible user", value = project$responsible_user),
           textInput("edit_submitter_email", "Submitter email", value = project$submitter_email),
+          if (can_edit_all_projects()) selectInput(
+            "edit_technician_user_id",
+            "Technician",
+            choices = staff_choices,
+            selected = scalar_text(project$technician_user_id)
+          ),
           textAreaInput("edit_sample_buffer", "Buffer / Solvent", value = project$sample_buffer, rows = 3),
           fluidRow(
             column(4, textInput("edit_sample_concentration", "Concentration", value = project$sample_concentration)),
@@ -1498,7 +1575,7 @@ server <- function(input, output, session) {
           ),
           textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4),
           textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 3),
-          if (isTRUE(user$is_admin)) tagList(
+          if (can_edit_all_projects()) tagList(
             selectInput("edit_status", "Project status", choices = ms_status_options, selected = project$status),
             fluidRow(
               column(6, textInput("edit_additional_cost", "Additional cost", value = scalar_text(project$additional_cost))),
@@ -1517,7 +1594,7 @@ server <- function(input, output, session) {
           div(
             class = "action-bar",
             downloadButton("download_project_file_btn", "Download Selected File"),
-            if (isTRUE(user$is_admin)) actionButton("delete_project_file_btn", "Delete Selected File", class = "btn btn-danger")
+            if (can_edit_all_projects()) actionButton("delete_project_file_btn", "Delete Selected File", class = "btn btn-danger")
           )
         ),
         tabPanel(
@@ -1602,7 +1679,7 @@ server <- function(input, output, session) {
   )
 
   observeEvent(input$delete_project_file_btn, {
-    if (!isTRUE(user$is_admin)) return()
+    if (!can_edit_all_projects()) return()
     project_id <- editing_project_id()
     req(project_id)
     con <- ms_db_connect()
@@ -1624,6 +1701,8 @@ server <- function(input, output, session) {
     req(project_id)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
+    project_before <- load_project_detail(con, project_id)
+    if (nrow(project_before) == 0) return()
     values <- list(
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
@@ -1640,8 +1719,14 @@ server <- function(input, output, session) {
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
     )
-    if (isTRUE(user$is_admin)) {
-      values$status <- trim_scalar(input$edit_status, "Submitted")
+    if (can_edit_all_projects()) {
+      new_status <- trim_scalar(input$edit_status, "Submitted")
+      values$status <- new_status
+      if (!identical(new_status, scalar_text(project_before$status))) {
+        values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      }
+      technician_id <- suppressWarnings(as.integer(input$edit_technician_user_id))
+      values$technician_user_id <- if (is.na(technician_id)) NA_integer_ else technician_id
       values$additional_cost <- suppressWarnings(as.numeric(input$edit_additional_cost))
       values$total_cost <- suppressWarnings(as.numeric(input$edit_total_cost))
     }
@@ -1651,7 +1736,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$send_cost_email_btn, {
-    if (!isTRUE(user$is_admin)) return()
+    if (!can_edit_all_projects()) return()
     project_id <- editing_project_id()
     req(project_id)
     con <- ms_db_connect()
@@ -1674,7 +1759,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$delete_project_btn, {
-    if (!isTRUE(user$is_admin)) return()
+    if (!can_delete_projects()) return()
     row <- selected_project_row()
     if (is.null(row)) {
       showNotification("Please select a project first.", type = "warning")
@@ -1688,7 +1773,7 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$confirm_delete_project_btn, {
-    if (!isTRUE(user$is_admin)) return()
+    if (!can_delete_projects()) return()
     row <- selected_project_row()
     req(row)
     con <- ms_db_connect()
@@ -1754,7 +1839,7 @@ server <- function(input, output, session) {
         textInput("admin_new_username", "Username", placeholder = "Enter username"),
         textInput("admin_new_email", "Email", placeholder = "Enter email"),
         passwordInput("admin_new_password", "Password", placeholder = "Enter password"),
-        checkboxInput("admin_new_is_admin", "Administrator", value = FALSE),
+        selectInput("admin_new_role", "Role", choices = c("User" = "user", "Technician" = "technician", "Admin" = "admin"), selected = "user"),
         actionButton("admin_add_user_btn", "Add User", class = "btn btn-primary")
       ),
       tags$hr(),
@@ -1861,7 +1946,7 @@ server <- function(input, output, session) {
   }
 
   output$admin_interface <- renderUI({
-    req(user$is_admin)
+    req(can_view_admin_panels())
     div(
       class = "admin-dashboard",
       h2("Administrator Panel"),
@@ -1992,7 +2077,7 @@ server <- function(input, output, session) {
     admin_refresh()
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    datatable(dbGetQuery(con, "SELECT id, username, full_name, email, research_group, is_admin, created_at FROM users ORDER BY username"), rownames = FALSE, selection = "single")
+    datatable(dbGetQuery(con, "SELECT id, username, full_name, email, research_group, role, created_at FROM users ORDER BY username"), rownames = FALSE, selection = "single")
   })
 
   output$admin_budget_table <- renderDT({
@@ -2040,7 +2125,8 @@ server <- function(input, output, session) {
       full_name = trim_scalar(input$admin_new_username),
       password = ms_hash_password(input$admin_new_password),
       email = trim_scalar(input$admin_new_email),
-      is_admin = as.integer(isTRUE(input$admin_new_is_admin))
+      role = ms_normalize_user_role(input$admin_new_role),
+      is_admin = as.integer(role_is_admin(input$admin_new_role))
     ))
     admin_refresh(admin_refresh() + 1)
   })
@@ -2062,7 +2148,7 @@ server <- function(input, output, session) {
     req(selected)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    users <- dbGetQuery(con, "SELECT id, username, full_name, email, phone, research_group, is_admin FROM users ORDER BY username")
+    users <- dbGetQuery(con, "SELECT id, username, full_name, email, phone, research_group, role, is_admin FROM users ORDER BY username")
     req(nrow(users) >= selected[1])
     row <- users[selected[1], , drop = FALSE]
     admin_edit_user_id(row$id[[1]])
@@ -2081,20 +2167,30 @@ server <- function(input, output, session) {
         textInput("admin_edit_phone", "Phone", value = row$phone[[1]] %||% ""),
         textInput("admin_edit_research_group", "Research group", value = row$research_group[[1]] %||% ""),
         passwordInput("admin_edit_password", "New password", placeholder = "Leave blank to keep current password"),
-        checkboxInput("admin_edit_is_admin", "Administrator", value = as.integer(row$is_admin[[1]] %||% 0) == 1)
+        selectInput(
+          "admin_edit_role",
+          "Role",
+          choices = c("User" = "user", "Technician" = "technician", "Admin" = "admin"),
+          selected = ms_normalize_user_role(row$role[[1]] %||% "", row$is_admin[[1]] %||% 0L)
+        )
       )
     ))
   })
 
   observeEvent(input$admin_save_user_btn, {
     req(admin_edit_user_id(), input$admin_edit_username, input$admin_edit_email)
+    new_role <- ms_normalize_user_role(input$admin_edit_role)
+    if (identical(as.integer(admin_edit_user_id()), as.integer(user$user_id))) {
+      new_role <- "admin"
+    }
     values <- list(
       username = trim_scalar(input$admin_edit_username),
       full_name = trim_scalar(input$admin_edit_full_name),
       email = trim_scalar(input$admin_edit_email),
       phone = trim_scalar(input$admin_edit_phone),
       research_group = trim_scalar(input$admin_edit_research_group),
-      is_admin = if (identical(as.integer(admin_edit_user_id()), as.integer(user$user_id))) 1L else as.integer(isTRUE(input$admin_edit_is_admin))
+      role = new_role,
+      is_admin = as.integer(role_is_admin(new_role))
     )
     if (non_empty(input$admin_edit_password)) {
       values$password <- ms_hash_password(trim_scalar(input$admin_edit_password))

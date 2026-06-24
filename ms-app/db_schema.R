@@ -90,6 +90,14 @@ ms_reference_organisms <- c(
   "Mixed species"
 )
 
+ms_user_roles <- c("user", "technician", "admin")
+
+ms_normalize_user_role <- function(role, is_admin = 0L) {
+  role <- tolower(trimws(as.character(role %||% "")))
+  if (role %in% ms_user_roles) return(role)
+  if (as.integer(is_admin %||% 0L) == 1L) "admin" else "user"
+}
+
 ms_landing_text_defaults <- data.frame(
   block_key = c(
     "facility_scope",
@@ -150,19 +158,20 @@ ms_add_column_if_missing <- function(con, table_name, column_sql) {
   }
 }
 
-ms_budget_holder_exists <- function(con, name, surname, email) {
+ms_budget_holder_exists <- function(con, name, surname, cost_center, email) {
   count <- dbGetQuery(con, "
     SELECT COUNT(*) AS n
     FROM budget_holders
     WHERE lower(name) = lower(?)
       AND lower(surname) = lower(?)
+      AND lower(cost_center) = lower(?)
       AND lower(email) = lower(?)
-  ", params = list(name, surname, email))$n[1]
+  ", params = list(name, surname, cost_center, email))$n[1]
   isTRUE(count > 0)
 }
 
 ms_insert_budget_holder_if_missing <- function(con, name, surname, cost_center, email) {
-  if (!ms_budget_holder_exists(con, name, surname, email)) {
+  if (!ms_budget_holder_exists(con, name, surname, cost_center, email)) {
     dbExecute(con, "
       INSERT INTO budget_holders (name, surname, cost_center, email)
       VALUES (?, ?, ?, ?)
@@ -184,7 +193,7 @@ ms_cleanup_budget_holders <- function(con) {
     WHERE id NOT IN (
       SELECT MIN(id)
       FROM budget_holders
-      GROUP BY lower(name), lower(surname), lower(email)
+      GROUP BY lower(name), lower(surname), lower(cost_center), lower(email)
     )
   ")
 
@@ -201,6 +210,7 @@ ms_create_schema <- function(con) {
       email TEXT NOT NULL,
       phone TEXT,
       research_group TEXT,
+      role TEXT NOT NULL DEFAULT 'user',
       is_admin INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -347,11 +357,14 @@ ms_create_schema <- function(con) {
       report_notes TEXT,
       additional_cost REAL,
       total_cost REAL,
+      technician_user_id INTEGER,
       status TEXT DEFAULT 'Submitted',
+      last_status_update_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users (id),
-      FOREIGN KEY (budget_id) REFERENCES budget_holders (id)
+      FOREIGN KEY (budget_id) REFERENCES budget_holders (id),
+      FOREIGN KEY (technician_user_id) REFERENCES users (id)
     )
   "))
 
@@ -436,6 +449,22 @@ ms_create_schema <- function(con) {
 }
 
 ms_migrate_schema <- function(con) {
+  if (ms_table_exists(con, "users")) {
+    ms_add_column_if_missing(con, "users", "role TEXT NOT NULL DEFAULT 'user'")
+    dbExecute(con, "
+      UPDATE users
+      SET role = CASE
+        WHEN lower(COALESCE(role, '')) IN ('admin', 'technician') THEN lower(role)
+        WHEN COALESCE(is_admin, 0) = 1 THEN 'admin'
+        ELSE 'user'
+      END
+    ")
+    dbExecute(con, "
+      UPDATE users
+      SET is_admin = CASE WHEN role = 'admin' THEN 1 ELSE 0 END
+    ")
+  }
+
   if (!ms_table_exists(con, "projects")) return(invisible(TRUE))
 
   project_columns <- c(
@@ -511,12 +540,21 @@ ms_migrate_schema <- function(con) {
     "invoice_recipient_address TEXT",
     paste0("invoice_institute_address TEXT DEFAULT '", gsub("'", "''", MS_INSTITUTE_ADDRESS), "'"),
     "report_notes TEXT",
-    "additional_cost REAL"
+    "additional_cost REAL",
+    "total_cost REAL",
+    "technician_user_id INTEGER",
+    "last_status_update_at DATETIME"
   )
 
   for (column_sql in project_columns) {
     ms_add_column_if_missing(con, "projects", column_sql)
   }
+
+  dbExecute(con, "
+    UPDATE projects
+    SET last_status_update_at = COALESCE(last_status_update_at, created_at, updated_at, CURRENT_TIMESTAMP)
+    WHERE last_status_update_at IS NULL OR last_status_update_at = ''
+  ")
 }
 
 ms_seed_defaults <- function(con) {
@@ -571,13 +609,13 @@ ms_seed_defaults <- function(con) {
 
   default_password <- ms_hash_password(Sys.getenv("MS_LOCAL_ADMIN_PASSWORD", "admin123"))
   dbExecute(con, "
-    INSERT OR IGNORE INTO users (username, full_name, password, email, is_admin, research_group)
-    VALUES ('admin', 'Local MS Admin', ?, ?, 1, 'Mass Spectrometry Core Facility')
+    INSERT OR IGNORE INTO users (username, full_name, password, email, role, is_admin, research_group)
+    VALUES ('admin', 'Local MS Admin', ?, ?, 'admin', 1, 'Mass Spectrometry Core Facility')
   ", params = list(default_password, MS_FACILITY_EMAIL))
 
   dbExecute(con, "
-    INSERT OR IGNORE INTO users (username, full_name, password, email, is_admin, research_group)
-    VALUES ('yeroslaviz', 'Yeroslaviz', ?, 'yeroslaviz@biochem.mpg.de', 1, 'Cox')
+    INSERT OR IGNORE INTO users (username, full_name, password, email, role, is_admin, research_group)
+    VALUES ('yeroslaviz', 'Yeroslaviz', ?, 'yeroslaviz@biochem.mpg.de', 'admin', 1, 'Cox')
   ", params = list(ms_hash_password("ldap-only")))
 
   ms_cleanup_budget_holders(con)
