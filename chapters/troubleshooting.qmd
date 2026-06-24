@@ -148,6 +148,18 @@ sudo find /srv/shiny-server/ms-app/uploads_pending_pool -maxdepth 2 -type f
 
 ```bash
 sudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log
+```
+
+To take a look only at the latest one:
+
+```bash
+LATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)
+sudo tail -n 120 "$LATEST"
+```
+
+Those two do not exist
+
+```bash
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log
 ```
