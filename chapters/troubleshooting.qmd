@@ -80,6 +80,15 @@ If needed, reset it exactly:
 sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
 AUTH_MODE=ldap
 TRUST_PROXY_AUTH_USER_QUERY=1
+LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de
+LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
+LDAP_ATTR_UID=uid
+LDAP_ATTR_MAIL=mail
+LDAP_ATTR_PHONE=telephoneNumber
+LDAP_ATTR_OU=ou
+LDAP_ATTR_CN=cn
+LDAP_ATTR_GIVENNAME=givenName
+LDAP_ATTR_SN=sn
 MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
 MS_MAIL_FROM=ms-service@biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
