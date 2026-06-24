@@ -9,7 +9,7 @@ library(digest)
 MS_DB_FILE <- Sys.getenv("MS_DB_FILE", "ms_projects.db")
 MS_FACILITY_EMAIL <- Sys.getenv("MS_FACILITY_EMAIL", "ms-service@biochem.mpg.de")
 MS_MAIL_FROM <- Sys.getenv("MS_MAIL_FROM", MS_FACILITY_EMAIL)
-MS_POOL_FALLBACK_EMAIL <- Sys.getenv("MS_POOL_FALLBACK_EMAIL", "omics@bochem.mpg.de")
+MS_POOL_FALLBACK_EMAIL <- Sys.getenv("MS_POOL_FALLBACK_EMAIL", "omicsdesk@biochem.mpg.de")
 MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-bcfngs-ms-projects")
 MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv("MS_LOCAL_UPLOAD_FALLBACK", "uploads_pending_pool")
 MS_INSTITUTE_ADDRESS <- paste(
