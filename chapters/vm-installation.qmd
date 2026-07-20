@@ -10,7 +10,7 @@ execute:
 
 This is the clean-install checklist for a future MS project-management VM.
 
-## 1. Base Packages
+## Base Packages
 
 ```bash
 sudo apt-get update
@@ -30,7 +30,7 @@ bash scripts/check_requirements.sh --install-r
 
 The R package list includes `shiny`, `shinyjs`, `DBI`, `RSQLite`, `digest`, `DT`, `rJava`, and `mailR`.
 
-## 2. GitHub Access
+## GitHub Access
 
 ```bash
 ssh -T git@github.com
@@ -49,7 +49,7 @@ cd /home/<user>
 git clone git@github.com:yeroslaviz/BCFMS-project-management.git
 ```
 
-## 3. Shiny Server
+## Shiny Server
 
 ```bash
 sudo apt-get install -y gdebi-core
@@ -67,7 +67,7 @@ sudo chown -R shiny:shiny /srv/shiny-server/ms-app
 sudo usermod -a -G shiny "$USER"
 ```
 
-## 4. Deploy App Files
+## Deploy App Files
 
 ```bash
 cd /home/<user>/BCFMS-project-management
@@ -75,7 +75,214 @@ sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' ms-app/
 sudo chown -R shiny:shiny /srv/shiny-server/ms-app
 ```
 
-## 5. Initialize Database
+## Apply for https certificate
+
+Run the following command which generates a private key 'private-key.pem' and a certificate request 'certificate-request.pem'. Change the file names to the appropriate ones.
+
+```{bash}
+cd /home/yeroslaviz/certificate_request/2027/
+
+openssl req -newkey rsa:4096 -sha256 -nodes -keyout mscf-private-key.pem -out mscf-certificate-request.pem
+```
+
+Leave all fields at their default values.
+
+View the content of the certificate request. You will need to insert it in the final step of the next section when submitting the request.
+
+```{bash}
+cat certificate-request.pem
+```
+
+
+- Login to [https://cm.harica.gr](https://cm.harica.gr) > use `Academic Login`
+
+- Search / Select "MPI of Biochemistry", then log in with your biochem user account.
+
+- Click under "Certificate Requests" on "Server".
+
+Domains - `mscf-vm.biochem.mpg.de`
+
+Friendly name (optional): `mscf-vm`
+Add Domains: `mscf-vm.biochem.mpg.de` (unselect www)
+
+- Product - select "For enterprise or organization (OV)" and click "Next".
+
+- Details / Authorization Summary - check the information and confirm with "Next".
+
+- Submit your request by selecting "Submit CSR manually" and paste the content of your "certificate-request.pem" (created in the previous section: "Create a valid certificate request and a private key").
+
+After clicking "Submit request", your certificate request is uploaded. It is now under review, and will be approved soon.
+
+When we get the email, that the certifiacte is ready for us, I downloaded
+
+`PEM (Cert.pem) `and `PEM bundle (Cert_bundle.pem)` and moved them to the folder `/home/yeroslaviz/certificate_request/2027`
+
+```
+$ tree -L 2
+.
+├── 2027_certificate-request.pem
+├── 2027_private-key.pem
+├── Cert.pem
+└── Cert_bundle.pem
+```
+
+It is first best to compare the certifiacte to the private key.
+
+```bash
+sudo openssl x509 \
+    -in /home/yeroslaviz/certificate_request/2027/Cert_bundle.pem \
+    -pubkey -noout |
+    openssl pkey -pubin -outform DER |
+    sha256sum
+
+sudo openssl pkey \
+    -in /home/yeroslaviz/certificate_request/2027/2027_private-key.pem \
+    -pubout -outform DER |
+    sha256sum
+
+```
+The has strings **must** be identical!
+
+Creating a new folder for the new certificate:
+
+```bash
+sudo mkdir -p /etc/apache2/certificate/2027
+```
+
+Rename the two certifiactes to the new place with a new name
+
+```bash
+sudo cp Cert.pem /etc/apache2/certificate/2027/2027_mscf-vm.pem
+
+sudo cp Cert_bundle.pem /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem
+
+
+```
+
+Copying the private key to its new place:
+
+```bash
+sudo cp 2027_private-key.pem \
+    /etc/apache2/certificate/2027/2027_private-key.pem
+```
+
+Setting the permissions:
+
+```bash
+sudo chown -R root:root /etc/apache2/certificate/2027
+sudo chmod 644 /etc/apache2/certificate/2027/*.pem
+sudo chmod 600 /etc/apache2/certificate/2027/2027_private-key.pem
+```
+
+Inspecting the certifiacte shoing me to have three of them.
+
+```bash
+grep -c 'BEGIN CERTIFICATE' \
+    /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem
+```
+Inspect the first certificate in each file:
+
+The standalone PEM certificate should show mscf-vm.biochem.mpg.de in its Subject Alternative Names.
+
+```bash
+openssl x509 \
+    -in /etc/apache2/certificate/2027/2027_mscf-vm.pem \
+    -noout -subject -issuer -dates -ext subjectAltName
+
+openssl x509 \
+    -in /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem \
+    -noout -subject -issuer
+```
+
+compare the hash between certificate and private key
+
+```bash
+sudo openssl x509 \
+    -in /etc/apache2/certificate/2027/2027_mscf-vm.pem \
+    -pubkey -noout |
+    openssl pkey -pubin -outform DER |
+    sha256sum
+
+sudo openssl pkey \
+    -in /etc/apache2/certificate/2027/2027_private-key.pem \
+    -pubout -outform DER |
+    sha256sum
+```
+
+Change the Apache configuration
+
+```bash
+sudo nano /etc/apache2/sites-available/ms-vm-shiny-443.conf
+```
+
+Change the following section to contain the new paths to the new certificates:
+(Using the actual paths directly initially avoids uncertainty about the current symlinks.)
+
+```
+<VirtualHost *:443>
+    ServerName mscf-vm.biochem.mpg.de
+
+    SSLEngine on
+    SSLCertificateFile /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem
+    SSLCertificateKeyFile /etc/apache2/certificate/2027/2027_private-key.pem
+
+    # Remaining configuration...
+</VirtualHost>
+```
+
+Test and reload Apache
+
+First check the configuration without disrupting the running server:
+
+```bash
+sudo a2ensite ms-vm-shiny-443.conf
+sudo apache2ctl configtest
+```
+You should get:
+
+```
+Syntax OK
+```
+
+Then reload Apache gracefully:
+
+```bash
+sudo systemctl reload apache2
+```
+Check its status:
+
+```bash
+sudo systemctl --no-pager --full status apache2
+```
+
+Confirm the certificate being served
+
+```bash
+echo | openssl s_client \
+    -connect mscf-vm.biochem.mpg.de:443 \
+    -servername mscf-vm.biochem.mpg.de 2>/dev/null |
+    openssl x509 -noout -subject -issuer -serial -dates
+```
+Also verify the chain:
+
+```bash
+echo | openssl s_client \
+    -connect mscf-vm.biochem.mpg.de:443 \
+    -servername mscf-vm.biochem.mpg.de \
+    -verify_return_error 2>&1 |
+    tail -n 5
+```
+A successful result should contain:
+
+```
+Verify return code: 0 (ok)
+```
+
+Keep the existing `/etc/apache2/certificate/2027/` files unchanged until the new certificate has been verified. That gives you a simple rollback by restoring the two old paths in the Apache configuration and reloading Apache.
+
+
+
+## Initialize Database
 
 ```bash
 cd /srv/shiny-server/ms-app
@@ -88,7 +295,7 @@ For schema/seed checks without deleting the DB:
 sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
 ```
 
-## 6. Runtime Environment
+## Runtime Environment
 
 ```bash
 sudo tee /srv/shiny-server/ms-app/.Renviron >/dev/null <<'EOF'
@@ -120,7 +327,7 @@ sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-## 7. Apache / LDAP
+## Apache / LDAP
 
 Install LDAP client tooling:
 
@@ -149,7 +356,7 @@ sudo apache2ctl -t
 sudo systemctl restart apache2
 ```
 
-## 8. Verification
+## Verification
 
 ```bash
 curl -Ik https://mscf-vm.biochem.mpg.de/
@@ -171,7 +378,7 @@ sudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-## 9. Backup / Restore
+## Backup / Restore
 
 Backup:
 
