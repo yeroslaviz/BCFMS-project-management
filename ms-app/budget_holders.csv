@@ -1,5 +1,6 @@
 name,surname,email,cost_center
-MS Facility,Core,ms-service@biochem.mpg.de,N.A.
+MS Facility,Core,ms-service@biochem.mpg.de,K350B
+NGS Facility,Core,ngs@biochem.mpg.de,K350F
 Baier,Herwig,herwig.baier@bi.mpg.de,P350
 Baldwin,Maude,Maude.Baldwin@bi.mpg.de,P550
 Baumeister,Wolfgang,baumeist@biochem.mpg.de,K190

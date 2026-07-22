@@ -10,6 +10,8 @@ execute:
 
 LDAP authentication is handled by Apache in front of Shiny. The app trusts the authenticated user only when `AUTH_MODE=ldap` and Apache has canonicalized the request to `/ms-app/?auth_user=<user>`.
 
+After authentication, the app reads the user's LDAP `ou` and `departmentNumber` attributes. LDAP group IDs such as `b_cox` are matched to the corresponding PI / Group (`Cox`), and the department number is matched to that group's cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. If no research group matches, `b_ms` falls back to MS Facility / `K350B` and `b_ngs` falls back to NGS Facility / `K350F`. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.
+
 ## App Runtime
 
 Set this in `/srv/shiny-server/ms-app/.Renviron`:
@@ -17,7 +19,14 @@ Set this in `/srv/shiny-server/ms-app/.Renviron`:
 ```ini
 AUTH_MODE=ldap
 TRUST_PROXY_AUTH_USER_QUERY=1
+LDAP_ATTR_OU=ou
+LDAP_ATTR_COST_CENTER=departmentNumber
+LDAP_FACILITY_GROUPS=b_ms,b_ngs
 ```
+
+Set `LDAP_ATTR_COST_CENTER` to the attribute used by the local directory if it is not `departmentNumber`. The attribute value must match the corresponding `cost_center` entry in `budget_holders.csv` (comparison ignores punctuation and letter case).
+
+`LDAP_FACILITY_GROUPS` lists service memberships that are considered only after research-group matching. Its default is `b_ms,b_ngs`.
 
 Restart Shiny:
 

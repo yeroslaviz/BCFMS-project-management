@@ -344,33 +344,73 @@ normalize_group_key <- function(value) {
   tolower(value)
 }
 
-extract_group_key_from_ou <- function(ou_value) {
+extract_ldap_group_id <- function(ou_value) {
   ou_value <- trim_scalar(ou_value)
   if (!nzchar(ou_value)) return("")
   matches <- regmatches(ou_value, regexec("\\(([^\\)]+)\\)", ou_value))
   if (length(matches) > 0 && length(matches[[1]]) > 1) {
-    return(trimws(matches[[1]][2]))
+    ou_value <- trimws(matches[[1]][2])
   }
-  ou_value
+  ou_value <- sub("^[[:space:]]*(cn|ou)=([^,]+).*$", "\\2", ou_value, ignore.case = TRUE)
+  trimws(ou_value)
+}
+
+extract_group_key_from_ou <- function(ou_value) {
+  sub("^b[_-]", "", extract_ldap_group_id(ou_value), ignore.case = TRUE)
+}
+
+is_facility_ldap_group <- function(ou_value) {
+  configured <- Sys.getenv("LDAP_FACILITY_GROUPS", "b_ms,b_ngs")
+  facility_groups <- trimws(unlist(strsplit(configured, "[,;[:space:]]+")))
+  facility_groups <- tolower(facility_groups[nzchar(facility_groups)])
+  tolower(extract_ldap_group_id(ou_value)) %in% facility_groups
+}
+
+match_facility_billing_group <- function(holders, group_values) {
+  if (is.null(holders) || nrow(holders) == 0) return(NULL)
+  facility_values <- group_values[vapply(group_values, is_facility_ldap_group, logical(1))]
+  group_ids <- unique(tolower(vapply(facility_values, extract_ldap_group_id, character(1))))
+  mappings <- ms_facility_billing_groups[
+    tolower(ms_facility_billing_groups$ldap_group) %in% group_ids,
+    ,
+    drop = FALSE
+  ]
+  if (nrow(mappings) != 1) return(NULL)
+
+  group_label <- trimws(paste(mappings$name[[1]], mappings$surname[[1]]))
+  rows <- holders[
+    budget_holder_group_label(holders) == group_label &
+      vapply(holders$cost_center, normalize_cost_center_key, character(1)) ==
+        normalize_cost_center_key(mappings$cost_center[[1]]),
+    ,
+    drop = FALSE
+  ]
+  if (nrow(rows) != 1) return(NULL)
+  list(group_label = group_label, cost_center = mappings$cost_center[[1]])
 }
 
 match_budget_holder_group <- function(holders, group_value) {
   if (is.null(holders) || nrow(holders) == 0) return("")
-  group_key <- extract_group_key_from_ou(group_value)
-  if (!nzchar(group_key)) return("")
-
   full_names <- budget_holder_group_label(holders)
-  key_norm <- normalize_group_key(group_key)
   name_norm <- normalize_group_key(holders$name)
   surname_norm <- normalize_group_key(holders$surname)
   full_norm <- normalize_group_key(full_names)
 
-  idx <- which(full_norm == key_norm)
-  if (length(idx) == 0) idx <- which(name_norm == key_norm)
-  if (length(idx) == 0) idx <- which(surname_norm == key_norm)
-  if (length(idx) == 0 && nzchar(key_norm)) idx <- which(grepl(key_norm, full_norm, fixed = TRUE))
-  if (length(idx) == 0) return("")
-  full_names[idx[1]]
+  group_values <- as.character(group_value %||% character())
+  group_values <- group_values[!is.na(group_values) & nzchar(trimws(group_values))]
+  for (value in group_values) {
+    if (is_facility_ldap_group(value)) next
+    key_norm <- normalize_group_key(extract_group_key_from_ou(value))
+    if (!nzchar(key_norm)) next
+    idx <- which(full_norm == key_norm)
+    if (length(idx) == 0) idx <- which(name_norm == key_norm)
+    if (length(idx) == 0) idx <- which(surname_norm == key_norm)
+    if (length(idx) == 0) idx <- which(grepl(key_norm, full_norm, fixed = TRUE))
+    if (length(idx) > 0) return(full_names[idx[1]])
+  }
+  facility <- match_facility_billing_group(holders, group_values)
+  if (!is.null(facility)) return(facility$group_label)
+  ""
 }
 
 map_group_from_ldap_ou <- function(ou_value, con) {
@@ -382,6 +422,26 @@ budget_holder_group_choices <- function(holders) {
   labels <- unique(budget_holder_group_label(holders))
   labels <- labels[nzchar(labels)]
   setNames(labels, labels)
+}
+
+normalize_cost_center_key <- function(value) {
+  toupper(gsub("[^A-Z0-9]", "", trim_scalar(value)))
+}
+
+match_budget_holder_id <- function(holders, group_value, cost_center = "") {
+  if (is.null(holders) || nrow(holders) == 0) return("")
+  group_label <- match_budget_holder_group(holders, group_value)
+  rows <- budget_holders_for_group(holders, group_label)
+  if (nrow(rows) == 0) return("")
+
+  cost_key <- normalize_cost_center_key(cost_center)
+  if (nzchar(cost_key)) {
+    row_keys <- vapply(rows$cost_center, normalize_cost_center_key, character(1))
+    idx <- which(row_keys == cost_key)
+    if (length(idx) == 1) return(as.character(rows$id[[idx]]))
+  }
+
+  if (nrow(rows) == 1) as.character(rows$id[[1]]) else ""
 }
 
 budget_holders_for_group <- function(holders, group_label) {
@@ -482,7 +542,7 @@ normalize_ldap_lines <- function(lines) {
   out
 }
 
-parse_ldapsearch_output <- function(lines, key) {
+parse_ldapsearch_output <- function(lines, key, all = FALSE) {
   lines <- normalize_ldap_lines(lines)
   if (length(lines) == 0 || !nzchar(trim_scalar(key))) return(NULL)
   safe_key <- gsub("([\\^\\$\\.|\\?\\*\\+\\(\\)\\[\\]\\{\\}\\\\])", "\\\\\\1", key)
@@ -491,7 +551,7 @@ parse_ldapsearch_output <- function(lines, key) {
   match_list <- regmatches(lines, matches)
   values <- vapply(match_list, function(m) if (length(m) > 2) m[3] else NA_character_, character(1))
   values <- values[!is.na(values) & nzchar(values)]
-  if (length(values) == 0) NULL else values[1]
+  if (length(values) == 0) NULL else if (isTRUE(all)) unique(values) else values[1]
 }
 
 ldapsearch_lookup <- function(uri, base_dn, filter, attrs, bind_dn = "", bind_pw = "") {
@@ -542,7 +602,7 @@ ldapsearch_lookup <- function(uri, base_dn, filter, attrs, bind_dn = "", bind_pw
 }
 
 ldap_lookup_user <- function(username) {
-  attrs <- list(email = NULL, phone = NULL, ou = NULL, full_name = NULL)
+  attrs <- list(email = NULL, phone = NULL, ou = NULL, cost_center = NULL, full_name = NULL)
   username <- trim_scalar(username)
   if (!nzchar(username)) return(attrs)
 
@@ -558,6 +618,7 @@ ldap_lookup_user <- function(username) {
   attr_mail <- Sys.getenv("LDAP_ATTR_MAIL", "mail")
   attr_phone <- Sys.getenv("LDAP_ATTR_PHONE", "telephoneNumber")
   attr_ou <- Sys.getenv("LDAP_ATTR_OU", "ou")
+  attr_cost_center <- Sys.getenv("LDAP_ATTR_COST_CENTER", "departmentNumber")
   attr_cn <- Sys.getenv("LDAP_ATTR_CN", "cn")
   attr_given <- Sys.getenv("LDAP_ATTR_GIVENNAME", "givenName")
   attr_sn <- Sys.getenv("LDAP_ATTR_SN", "sn")
@@ -567,7 +628,7 @@ ldap_lookup_user <- function(username) {
   if (length(ldap_uris) == 0 || !nzchar(ldap_base_dn)) return(attrs)
 
   filter <- sprintf("(&(%s=%s)(objectClass=posixAccount))", attr_uid, ldap_escape_filter_value(username))
-  lookup_attrs <- unique(c(attr_mail, attr_phone, attr_ou, attr_cn, attr_given, attr_sn))
+  lookup_attrs <- unique(c(attr_mail, attr_phone, attr_ou, attr_cost_center, attr_cn, attr_given, attr_sn))
   lookup_attrs <- lookup_attrs[nzchar(lookup_attrs)]
 
   for (uri in ldap_uris) {
@@ -576,7 +637,8 @@ ldap_lookup_user <- function(username) {
 
     attrs$email <- parse_ldapsearch_output(lines, attr_mail)
     attrs$phone <- parse_ldapsearch_output(lines, attr_phone)
-    attrs$ou <- parse_ldapsearch_output(lines, attr_ou)
+    attrs$ou <- parse_ldapsearch_output(lines, attr_ou, all = TRUE)
+    attrs$cost_center <- parse_ldapsearch_output(lines, attr_cost_center)
     attrs$full_name <- parse_ldapsearch_output(lines, attr_cn)
     if (!nzchar(trim_scalar(attrs$full_name))) {
       given <- parse_ldapsearch_output(lines, attr_given)
@@ -596,7 +658,8 @@ ldap_lookup_user <- function(username) {
       "user=", username,
       "email=", attrs$email %||% "<missing>",
       "phone=", attrs$phone %||% "<missing>",
-      "ou=", attrs$ou %||% "<missing>",
+      "ou=", paste(attrs$ou %||% "<missing>", collapse = ","),
+      "cost_center=", attrs$cost_center %||% "<missing>",
       "full_name=", attrs$full_name %||% "<missing>",
       "\n",
       file = stderr()
@@ -607,7 +670,7 @@ ldap_lookup_user <- function(username) {
   attrs
 }
 
-ensure_user <- function(con, username, full_name = NULL, email = NULL, phone = NULL, group = NULL) {
+ensure_user <- function(con, username, full_name = NULL, email = NULL, phone = NULL, group = NULL, cost_center = NULL) {
   username <- trimws(username)
   row <- dbGetQuery(con, "SELECT * FROM users WHERE lower(username) = lower(?) LIMIT 1", params = list(username))
   if (nrow(row) == 0) {
@@ -618,6 +681,7 @@ ensure_user <- function(con, username, full_name = NULL, email = NULL, phone = N
       email = email %||% paste0(username, "@biochem.mpg.de"),
       phone = phone %||% "",
       research_group = group %||% "",
+      cost_center = cost_center %||% "",
       role = "user",
       is_admin = 0L
     ))
@@ -638,11 +702,18 @@ ensure_ldap_user <- function(con, username) {
   attrs <- ldap_lookup_user(username)
   attrs$email <- trim_scalar(attrs$email)
   attrs$phone <- trim_scalar(attrs$phone)
-  attrs$ou <- trim_scalar(attrs$ou)
+  ldap_groups <- as.character(attrs$ou %||% character())
+  ldap_groups <- ldap_groups[!is.na(ldap_groups) & nzchar(trimws(ldap_groups))]
+  attrs$cost_center <- trim_scalar(attrs$cost_center)
   attrs$full_name <- trim_scalar(attrs$full_name)
 
-  mapped_group <- map_group_from_ldap_ou(attrs$ou, con)
-  if (nzchar(mapped_group)) attrs$ou <- mapped_group
+  mapped_group <- map_group_from_ldap_ou(ldap_groups, con)
+  holders <- tryCatch(load_budget_holders(con), error = function(e) data.frame())
+  facility_billing <- match_facility_billing_group(holders, ldap_groups)
+  if (!is.null(facility_billing) && identical(mapped_group, facility_billing$group_label)) {
+    attrs$cost_center <- facility_billing$cost_center
+  }
+  attrs$ou <- if (nzchar(mapped_group)) mapped_group else trim_scalar(ldap_groups)
 
   row <- ensure_user(
     con,
@@ -650,16 +721,18 @@ ensure_ldap_user <- function(con, username) {
     full_name = if (nzchar(attrs$full_name)) attrs$full_name else NULL,
     email = if (nzchar(attrs$email)) attrs$email else NULL,
     phone = if (nzchar(attrs$phone)) attrs$phone else NULL,
-    group = if (nzchar(attrs$ou)) attrs$ou else NULL
+    group = if (nzchar(attrs$ou)) attrs$ou else NULL,
+    cost_center = if (nzchar(attrs$cost_center)) attrs$cost_center else NULL
   )
 
   updates <- list()
   current_group <- trim_scalar(row$research_group[[1]])
-  normalized_current_group <- map_group_from_ldap_ou(current_group, con)
-  if (nzchar(normalized_current_group) && !identical(normalized_current_group, current_group)) {
-    updates$research_group <- normalized_current_group
-  } else if (should_fill_profile_value(current_group, attrs$ou)) {
+  if (nzchar(attrs$ou) && !identical(current_group, attrs$ou)) {
     updates$research_group <- attrs$ou
+  }
+
+  if (nzchar(attrs$cost_center) && !identical(trim_scalar(row$cost_center[[1]]), attrs$cost_center)) {
+    updates$cost_center <- attrs$cost_center
   }
 
   if (should_fill_profile_value(row$email[[1]], attrs$email, paste0(username, "@biochem.mpg.de"))) {
@@ -1671,6 +1744,7 @@ server <- function(input, output, session) {
     email = NULL,
     phone = NULL,
     research_group = NULL,
+    cost_center = NULL,
     role = "user",
     is_admin = FALSE
   )
@@ -1769,6 +1843,7 @@ server <- function(input, output, session) {
     user$email <- row$email[[1]]
     user$phone <- row$phone[[1]] %||% ""
     user$research_group <- row$research_group[[1]] %||% ""
+    user$cost_center <- row$cost_center[[1]] %||% ""
     user$role <- role
     user$is_admin <- role_is_admin(role)
     load_projects()
@@ -2140,11 +2215,8 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     holders <- load_budget_holders(con)
-    budget_groups <- budget_holder_group_choices(holders)
+    budget_groups <- c("Choose PI / Group" = "", budget_holder_group_choices(holders))
     selected_budget_group <- match_budget_holder_group(holders, user$research_group)
-    if (!nzchar(selected_budget_group) && length(budget_groups) > 0) {
-      selected_budget_group <- unname(budget_groups[[1]])
-    }
     refs <- load_reference_values(con)
     name_parts <- split_full_name(user$full_name, user$username)
 
@@ -2266,9 +2338,13 @@ server <- function(input, output, session) {
     labels <- trimws(as.character(rows$cost_center %||% ""))
     labels[!nzchar(labels)] <- "N.A."
     choices <- setNames(as.character(rows$id), labels)
+    automatic_id <- match_budget_holder_id(holders, selected_group, user$cost_center)
     selected <- trim_scalar(input$budget_id)
     if (!(selected %in% unname(choices))) {
-      selected <- as.character(rows$id[[1]])
+      selected <- automatic_id
+    }
+    if (nrow(rows) > 1 && !nzchar(selected)) {
+      choices <- c("Choose cost center" = "", choices)
     }
 
     selectInput(
@@ -2541,7 +2617,10 @@ server <- function(input, output, session) {
     samples <- sample_rows_from_table(sample_table_result$table)
     selected_budget_id <- as.integer(input$budget_id)
     selected_budget_group <- budget_holder_group_for_id(con, selected_budget_id)
-    if (!nzchar(selected_budget_group)) selected_budget_group <- trim_scalar(input$budget_pi, user$research_group)
+    if (!nzchar(selected_budget_group) || !identical(selected_budget_group, trim_scalar(input$budget_pi))) {
+      showNotification("The selected PI / Group and cost center do not match. Please select them again.", type = "error", duration = 12)
+      return()
+    }
 
     project_values <- list(
       project_name = trim_scalar(input$project_name),

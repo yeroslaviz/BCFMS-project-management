@@ -93,6 +93,15 @@ ms_reference_organisms <- c(
 
 ms_user_roles <- c("user", "technician", "admin")
 
+ms_facility_billing_groups <- data.frame(
+  ldap_group = c("b_ms", "b_ngs"),
+  name = c("MS Facility", "NGS Facility"),
+  surname = c("Core", "Core"),
+  email = c("ms-service@biochem.mpg.de", "ngs@biochem.mpg.de"),
+  cost_center = c("K350B", "K350F"),
+  stringsAsFactors = FALSE
+)
+
 ms_normalize_user_role <- function(role, is_admin = 0L) {
   role <- tolower(trimws(as.character(role %||% "")))
   if (role %in% ms_user_roles) return(role)
@@ -180,6 +189,36 @@ ms_insert_budget_holder_if_missing <- function(con, name, surname, cost_center, 
   }
 }
 
+ms_upsert_facility_billing_holder <- function(con, name, surname, cost_center, email) {
+  existing <- dbGetQuery(con, "
+    SELECT id, cost_center
+    FROM budget_holders
+    WHERE lower(name) = lower(?) AND lower(surname) = lower(?)
+    ORDER BY id
+  ", params = list(name, surname))
+
+  desired_key <- toupper(gsub("[^A-Z0-9]", "", cost_center))
+  existing_keys <- toupper(gsub("[^A-Z0-9]", "", existing$cost_center %||% character()))
+  if (desired_key %in% existing_keys) {
+    dbExecute(con, "
+      UPDATE budget_holders SET email = ?
+      WHERE id = ?
+    ", params = list(email, existing$id[[which(existing_keys == desired_key)[1]]]))
+    return(invisible(TRUE))
+  }
+
+  placeholder <- which(existing_keys %in% c("", "NA"))
+  if (length(placeholder) > 0) {
+    dbExecute(con, "
+      UPDATE budget_holders SET cost_center = ?, email = ?
+      WHERE id = ?
+    ", params = list(cost_center, email, existing$id[[placeholder[1]]]))
+  } else {
+    ms_insert_budget_holder_if_missing(con, name, surname, cost_center, email)
+  }
+  invisible(TRUE)
+}
+
 ms_cleanup_budget_holders <- function(con) {
   if (!ms_table_exists(con, "budget_holders")) return(invisible(FALSE))
 
@@ -211,6 +250,7 @@ ms_create_schema <- function(con) {
       email TEXT NOT NULL,
       phone TEXT,
       research_group TEXT,
+      cost_center TEXT,
       role TEXT NOT NULL DEFAULT 'user',
       is_admin INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -459,6 +499,7 @@ ms_create_schema <- function(con) {
 ms_migrate_schema <- function(con) {
   if (ms_table_exists(con, "users")) {
     ms_add_column_if_missing(con, "users", "role TEXT NOT NULL DEFAULT 'user'")
+    ms_add_column_if_missing(con, "users", "cost_center TEXT")
     dbExecute(con, "
       UPDATE users
       SET role = CASE
@@ -645,7 +686,15 @@ ms_seed_defaults <- function(con) {
   ", params = list(ms_hash_password("ldap-only")))
 
   ms_cleanup_budget_holders(con)
-  ms_insert_budget_holder_if_missing(con, "MS Facility", "Core", "N.A.", MS_FACILITY_EMAIL)
+  for (i in seq_len(nrow(ms_facility_billing_groups))) {
+    ms_upsert_facility_billing_holder(
+      con,
+      ms_facility_billing_groups$name[[i]],
+      ms_facility_billing_groups$surname[[i]],
+      ms_facility_billing_groups$cost_center[[i]],
+      ms_facility_billing_groups$email[[i]]
+    )
+  }
 
   budget_holders_file <- "budget_holders.csv"
   if (file.exists(budget_holders_file)) {
