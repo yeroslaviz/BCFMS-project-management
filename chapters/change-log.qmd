@@ -26,6 +26,8 @@ execute:
 3. The address can be set explicitly in `/srv/shiny-server/ms-app/.Renviron`; restart `shiny-server` after changing it. No database recreation is required.
 4. Changed all downloadable sample-overview templates from comma-separated `.csv` files to tab-delimited `.txt` files.
 5. Sample-overview uploads accept `.txt`, `.csv`, and `.tsv` files and automatically detect tab, comma, or semicolon separators.
+6. add help function via question marks on the GUI
+
 
 ## Changes on 23.06.2026
 
