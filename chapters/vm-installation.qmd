@@ -280,7 +280,20 @@ Verify return code: 0 (ok)
 
 Keep the existing `/etc/apache2/certificate/2027/` files unchanged until the new certificate has been verified. That gives you a simple rollback by restoring the two old paths in the Apache configuration and reloading Apache.
 
+### Changes on 22.07.2026
 
+[Harica](https://cm.harica.gr/) has revoked the old certifiacte. For that reason I have applied for a new certifiacate. The new one was saved under `/home/yeroslaviz/certificate_request/2027/2027_07-22-2026`.
+
+**The older Cert files were deleted.**
+
+``bash
+cd /home/yeroslaviz/certificate_request/2027
+rm 2027_certificate-request.pem 2027_private-key.pem Cert*
+```
+
+The rest was kept in the same way. I copied the new Cert files to the apache2 folder and restarted the apache2 server after confirming the hashes are identical.
+
+The server is back online and still works with https.
 
 ## Initialize Database
 
