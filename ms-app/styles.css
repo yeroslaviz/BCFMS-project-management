@@ -330,7 +330,44 @@ body {
   color: #35515c;
   font-size: 12px;
   font-weight: 700;
-  cursor: help;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  vertical-align: text-bottom;
+}
+
+.field-help:hover,
+.field-help:focus,
+.field-help.is-open {
+  background: #0f6f61;
+  color: #ffffff;
+  outline: none;
+}
+
+.field-help:focus-visible {
+  box-shadow: 0 0 0 3px rgba(15, 111, 97, 0.25);
+}
+
+.field-help-popover {
+  position: fixed;
+  z-index: 2000;
+  width: max-content;
+  max-width: min(320px, calc(100vw - 24px));
+  padding: 9px 11px;
+  border-radius: 6px;
+  background: #263238;
+  color: #ffffff;
+  box-shadow: 0 4px 12px rgba(38, 50, 56, 0.24);
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.4;
+  text-align: left;
+  white-space: normal;
+  pointer-events: none;
+}
+
+.field-help-popover[hidden] {
+  display: none;
 }
 
 .info-note {

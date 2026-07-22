@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 22.07.2026](#changes-on-22.07.2026)
 - [Changes on 23.06.2026](#changes-on-23.06.2026)
 - [Changes on 22.06.2026](#changes-on-22.06.2026)
 - [Changes on 19.06.2026](#changes-on-19.06.2026)
@@ -17,6 +18,14 @@ execute:
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
 
+
+## Changes on 22.07.2026
+
+1. Corrected the OmicsDesk helpdesk address from `omics@bochem.mpg.de` to `omicsdesk@biochem.mpg.de` for upload-pool fallback notifications.
+2. Updated the application fallback in `ms-app/db_schema.R` and the documented `MS_POOL_FALLBACK_EMAIL` VM configuration.
+3. The address can be set explicitly in `/srv/shiny-server/ms-app/.Renviron`; restart `shiny-server` after changing it. No database recreation is required.
+4. Changed all downloadable sample-overview templates from comma-separated `.csv` files to tab-delimited `.txt` files.
+5. Sample-overview uploads accept `.txt`, `.csv`, and `.tsv` files and automatically detect tab, comma, or semicolon separators.
 
 ## Changes on 23.06.2026
 

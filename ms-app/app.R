@@ -107,9 +107,9 @@ safe_file_ext <- function(path) {
 }
 
 sample_template_files <- c(
-  intact_mass = "intact_template.csv",
-  proteomics = "proteomics_template.csv",
-  metabolomics = "metabolomics_template.csv"
+  intact_mass = "intact_template.txt",
+  proteomics = "proteomics_template.txt",
+  metabolomics = "metabolomics_template.txt"
 )
 
 sample_table_required_columns <- c("Tube_ID", "Condition", "Replicate", "Control?", "Concentration", "Unit", "Description", "Comments")
@@ -164,13 +164,22 @@ format_cost_value <- function(value) {
 }
 
 field_label <- function(text, help, example = NULL) {
-  title <- help
+  help_text <- help
   if (!is.null(example) && nzchar(example)) {
-    title <- paste0(help, " Example: ", example)
+    help_text <- paste0(help, " Example: ", example)
   }
   tags$span(
     text,
-    tags$span(class = "field-help", title = title, "?")
+    tags$span(
+      class = "field-help",
+      tabindex = "0",
+      role = "button",
+      `aria-label` = paste0("Help: ", help_text),
+      `aria-controls` = "field-help-popover",
+      `aria-expanded` = "false",
+      `data-help` = help_text,
+      "?"
+    )
   )
 }
 
@@ -1082,7 +1091,7 @@ validate_text_file <- function(path) {
   on.exit(close(con), add = TRUE)
   bytes <- readBin(con, what = "raw", n = 4096)
   if (length(bytes) > 0 && any(bytes == as.raw(0))) {
-    return("Text/CSV upload appears to contain binary data.")
+    return("Text upload appears to contain binary data.")
   }
   NULL
 }
@@ -1122,7 +1131,7 @@ sample_table_template_headers <- function(project_type) {
     names(utils::read.table(
       path,
       header = TRUE,
-      sep = ",",
+      sep = "\t",
       nrows = 0,
       check.names = FALSE,
       stringsAsFactors = FALSE
@@ -1132,13 +1141,16 @@ sample_table_template_headers <- function(project_type) {
   if (length(headers) == 0) sample_table_required_columns else headers
 }
 
-detect_table_separator <- function(path, ext) {
+detect_table_separator <- function(path) {
   first_line <- tryCatch(readLines(path, warn = FALSE, n = 1), error = function(e) "")
-  tab_count <- lengths(regmatches(first_line, gregexpr("\t", first_line, fixed = TRUE)))
-  comma_count <- lengths(regmatches(first_line, gregexpr(",", first_line, fixed = TRUE)))
-  if (identical(ext, "tsv")) return("\t")
-  if (identical(ext, "txt") && tab_count >= comma_count) return("\t")
-  if (tab_count > comma_count) "\t" else ","
+  if (length(first_line) == 0) first_line <- ""
+  separators <- c("\t", ",", ";")
+  counts <- vapply(
+    separators,
+    function(separator) lengths(regmatches(first_line, gregexpr(separator, first_line, fixed = TRUE))),
+    integer(1)
+  )
+  separators[[which.max(counts)]]
 }
 
 read_sample_table_upload <- function(upload, project_type, num_samples) {
@@ -1154,12 +1166,12 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
 
   if (ext %in% c("xls", "xlsx")) {
     return(list(
-      errors = paste0(original, ": Excel files are not accepted here. Please convert the template to CSV or tab-delimited TXT/TSV."),
+      errors = paste0(original, ": Excel files are not accepted here. Please export the table as .txt, .csv, or .tsv."),
       table = NULL
     ))
   }
-  if (!(ext %in% c("csv", "txt", "tsv"))) {
-    return(list(errors = paste0(original, ": allowed extensions are .csv, .txt, or .tsv."), table = NULL))
+  if (!(ext %in% c("txt", "csv", "tsv"))) {
+    return(list(errors = paste0(original, ": allowed extensions are .txt, .csv, or .tsv."), table = NULL))
   }
   if (!is.na(upload$size[[1]]) && upload$size[[1]] > max_bytes) {
     errors <- c(errors, paste0(original, ": file is larger than ", max_mb, " MB."))
@@ -1169,7 +1181,7 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
   if (!is.null(text_error)) errors <- c(errors, paste(original, text_error))
   if (length(errors) > 0) return(list(errors = errors, table = NULL))
 
-  sep <- detect_table_separator(upload$datapath[[1]], ext)
+  sep <- detect_table_separator(upload$datapath[[1]])
   table <- tryCatch(
     utils::read.table(
       upload$datapath[[1]],
@@ -1352,12 +1364,12 @@ store_upload_set <- function(con, project_id, upload, file_type, folder, usernam
 store_sample_table_upload <- function(con, project_id, upload, sample_table, project_type, folder, username) {
   if (is.null(sample_table) || nrow(sample_table) == 0) return(character())
 
-  original <- if (!is.null(upload) && nrow(upload) > 0) upload$name[[1]] else paste0(project_type, "_sample_table.tsv")
+  original <- if (!is.null(upload) && nrow(upload) > 0) upload$name[[1]] else paste0(project_type, "_sample_table.txt")
   stored_name <- paste0(
     format(Sys.time(), "%Y%m%d%H%M%S"),
     "_sample_table_",
     sanitize_path_part(project_type),
-    ".tsv"
+    ".txt"
   )
   destination <- file.path(folder, stored_name)
   write_normalized_sample_table(sample_table, destination)
@@ -1424,6 +1436,89 @@ ui <- fluidPage(
         window.setTimeout(publishUrlSearch, 0);
       });
       window.addEventListener('popstate', publishUrlSearch);
+
+      (function() {
+        var activeHelp = null;
+        var helpPopover = null;
+
+        function ensureHelpPopover() {
+          if (helpPopover) return helpPopover;
+          helpPopover = document.getElementById('field-help-popover');
+          if (helpPopover) return helpPopover;
+          helpPopover = document.createElement('div');
+          helpPopover.id = 'field-help-popover';
+          helpPopover.className = 'field-help-popover';
+          helpPopover.setAttribute('role', 'tooltip');
+          helpPopover.hidden = true;
+          document.body.appendChild(helpPopover);
+          return helpPopover;
+        }
+
+        function closeHelpPopover() {
+          if (activeHelp) {
+            activeHelp.classList.remove('is-open');
+            activeHelp.setAttribute('aria-expanded', 'false');
+          }
+          if (helpPopover) helpPopover.hidden = true;
+          activeHelp = null;
+        }
+
+        function positionHelpPopover(trigger) {
+          var popover = ensureHelpPopover();
+          var triggerRect = trigger.getBoundingClientRect();
+          var popoverRect = popover.getBoundingClientRect();
+          var gutter = 12;
+          var left = triggerRect.left + (triggerRect.width - popoverRect.width) / 2;
+          left = Math.max(gutter, Math.min(left, window.innerWidth - popoverRect.width - gutter));
+          var top = triggerRect.top - popoverRect.height - 10;
+          if (top < gutter) top = triggerRect.bottom + 10;
+          popover.style.left = Math.round(left) + 'px';
+          popover.style.top = Math.round(top) + 'px';
+        }
+
+        function openHelpPopover(trigger) {
+          closeHelpPopover();
+          var popover = ensureHelpPopover();
+          popover.textContent = trigger.getAttribute('data-help') || '';
+          popover.hidden = false;
+          activeHelp = trigger;
+          trigger.classList.add('is-open');
+          trigger.setAttribute('aria-expanded', 'true');
+          positionHelpPopover(trigger);
+        }
+
+        document.addEventListener('click', function(event) {
+          var trigger = event.target && event.target.closest
+            ? event.target.closest('.field-help')
+            : null;
+          if (!trigger) {
+            closeHelpPopover();
+            return;
+          }
+          event.preventDefault();
+          event.stopPropagation();
+          if (trigger === activeHelp) closeHelpPopover();
+          else openHelpPopover(trigger);
+        });
+
+        document.addEventListener('keydown', function(event) {
+          var trigger = event.target && event.target.closest
+            ? event.target.closest('.field-help')
+            : null;
+          if (trigger && (event.key === 'Enter' || event.key === ' ')) {
+            event.preventDefault();
+            if (trigger === activeHelp) closeHelpPopover();
+            else openHelpPopover(trigger);
+          } else if (event.key === 'Escape' && activeHelp) {
+            var previousHelp = activeHelp;
+            closeHelpPopover();
+            previousHelp.focus();
+          }
+        });
+
+        window.addEventListener('resize', closeHelpPopover);
+        document.addEventListener('scroll', closeHelpPopover, true);
+      })();
 
       document.addEventListener('keyup', function(event) {
         var target = event.target;
@@ -1558,7 +1653,13 @@ ui <- fluidPage(
       })();
     "))
   ),
-  uiOutput("app_ui")
+  uiOutput("app_ui"),
+  tags$div(
+    id = "field-help-popover",
+    class = "field-help-popover",
+    role = "tooltip",
+    hidden = "hidden"
+  )
 )
 
 server <- function(input, output, session) {
@@ -2000,13 +2101,13 @@ server <- function(input, output, session) {
           utils::write.table(
             as.data.frame(setNames(rep(list(character()), length(sample_table_required_columns)), sample_table_required_columns)),
             file = file,
-            sep = ",",
+            sep = "\t",
             row.names = FALSE,
             quote = FALSE
           )
         }
       },
-      contentType = "text/csv"
+      contentType = "text/tab-separated-values"
     )
   }
 
@@ -2124,10 +2225,10 @@ server <- function(input, output, session) {
         id = "sample_overview_section",
         class = "form-section",
         h4("5. Sample Overview Table"),
-        div(class = "info-note", "Download the template for the selected project type, fill it locally, then upload it as CSV or tab-delimited TXT/TSV. Excel files must be converted before upload."),
+        div(class = "info-note", "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."),
         div(
           class = "sample-upload-actions",
-          fileInput("sample_table_upload", "Upload sample overview table (.csv / .txt / .tsv)", accept = c(".csv", ".txt", ".tsv", ".xlsx", ".xls")),
+          fileInput("sample_table_upload", "Upload sample overview table (.txt / .csv / .tsv)", accept = c(".txt", ".csv", ".tsv")),
           downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
         ),
         uiOutput("sample_table_validation_preview"),
