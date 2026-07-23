@@ -2396,8 +2396,10 @@ server <- function(input, output, session) {
       div(
         class = "form-section",
         h4("6. Biological Question"),
-        textAreaInput("sample_notes", field_label("What do you want to know? *", "Describe the biological question, hypothesis, and expected outcome."), rows = 4),
-        textAreaInput("special_requirements", field_label("Special requirements", "Optional constraints, timing, safety notes, or facility discussion notes."), rows = 3)
+        fluidRow(
+          column(6, textAreaInput("sample_notes", field_label("What do you want to know? *", "Describe the biological question, hypothesis, and expected outcome."), rows = 4)),
+          column(6, textAreaInput("special_requirements", field_label("Special requirements", "Optional constraints, timing, safety notes, or facility discussion notes."), rows = 4))
+        )
       ),
       type_specific_new_project_ui(input$project_type, con, refs),
       warning_banner(compact = TRUE)

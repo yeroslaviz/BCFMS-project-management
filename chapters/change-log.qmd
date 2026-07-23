@@ -28,6 +28,7 @@ execute:
 4. Updated the project tables to include project name again and remove responsible user.
 5. Columns Status and Last Update were combined into one
 A atble of past status updates was added in the project edit page.
+6. “What do you want to know?” and “Special requirements” now appear side by side with equal-height text areas.
 
 ## Changes on 22.07.2026
 
