@@ -2239,8 +2239,21 @@ server <- function(input, output, session) {
         uiOutput("budget_holder_notice")
       ),
       div(
+        id = "sample_overview_section",
         class = "form-section",
-        h4("3. Sample Identity"),
+        h4("3. Sample Overview Table"),
+        div(class = "info-note", "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."),
+        div(
+          class = "sample-upload-actions",
+          fileInput("sample_table_upload", "Upload sample overview table (.txt / .csv / .tsv)", accept = c(".txt", ".csv", ".tsv")),
+          downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
+        ),
+        uiOutput("sample_table_validation_preview"),
+        div(class = "info-note", MS_SAMPLE_TABLE_STATEMENT)
+      ),
+      div(
+        class = "form-section",
+        h4("4. Sample Identity"),
         fluidRow(
           column(6, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
           column(3, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
@@ -2249,7 +2262,7 @@ server <- function(input, output, session) {
       ),
       div(
         class = "form-section",
-        h4("4. Sample"),
+        h4("5. Sample"),
         if (input$project_type == "metabolomics") {
           tagList(
             selectizeInput(
@@ -2292,19 +2305,6 @@ server <- function(input, output, session) {
             }
           )
         }
-      ),
-      div(
-        id = "sample_overview_section",
-        class = "form-section",
-        h4("5. Sample Overview Table"),
-        div(class = "info-note", "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."),
-        div(
-          class = "sample-upload-actions",
-          fileInput("sample_table_upload", "Upload sample overview table (.txt / .csv / .tsv)", accept = c(".txt", ".csv", ".tsv")),
-          downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
-        ),
-        uiOutput("sample_table_validation_preview"),
-        div(class = "info-note", MS_SAMPLE_TABLE_STATEMENT)
       ),
       div(
         class = "form-section",

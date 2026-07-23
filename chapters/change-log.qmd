@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 23.07.2026](#changes-on-23.07.2026)
 - [Changes on 22.07.2026](#changes-on-22.07.2026)
 - [Changes on 23.06.2026](#changes-on-23.06.2026)
 - [Changes on 22.06.2026](#changes-on-22.06.2026)
@@ -17,6 +18,11 @@ execute:
 - [Changes on 18.06.2026](#changes-on-18.06.2026)
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
+
+
+## Changes on 23.07.2026 
+
+1. moved the "Sample Overview Table" in the New Project Creation Window to be directly after "Contact and Billing".
 
 
 ## Changes on 22.07.2026
