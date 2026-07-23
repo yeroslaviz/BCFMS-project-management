@@ -753,17 +753,31 @@ ensure_ldap_user <- function(con, username) {
   row
 }
 
-next_orbi_project_code <- function(con) {
+project_code_prefixes <- c(
+  proteomics = "Pr",
+  metabolomics = "Me",
+  intact_mass = "In"
+)
+
+next_project_code <- function(con, project_type) {
+  project_type <- trim_scalar(project_type)
+  prefix <- unname(project_code_prefixes[project_type])
+  if (is.na(prefix) || !nzchar(prefix)) {
+    stop("Cannot generate a project code for unknown project type: ", project_type)
+  }
+
+  code_pattern <- paste0(prefix, "_%")
   rows <- dbGetQuery(con, "
     SELECT project_code
     FROM projects
-    WHERE project_code LIKE 'Orbi_%'
-  ")
+    WHERE project_code LIKE ?
+  ", params = list(code_pattern))
   codes <- rows$project_code %||% character()
-  codes <- codes[grepl("^Orbi_[0-9]+$", codes)]
-  nums <- suppressWarnings(as.integer(sub("^Orbi_", "", codes)))
+  code_regex <- paste0("^", prefix, "_[0-9]+$")
+  codes <- codes[grepl(code_regex, codes)]
+  nums <- suppressWarnings(as.integer(sub(paste0("^", prefix, "_"), "", codes)))
   nums <- nums[!is.na(nums)]
-  paste0("Orbi_", max(c(0L, nums)) + 1L)
+  paste0(prefix, "_", max(c(0L, nums)) + 1L)
 }
 
 project_summary_text <- function(project, samples = NULL) {
@@ -2695,7 +2709,7 @@ server <- function(input, output, session) {
 
     tryCatch({
       dbBegin(con)
-      project_code <- next_orbi_project_code(con)
+      project_code <- next_project_code(con, project_values$project_type)
       project_values$project_code <- project_code
       project_values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
       project_id <- insert_record(con, "projects", project_values)
