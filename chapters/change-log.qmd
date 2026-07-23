@@ -24,7 +24,10 @@ execute:
 
 1. moved the "Sample Overview Table" in the New Project Creation Window to be directly after "Contact and Billing".
 2. Change project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three 
-
+3. renamed "Number of Samples" to "Biological Samples", added another field with "Technical Replicates" next to it. 
+4. Updated the project tables to include project name again and remove responsible user.
+5. Columns Status and Last Update were combined into one
+A atble of past status updates was added in the project edit page.
 
 ## Changes on 22.07.2026
 

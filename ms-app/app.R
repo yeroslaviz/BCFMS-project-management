@@ -295,6 +295,24 @@ status_badge <- function(status) {
   )
 }
 
+date_only <- function(value) {
+  value <- trim_scalar(value)
+  if (!nzchar(value)) return("")
+  if (grepl("^[0-9]{4}-[0-9]{2}-[0-9]{2}", value)) {
+    return(substr(value, 1, 10))
+  }
+  parsed <- suppressWarnings(as.POSIXct(value))
+  if (is.na(parsed)) value else format(parsed, "%Y-%m-%d")
+}
+
+status_with_date <- function(status, changed_at, class = "status-date") {
+  div(
+    class = class,
+    status_badge(status),
+    span(class = "status-date-value", date_only(changed_at))
+  )
+}
+
 with_con <- function(expr) {
   con <- ms_db_connect()
   on.exit(dbDisconnect(con), add = TRUE)
@@ -1517,6 +1535,15 @@ load_project_detail <- function(con, project_id) {
   ", params = list(project_id))
 }
 
+load_project_status_history <- function(con, project_id) {
+  dbGetQuery(con, "
+    SELECT id, status, changed_at, changed_by
+    FROM project_status_history
+    WHERE project_id = ?
+    ORDER BY changed_at, id
+  ", params = list(project_id))
+}
+
 load_project_samples <- function(con, project_id) {
   dbGetQuery(con, "
     SELECT id, row_index, tube_id, condition, replicate, is_control, description
@@ -1793,6 +1820,7 @@ server <- function(input, output, session) {
   projects_data <- reactiveVal(data.frame())
   admin_refresh <- reactiveVal(0)
   editing_project_id <- reactiveVal(NULL)
+  project_status_refresh <- reactiveVal(0)
   admin_edit_user_id <- reactiveVal(NULL)
   admin_edit_bh_id <- reactiveVal(NULL)
   admin_edit_organism_id <- reactiveVal(NULL)
@@ -2145,17 +2173,21 @@ server <- function(input, output, session) {
     if (is.null(dat) || nrow(dat) == 0) {
       return(datatable(data.frame(Message = "No projects yet."), rownames = FALSE, options = list(dom = "t")))
     }
+    dat$status_update <- vapply(seq_len(nrow(dat)), function(i) {
+      as.character(status_with_date(
+        dat$status[[i]],
+        dat$last_status_update_at[[i]],
+        class = "status-date status-date-table"
+      ))
+    }, character(1))
     display <- dat[, c(
       "project_code", "customer", "project_name", "num_samples", "technical_replicates",
-      "last_status_update_at",
-      "technician", "status", "project_type", "budget_holder",
+      "status_update", "technician", "project_type", "budget_holder",
       "total_cost", "created_at"
     ), drop = FALSE]
-    display$status <- vapply(display$status, function(x) as.character(status_badge(x)), character(1))
     names(display) <- c(
       "Project ID", "Customer", "Project Name", "Biological Samples", "Technical Replicates",
-      "Last Update",
-      "Technician", "Status", "Project Type", "Budget holder",
+      "Status / Last Update", "Technician", "Project Type", "Budget holder",
       "Total Cost", "Created"
     )
     table <- datatable(
@@ -2770,6 +2802,12 @@ server <- function(input, output, session) {
       project_values$project_code <- project_code
       project_values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
       project_id <- insert_record(con, "projects", project_values)
+      insert_record(con, "project_status_history", list(
+        project_id = project_id,
+        status = project_values$status,
+        changed_at = project_values$last_status_update_at,
+        changed_by = user$username
+      ))
       storage <- prepare_project_folder(project_code, project_values$project_name)
 
       update_record(con, "projects", list(
@@ -2876,6 +2914,7 @@ server <- function(input, output, session) {
             column(3, numericInput("edit_technical_replicates", "Technical replicates", value = project$technical_replicates %||% 0, min = 0, step = 1)),
             column(3, uiOutput("edit_status_badge"))
           ),
+          uiOutput("edit_status_history"),
           textInput("edit_responsible_user", "Responsible user", value = project$responsible_user),
           textInput("edit_submitter_email", "Submitter email", value = project$submitter_email),
           if (can_edit_all_projects()) selectInput(
@@ -2926,6 +2965,7 @@ server <- function(input, output, session) {
   })
 
   output$edit_status_badge <- renderUI({
+    project_status_refresh()
     project_id <- editing_project_id()
     req(project_id)
     con <- ms_db_connect()
@@ -2933,6 +2973,37 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, project_id)
     if (nrow(project) == 0) return(NULL)
     div(class = "status-preview", "Current status", br(), status_badge(project$status))
+  })
+
+  output$edit_status_history <- renderUI({
+    project_status_refresh()
+    project_id <- editing_project_id()
+    req(project_id)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    history <- load_project_status_history(con, project_id)
+
+    previous <- if (nrow(history) > 1) {
+      history[seq_len(nrow(history) - 1L), , drop = FALSE]
+    } else {
+      history[0, , drop = FALSE]
+    }
+
+    div(
+      class = "status-history",
+      div(class = "status-history-title", "Previous statuses"),
+      if (nrow(previous) == 0) {
+        div(class = "status-history-empty", "No previous status changes.")
+      } else {
+        lapply(seq_len(nrow(previous)), function(i) {
+          status_with_date(
+            previous$status[[i]],
+            previous$changed_at[[i]],
+            class = "status-date status-history-row"
+          )
+        })
+      }
+    )
   })
 
   output$edit_samples_table <- renderDT({
@@ -3051,12 +3122,16 @@ server <- function(input, output, session) {
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
     )
+    status_changed <- FALSE
+    status_changed_at <- NULL
     if (can_edit_all_projects()) {
       new_status <- trim_scalar(input$edit_status, "Submitted")
       values$status <- new_status
       should_send_data_release <- !status_is_data_released(project_before$status) && status_is_data_released(new_status)
-      if (!identical(new_status, scalar_text(project_before$status))) {
-        values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+      status_changed <- !identical(new_status, scalar_text(project_before$status))
+      if (status_changed) {
+        status_changed_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
+        values$last_status_update_at <- status_changed_at
       }
       technician_id <- suppressWarnings(as.integer(input$edit_technician_user_id))
       values$technician_user_id <- if (is.na(technician_id)) NA_integer_ else technician_id
@@ -3065,7 +3140,28 @@ server <- function(input, output, session) {
     } else {
       should_send_data_release <- FALSE
     }
-    update_record(con, "projects", values, "id = ?", list(project_id))
+
+    update_succeeded <- tryCatch({
+      dbBegin(con)
+      update_record(con, "projects", values, "id = ?", list(project_id))
+      if (status_changed) {
+        insert_record(con, "project_status_history", list(
+          project_id = project_id,
+          status = new_status,
+          changed_at = status_changed_at,
+          changed_by = user$username
+        ))
+      }
+      dbCommit(con)
+      TRUE
+    }, error = function(e) {
+      if (dbIsValid(con)) try(dbRollback(con), silent = TRUE)
+      showNotification(paste("Project update failed:", conditionMessage(e)), type = "error", duration = 12)
+      FALSE
+    })
+    if (!isTRUE(update_succeeded)) return()
+
+    project_status_refresh(project_status_refresh() + 1)
     load_projects()
     showNotification("Project updated.", type = "message")
 

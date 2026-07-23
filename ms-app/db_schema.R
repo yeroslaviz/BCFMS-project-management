@@ -451,6 +451,22 @@ ms_create_schema <- function(con) {
   ")
 
   dbExecute(con, "
+    CREATE TABLE IF NOT EXISTS project_status_history (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      status TEXT NOT NULL,
+      changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      changed_by TEXT,
+      FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+    )
+  ")
+
+  dbExecute(con, "
+    CREATE INDEX IF NOT EXISTS idx_project_status_history_project_id
+    ON project_status_history (project_id, changed_at, id)
+  ")
+
+  dbExecute(con, "
     CREATE TABLE IF NOT EXISTS email_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       template_name TEXT UNIQUE NOT NULL,
@@ -613,6 +629,20 @@ ms_migrate_schema <- function(con) {
     UPDATE projects
     SET last_status_update_at = COALESCE(last_status_update_at, created_at, updated_at, CURRENT_TIMESTAMP)
     WHERE last_status_update_at IS NULL OR last_status_update_at = ''
+  ")
+
+  dbExecute(con, "
+    INSERT INTO project_status_history (project_id, status, changed_at, changed_by)
+    SELECT p.id,
+           COALESCE(NULLIF(trim(p.status), ''), 'Submitted'),
+           COALESCE(p.last_status_update_at, p.created_at, p.updated_at, CURRENT_TIMESTAMP),
+           'migration'
+    FROM projects p
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM project_status_history h
+      WHERE h.project_id = p.id
+    )
   ")
 }
 
