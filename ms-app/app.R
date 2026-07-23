@@ -2146,15 +2146,15 @@ server <- function(input, output, session) {
       return(datatable(data.frame(Message = "No projects yet."), rownames = FALSE, options = list(dom = "t")))
     }
     display <- dat[, c(
-      "project_code", "customer", "num_samples", "technical_replicates",
-      "responsible_user", "last_status_update_at",
+      "project_code", "customer", "project_name", "num_samples", "technical_replicates",
+      "last_status_update_at",
       "technician", "status", "project_type", "budget_holder",
       "total_cost", "created_at"
     ), drop = FALSE]
     display$status <- vapply(display$status, function(x) as.character(status_badge(x)), character(1))
     names(display) <- c(
-      "Project ID", "Customer", "Biological Samples", "Technical Replicates",
-      "Responsible user", "Last Update",
+      "Project ID", "Customer", "Project Name", "Biological Samples", "Technical Replicates",
+      "Last Update",
       "Technician", "Status", "Project Type", "Budget holder",
       "Total Cost", "Created"
     )
