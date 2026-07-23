@@ -331,6 +331,8 @@ ms_create_schema <- function(con) {
       budget_id INTEGER NOT NULL,
       submission_date TEXT NOT NULL,
       num_samples INTEGER NOT NULL,
+      technical_replicates INTEGER NOT NULL DEFAULT 0
+        CHECK (technical_replicates >= 0 AND typeof(technical_replicates) = 'integer'),
       sample_material TEXT,
       sample_buffer TEXT,
       sample_amount TEXT,
@@ -519,6 +521,7 @@ ms_migrate_schema <- function(con) {
   project_columns <- c(
     "project_code TEXT",
     "project_type TEXT DEFAULT 'proteomics'",
+    "technical_replicates INTEGER NOT NULL DEFAULT 0 CHECK (technical_replicates >= 0 AND typeof(technical_replicates) = 'integer')",
     "submitter_name TEXT",
     "submitter_email TEXT",
     "submitter_phone TEXT",
@@ -731,7 +734,8 @@ ms_seed_defaults <- function(con) {
     "- Project name: {project_name}",
     "- Project type: {project_type}",
     "- Responsible user: {responsible_user}",
-    "- Number of samples: {num_samples}",
+    "- Biological samples: {num_samples}",
+    "- Technical replicates: {technical_replicates}",
     "- Submission date: {submission_date}",
     "",
     "{field_summary}",

@@ -815,7 +815,8 @@ project_summary_text <- function(project, samples = NULL) {
     paste("Submitter:", scalar_text(project$submitter_name)),
     paste("Submitter email:", scalar_text(project$submitter_email)),
     paste("Submission date:", scalar_text(project$submission_date)),
-    paste("Number of samples:", scalar_text(project$num_samples)),
+    paste("Biological samples:", scalar_text(project$num_samples)),
+    paste("Technical replicates:", scalar_text(project$technical_replicates, "0")),
     paste("Buffer / solvent:", scalar_text(project$sample_buffer)),
     paste("Concentration determination:", paste(trim_scalar(project$concentration_determination), trim_scalar(project$concentration_method))),
     paste("Volume submitted:", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit))),
@@ -1325,11 +1326,11 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
 
   expected_rows <- suppressWarnings(as.integer(num_samples))
   if (is.na(expected_rows) || expected_rows < 1) {
-    errors <- c(errors, "Number of samples must be at least 1 before the sample table can be validated.")
+    errors <- c(errors, "Biological Samples must be at least 1 before the sample table can be validated.")
   } else if (nrow(table) == 0 && expected_rows > 0) {
-    errors <- c(errors, paste0("The uploaded sample overview table contains no sample rows. Add ", expected_rows, " sample row", ifelse(expected_rows == 1, "", "s"), " below the header, or adjust Number of samples."))
+    errors <- c(errors, paste0("The uploaded sample overview table contains no sample rows. Add ", expected_rows, " sample row", ifelse(expected_rows == 1, "", "s"), " below the header, or adjust Biological Samples."))
   } else if (nrow(table) != expected_rows) {
-    errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Number of samples is ", expected_rows, "."))
+    errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Biological Samples is ", expected_rows, "."))
   }
 
   sample_table_column <- function(table, column_name) {
@@ -2074,7 +2075,7 @@ server <- function(input, output, session) {
                    ELSE ''
                  END
                ) AS budget_holder,
-               p.num_samples, p.status, p.total_cost, p.created_at
+               p.num_samples, p.technical_replicates, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
@@ -2099,7 +2100,7 @@ server <- function(input, output, session) {
                    ELSE ''
                  END
                ) AS budget_holder,
-               p.num_samples, p.status, p.total_cost, p.created_at
+               p.num_samples, p.technical_replicates, p.status, p.total_cost, p.created_at
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
@@ -2145,15 +2146,17 @@ server <- function(input, output, session) {
       return(datatable(data.frame(Message = "No projects yet."), rownames = FALSE, options = list(dom = "t")))
     }
     display <- dat[, c(
-      "project_code", "customer", "responsible_user", "last_status_update_at",
+      "project_code", "customer", "num_samples", "technical_replicates",
+      "responsible_user", "last_status_update_at",
       "technician", "status", "project_type", "budget_holder",
-      "num_samples", "total_cost", "created_at"
+      "total_cost", "created_at"
     ), drop = FALSE]
     display$status <- vapply(display$status, function(x) as.character(status_badge(x)), character(1))
     names(display) <- c(
-      "Project ID", "Customer", "Responsible user", "Last Update",
+      "Project ID", "Customer", "Biological Samples", "Technical Replicates",
+      "Responsible user", "Last Update",
       "Technician", "Status", "Project Type", "Budget holder",
-      "Samples", "Total Cost", "Created"
+      "Total Cost", "Created"
     )
     table <- datatable(
       display,
@@ -2306,9 +2309,10 @@ server <- function(input, output, session) {
         class = "form-section",
         h4("4. Sample Identity"),
         fluidRow(
-          column(6, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
-          column(3, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-          column(3, numericInput("num_samples", field_label("Number of samples *", "Drives the row count in the sample overview table."), value = 1, min = 1, max = 500, step = 1))
+          column(4, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
+          column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+          column(3, numericInput("num_samples", field_label("Biological Samples *", "Drives the row count in the sample overview table."), value = 1, min = 1, max = 500, step = 1)),
+          column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
         )
       ),
       div(
@@ -2563,8 +2567,23 @@ server <- function(input, output, session) {
       if (!non_empty(input[[id]])) errors <- c(errors, paste(required[[id]], "is required."))
     }
 
-    n <- suppressWarnings(as.integer(input$num_samples %||% NA_integer_))
-    if (is.na(n) || n < 1) errors <- c(errors, "Number of samples must be at least 1.")
+    biological_samples <- suppressWarnings(as.numeric(input$num_samples %||% NA_real_))
+    biological_samples_valid <- !is.na(biological_samples) && is.finite(biological_samples) &&
+      biological_samples >= 1 && biological_samples == floor(biological_samples)
+    if (!biological_samples_valid) {
+      errors <- c(errors, "Biological Samples must be an integer of at least 1.")
+    }
+    n <- if (biological_samples_valid) {
+      as.integer(biological_samples)
+    } else {
+      NA_integer_
+    }
+
+    technical_replicates <- suppressWarnings(as.numeric(input$technical_replicates %||% NA_real_))
+    if (is.na(technical_replicates) || !is.finite(technical_replicates) ||
+        technical_replicates < 0 || technical_replicates != floor(technical_replicates)) {
+      errors <- c(errors, "Technical replicates must be a non-negative integer.")
+    }
 
     sample_table_result <- read_sample_table_upload(input$sample_table_upload, selected_type, n)
     errors <- c(errors, sample_table_result$errors)
@@ -2685,6 +2704,7 @@ server <- function(input, output, session) {
       budget_id = selected_budget_id,
       submission_date = trim_scalar(input$submission_date, as.character(Sys.Date())),
       num_samples = as.integer(input$num_samples),
+      technical_replicates = as.integer(input$technical_replicates),
       sample_buffer = trim_scalar(input$sample_buffer),
       concentration_determination = trim_scalar(input$concentration_determination),
       concentration_method = trim_scalar(input$concentration_method),
@@ -2851,8 +2871,9 @@ server <- function(input, output, session) {
           "Project",
           warning_banner(compact = TRUE),
           fluidRow(
-            column(6, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
-            column(3, numericInput("edit_num_samples", "Number of samples", value = project$num_samples, min = 1)),
+            column(4, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
+            column(2, numericInput("edit_num_samples", "Biological Samples", value = project$num_samples, min = 1, step = 1)),
+            column(3, numericInput("edit_technical_replicates", "Technical replicates", value = project$technical_replicates %||% 0, min = 0, step = 1)),
             column(3, uiOutput("edit_status_badge"))
           ),
           textInput("edit_responsible_user", "Responsible user", value = project$responsible_user),
@@ -3000,11 +3021,25 @@ server <- function(input, output, session) {
     on.exit(dbDisconnect(con), add = TRUE)
     project_before <- load_project_detail(con, project_id)
     if (nrow(project_before) == 0) return()
+    edit_num_samples <- suppressWarnings(as.numeric(input$edit_num_samples %||% NA_real_))
+    edit_technical_replicates <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
+    if (is.na(edit_num_samples) || !is.finite(edit_num_samples) ||
+        edit_num_samples < 1 || edit_num_samples != floor(edit_num_samples)) {
+      showNotification("Biological Samples must be an integer of at least 1.", type = "error", duration = 10)
+      return()
+    }
+    if (is.na(edit_technical_replicates) || !is.finite(edit_technical_replicates) ||
+        edit_technical_replicates < 0 ||
+        edit_technical_replicates != floor(edit_technical_replicates)) {
+      showNotification("Technical replicates must be a non-negative integer.", type = "error", duration = 10)
+      return()
+    }
     values <- list(
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
       submitter_email = trim_scalar(input$edit_submitter_email),
-      num_samples = as.integer(input$edit_num_samples),
+      num_samples = as.integer(edit_num_samples),
+      technical_replicates = as.integer(edit_technical_replicates),
       sample_buffer = trim_scalar(input$edit_sample_buffer),
       sample_concentration = trim_scalar(input$edit_sample_concentration),
       sample_concentration_unit = trim_scalar(input$edit_sample_concentration_unit),
