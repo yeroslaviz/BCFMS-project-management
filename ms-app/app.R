@@ -2187,7 +2187,7 @@ server <- function(input, output, session) {
     ), drop = FALSE]
     names(display) <- c(
       "Project ID", "Customer", "Project Name", "Biological Samples", "Technical Replicates",
-      "Status / Last Update", "Technician", "Project Type", "Budget holder",
+      "Status", "Technician", "Project Type", "Budget holder",
       "Total Cost", "Created"
     )
     table <- datatable(
@@ -2989,20 +2989,17 @@ server <- function(input, output, session) {
       history[0, , drop = FALSE]
     }
 
+    if (nrow(previous) == 0) return(NULL)
+
     div(
       class = "status-history",
-      div(class = "status-history-title", "Previous statuses"),
-      if (nrow(previous) == 0) {
-        div(class = "status-history-empty", "No previous status changes.")
-      } else {
-        lapply(seq_len(nrow(previous)), function(i) {
-          status_with_date(
-            previous$status[[i]],
-            previous$changed_at[[i]],
-            class = "status-date status-history-row"
-          )
-        })
-      }
+      lapply(seq_len(nrow(previous)), function(i) {
+        status_with_date(
+          previous$status[[i]],
+          previous$changed_at[[i]],
+          class = "status-date status-history-row"
+        )
+      })
     )
   })
 

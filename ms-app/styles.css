@@ -443,6 +443,14 @@ body {
 
 .status-date-table {
   min-width: 190px;
+  font-family: inherit;
+  font-size: inherit;
+}
+
+.status-date-table .status-badge,
+.status-date-table .status-date-value {
+  font-family: inherit;
+  font-size: inherit;
 }
 
 .status-date-value {
@@ -454,30 +462,20 @@ body {
 
 .status-history {
   margin: 2px 0 18px 50%;
-  padding: 12px 15px;
-  border: 1px solid #dfe4e7;
-  border-radius: 8px;
-  background: #f8fafb;
-}
-
-.status-history-title {
-  margin-bottom: 8px;
-  color: #455a64;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.03em;
+  padding: 0;
 }
 
 .status-history-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  justify-content: initial;
   min-height: 34px;
-  padding: 5px 0;
-  border-top: 1px solid #e5eaed;
+  padding: 4px 0;
 }
 
-.status-history-empty {
-  color: #78909c;
-  font-size: 12px;
+.status-history-row .status-date-value {
+  justify-self: start;
 }
 
 @media (max-width: 767px) {
