@@ -95,6 +95,32 @@ split_full_name <- function(full_name, fallback_username = "") {
   }
 }
 
+customer_labels <- function(full_names, usernames, fallback_names = "") {
+  row_count <- max(length(full_names), length(usernames), length(fallback_names))
+  if (row_count == 0) return(character())
+
+  full_names <- rep_len(full_names, row_count)
+  usernames <- rep_len(usernames, row_count)
+  fallback_names <- rep_len(fallback_names, row_count)
+
+  vapply(seq_len(row_count), function(i) {
+    full_name <- trim_scalar(full_names[[i]])
+    username <- trim_scalar(usernames[[i]])
+    fallback_name <- trim_scalar(fallback_names[[i]])
+
+    if (!nzchar(full_name) || identical(tolower(full_name), tolower(username))) {
+      full_name <- fallback_name
+    }
+    if (!nzchar(full_name)) full_name <- username
+
+    if (nzchar(full_name) && nzchar(username)) {
+      paste0(full_name, " (", username, ")")
+    } else {
+      first_non_empty(full_name, username)
+    }
+  }, character(1))
+}
+
 sanitize_path_part <- function(x) {
   x <- gsub("[^A-Za-z0-9._-]+", "_", trimws(x %||% ""))
   x <- gsub("_+", "_", x)
@@ -2034,7 +2060,9 @@ server <- function(input, output, session) {
     if (can_edit_all_projects()) {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
-               p.responsible_user, p.submitter_email,
+               p.responsible_user, p.submitter_name, p.submitter_email,
+               COALESCE(owner.full_name, '') AS customer_full_name,
+               COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
                trim(
@@ -2050,13 +2078,16 @@ server <- function(input, output, session) {
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
+        LEFT JOIN users owner ON p.user_id = owner.id
         LEFT JOIN users t ON p.technician_user_id = t.id
         ORDER BY p.created_at DESC, p.id DESC
       ")
     } else {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
-               p.responsible_user, p.submitter_email,
+               p.responsible_user, p.submitter_name, p.submitter_email,
+               COALESCE(owner.full_name, '') AS customer_full_name,
+               COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
                trim(
@@ -2072,11 +2103,17 @@ server <- function(input, output, session) {
         FROM projects p
         LEFT JOIN project_types pt ON p.project_type = pt.slug
         LEFT JOIN budget_holders bh ON p.budget_id = bh.id
+        LEFT JOIN users owner ON p.user_id = owner.id
         LEFT JOIN users t ON p.technician_user_id = t.id
         WHERE p.user_id = ? OR lower(p.responsible_user) = lower(?)
         ORDER BY p.created_at DESC, p.id DESC
       ", params = list(user$user_id, user$username))
     }
+    projects$customer <- customer_labels(
+      projects$customer_full_name,
+      projects$customer_username,
+      projects$submitter_name
+    )
     projects_data(projects)
   }
 
@@ -2108,13 +2145,13 @@ server <- function(input, output, session) {
       return(datatable(data.frame(Message = "No projects yet."), rownames = FALSE, options = list(dom = "t")))
     }
     display <- dat[, c(
-      "project_code", "project_name", "responsible_user", "last_status_update_at",
+      "project_code", "customer", "responsible_user", "last_status_update_at",
       "technician", "status", "project_type", "budget_holder",
       "num_samples", "total_cost", "created_at"
     ), drop = FALSE]
     display$status <- vapply(display$status, function(x) as.character(status_badge(x)), character(1))
     names(display) <- c(
-      "Project ID", "Project Name", "Responsible user", "Last Update",
+      "Project ID", "Customer", "Responsible user", "Last Update",
       "Technician", "Status", "Project Type", "Budget holder",
       "Samples", "Total Cost", "Created"
     )
