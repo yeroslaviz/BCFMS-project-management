@@ -2218,8 +2218,7 @@ server <- function(input, output, session) {
       customer = "Customer",
       project_name = "Project Name",
       num_samples = "Biological Samples",
-      technical_replicates = "Technical Replicates",
-      status_update = "Status"
+      technical_replicates = "Technical Replicates"
     )
     if (can_edit_all_projects()) {
       dat$column_type_display <- mapply(
@@ -2236,7 +2235,8 @@ server <- function(input, output, session) {
       )
       display_columns <- c(
         display_columns,
-        technician = "Technician",
+        status_update = "Status",
+        technician = "Sample handler",
         column_type_display = "Column Type",
         ms_machine_display = "MS Machine",
         data_acquisition = "Data Acquisition"
