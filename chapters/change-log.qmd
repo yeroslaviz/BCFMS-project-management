@@ -23,7 +23,7 @@ execute:
 ## Changes on 23.07.2026 
 
 1. moved the "Sample Overview Table" in the New Project Creation Window to be directly after "Contact and Billing".
-2. Change project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact prject types instead of Orbi for all three 
+2. Change project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three 
 
 
 ## Changes on 22.07.2026
