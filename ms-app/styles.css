@@ -445,9 +445,10 @@ body {
   min-width: 190px;
   font-family: inherit;
   font-size: inherit;
+  justify-content: flex-start;
+  gap: 10px;
 }
 
-.status-date-table .status-badge,
 .status-date-table .status-date-value {
   font-family: inherit;
   font-size: inherit;
@@ -455,7 +456,7 @@ body {
 
 .status-date-value {
   color: #607d8b;
-  font-size: 12px;
+  font-size: 14px;
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
 }
@@ -467,8 +468,8 @@ body {
 
 .status-history-row {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0;
+  grid-template-columns: max-content max-content;
+  gap: 10px;
   justify-content: initial;
   min-height: 34px;
   padding: 4px 0;
