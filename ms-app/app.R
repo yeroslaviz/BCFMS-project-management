@@ -347,6 +347,34 @@ load_choice_values <- function(con, option_group, fallback = character()) {
   values
 }
 
+choice_values_with_current <- function(con, option_group, current = "", fallback = character()) {
+  values <- load_choice_values(con, option_group, fallback)
+  current <- trim_scalar(current)
+  if (nzchar(current) && !(current %in% values)) values <- c(values, current)
+  values
+}
+
+limited_text_input <- function(input_id, label, value = "", max_length = 500L) {
+  div(
+    class = "form-group shiny-input-container",
+    tags$label(`for` = input_id, label),
+    tags$input(
+      id = input_id,
+      type = "text",
+      class = "form-control",
+      value = scalar_text(value),
+      maxlength = as.integer(max_length)
+    ),
+    tags$small(class = "form-text text-muted", paste0("Maximum ", max_length, " characters."))
+  )
+}
+
+project_option_display <- function(value, other_value) {
+  value <- trim_scalar(value)
+  other_value <- trim_scalar(other_value)
+  if (identical(value, "Other") && nzchar(other_value)) paste0("Other: ", other_value) else value
+}
+
 load_reference_values <- function(con) {
   rows <- dbGetQuery(
     con,
@@ -840,7 +868,10 @@ project_summary_text <- function(project, samples = NULL) {
     paste("Volume submitted:", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit))),
     paste("Sample amount:", scalar_text(project$sample_amount)),
     paste("Biological question:", scalar_text(project$sample_notes)),
-    paste("Special requirements:", scalar_text(project$special_requirements))
+    paste("Special requirements:", scalar_text(project$special_requirements)),
+    paste("Column type:", project_option_display(project$column_type, project$column_type_other)),
+    paste("MS machine:", project_option_display(project$ms_machine, project$ms_machine_other)),
+    paste("Data acquisition:", scalar_text(project$data_acquisition))
   )
 
   if (scalar_text(project$project_type) == "intact_mass") {
@@ -2090,6 +2121,8 @@ server <- function(input, output, session) {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_name, p.submitter_email,
+               p.column_type, p.column_type_other, p.ms_machine, p.ms_machine_other,
+               p.data_acquisition,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
@@ -2180,16 +2213,44 @@ server <- function(input, output, session) {
         class = "status-date status-date-table"
       ))
     }, character(1))
-    display <- dat[, c(
-      "project_code", "customer", "project_name", "num_samples", "technical_replicates",
-      "status_update", "technician", "project_type", "budget_holder",
-      "total_cost", "created_at"
-    ), drop = FALSE]
-    names(display) <- c(
-      "Project ID", "Customer", "Project Name", "Biological Samples", "Technical Replicates",
-      "Status", "Technician", "Project Type", "Budget holder",
-      "Total Cost", "Created"
+    display_columns <- c(
+      project_code = "Project ID",
+      customer = "Customer",
+      project_name = "Project Name",
+      num_samples = "Biological Samples",
+      technical_replicates = "Technical Replicates",
+      status_update = "Status"
     )
+    if (can_edit_all_projects()) {
+      dat$column_type_display <- mapply(
+        project_option_display,
+        dat$column_type,
+        dat$column_type_other,
+        USE.NAMES = FALSE
+      )
+      dat$ms_machine_display <- mapply(
+        project_option_display,
+        dat$ms_machine,
+        dat$ms_machine_other,
+        USE.NAMES = FALSE
+      )
+      display_columns <- c(
+        display_columns,
+        technician = "Technician",
+        column_type_display = "Column Type",
+        ms_machine_display = "MS Machine",
+        data_acquisition = "Data Acquisition"
+      )
+    }
+    display_columns <- c(
+      display_columns,
+      project_type = "Project Type",
+      budget_holder = "Budget holder",
+      total_cost = "Total Cost",
+      created_at = "Created"
+    )
+    display <- dat[, names(display_columns), drop = FALSE]
+    names(display) <- unname(display_columns)
     table <- datatable(
       display,
       escape = FALSE,
@@ -2895,6 +2956,9 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, row$id[[1]])
     if (nrow(project) == 0) return()
     staff_choices <- load_staff_choices(con)
+    column_type_choices <- choice_values_with_current(con, "column_type", project$column_type)
+    ms_machine_choices <- choice_values_with_current(con, "ms_machine", project$ms_machine)
+    data_acquisition_choices <- choice_values_with_current(con, "data_acquisition", project$data_acquisition)
     editing_project_id(project$id[[1]])
 
     showModal(modalDialog(
@@ -2917,8 +2981,10 @@ server <- function(input, output, session) {
             column(3, uiOutput("edit_status_badge"))
           ),
           uiOutput("edit_status_history"),
-          textInput("edit_responsible_user", "Responsible user", value = project$responsible_user),
-          textInput("edit_submitter_email", "Submitter email", value = project$submitter_email),
+          fluidRow(
+            column(6, textInput("edit_responsible_user", "Responsible user", value = project$responsible_user)),
+            column(6, textInput("edit_submitter_email", "Submitter email", value = project$submitter_email))
+          ),
           if (can_edit_all_projects()) selectInput(
             "edit_technician_user_id",
             "Technician",
@@ -2932,8 +2998,48 @@ server <- function(input, output, session) {
             column(3, textInput("edit_sample_volume", "Volume", value = project$sample_volume)),
             column(3, textInput("edit_sample_amount", "Sample amount", value = project$sample_amount))
           ),
-          textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4),
-          textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 3),
+          fluidRow(
+            column(6, textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4)),
+            column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
+          ),
+          fluidRow(
+            column(4, selectInput(
+              "edit_column_type",
+              "Column Type",
+              choices = c("Not set" = "", column_type_choices),
+              selected = scalar_text(project$column_type)
+            )),
+            column(4, selectInput(
+              "edit_ms_machine",
+              "MS Machine",
+              choices = c("Not set" = "", ms_machine_choices),
+              selected = scalar_text(project$ms_machine)
+            )),
+            column(4, selectInput(
+              "edit_data_acquisition",
+              "Data Acquisition",
+              choices = c("Not set" = "", data_acquisition_choices),
+              selected = scalar_text(project$data_acquisition)
+            ))
+          ),
+          fluidRow(
+            column(6, conditionalPanel(
+              "input.edit_column_type == 'Other'",
+              limited_text_input(
+                "edit_column_type_other",
+                "Other Column Type",
+                project$column_type_other
+              )
+            )),
+            column(6, conditionalPanel(
+              "input.edit_ms_machine == 'Other'",
+              limited_text_input(
+                "edit_ms_machine_other",
+                "Other MS Machine",
+                project$ms_machine_other
+              )
+            ))
+          ),
           if (can_edit_all_projects()) tagList(
             selectInput("edit_status", "Project status", choices = ms_status_options, selected = project$status),
             fluidRow(
@@ -3104,6 +3210,32 @@ server <- function(input, output, session) {
       showNotification("Technical replicates must be a non-negative integer.", type = "error", duration = 10)
       return()
     }
+    other_fields <- c(
+      "Other Column Type" = trim_scalar(input$edit_column_type_other),
+      "Other MS Machine" = trim_scalar(input$edit_ms_machine_other)
+    )
+    selected_other_fields <- c(
+      "Other Column Type" = identical(trim_scalar(input$edit_column_type), "Other"),
+      "Other MS Machine" = identical(trim_scalar(input$edit_ms_machine), "Other")
+    )
+    missing_other <- names(other_fields)[selected_other_fields & !nzchar(other_fields)]
+    oversized_other <- names(other_fields)[nchar(other_fields, type = "chars") > 500]
+    if (length(missing_other) > 0) {
+      showNotification(
+        paste(paste(missing_other, "is required when Other is selected."), collapse = "\n"),
+        type = "error",
+        duration = 10
+      )
+      return()
+    }
+    if (length(oversized_other) > 0) {
+      showNotification(
+        paste(paste(oversized_other, "must be 500 characters or shorter."), collapse = "\n"),
+        type = "error",
+        duration = 10
+      )
+      return()
+    }
     values <- list(
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
@@ -3117,6 +3249,11 @@ server <- function(input, output, session) {
       sample_amount = trim_scalar(input$edit_sample_amount),
       sample_notes = trim_scalar(input$edit_sample_notes),
       special_requirements = trim_scalar(input$edit_special_requirements),
+      column_type = trim_scalar(input$edit_column_type),
+      column_type_other = if (identical(trim_scalar(input$edit_column_type), "Other")) other_fields[["Other Column Type"]] else "",
+      ms_machine = trim_scalar(input$edit_ms_machine),
+      ms_machine_other = if (identical(trim_scalar(input$edit_ms_machine), "Other")) other_fields[["Other MS Machine"]] else "",
+      data_acquisition = trim_scalar(input$edit_data_acquisition),
       report_notes = trim_scalar(input$edit_report_notes),
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)

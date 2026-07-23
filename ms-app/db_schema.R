@@ -74,7 +74,10 @@ ms_controlled_options <- list(
   concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
   sample_amount_unit = c("ug", "mg", "pmol", "nmol", "cells", "uL", "mL", "other"),
   concentration_unit = c("ng/uL", "ug/uL", "mg/mL", "uM", "mM", "cells/mL", "other"),
-  volume_unit = c("uL", "mL", "other")
+  volume_unit = c("uL", "mL", "other"),
+  column_type = c("PepSep15", "PepSep8", "Aurora15", "Aurora25", "F5", "C8", "C18 Polar", "C18", "NativePac_OBE", "MAbPac-RP", "C4", "Other"),
+  ms_machine = c("Expl01", "QHF2", "TimstofHT", "Tims2_Mann", "Tims3", "Zeno1_Mann", "Other"),
+  data_acquisition = c("DDA", "DIA", "DIA and DDA")
 )
 
 ms_reference_organisms <- c(
@@ -346,6 +349,11 @@ ms_create_schema <- function(con) {
       sample_notes TEXT,
       sample_delivery_notes TEXT,
       special_requirements TEXT,
+      column_type TEXT,
+      column_type_other TEXT,
+      ms_machine TEXT,
+      ms_machine_other TEXT,
+      data_acquisition TEXT,
       intact_sample_type TEXT,
       intact_sample_type_other TEXT,
       intact_stoichiometry TEXT,
@@ -556,6 +564,11 @@ ms_migrate_schema <- function(con) {
     "sample_notes TEXT",
     "sample_delivery_notes TEXT",
     "special_requirements TEXT",
+    "column_type TEXT",
+    "column_type_other TEXT",
+    "ms_machine TEXT",
+    "ms_machine_other TEXT",
+    "data_acquisition TEXT",
     "intact_sample_type TEXT",
     "intact_sample_type_other TEXT",
     "intact_stoichiometry TEXT",
