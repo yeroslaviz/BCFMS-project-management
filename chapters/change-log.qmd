@@ -31,7 +31,9 @@ execute:
 - Sample overview upload is optional.
 - modified intact template for upload
 5. Updated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.
-cost estimation was added to the system including in the mail and admin panels.
+6. cost estimation was added to the system including in the mail and admin panels.
+7. project folder (name and storage place) for data realease was changes. 
+8. content of mails to user/core facility were modified to add costs and new path of data release.
 
 ## Changes on 23.07.2026 
 

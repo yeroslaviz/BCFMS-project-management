@@ -19,9 +19,11 @@ set -euo pipefail
 # 3. Makes the DB writable:
 #    - ms_projects.db
 #
-# 4. Restarts Shiny Server
+# 4. Creates the persistent upload fallback outside the rsync target.
 #
-# 5. Runs LDAP smoke tests (unless SKIP_SMOKE_TEST=1):
+# 5. Restarts Shiny Server
+#
+# 6. Runs LDAP smoke tests (unless SKIP_SMOKE_TEST=1):
 #    - expects 302 canonicalization to ?auth_user=<authenticated user>
 #    - expects tampered auth_user to be rewritten
 #    - expects final 200 after redirects
@@ -31,6 +33,7 @@ set -euo pipefail
 APP_SOURCE="/home/yeroslaviz/BCFMS-project-management/ms-app/"
 APP_TARGET="/srv/shiny-server/ms-app/"
 APP_DB="${APP_TARGET}ms_projects.db"
+PERSISTENT_UPLOAD_FALLBACK="/srv/ms-app-data/uploads_pending_pool"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://mscf-vm.biochem.mpg.de}"
 APP_PATH="/ms-app/"
 APP_URL="${PUBLIC_BASE_URL%/}${APP_PATH}"
@@ -156,6 +159,7 @@ EOF
 echo "Deploying Shiny app..."
 
 if sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
+  sudo install -d -o shiny -g shiny -m 0750 "${PERSISTENT_UPLOAD_FALLBACK}"
   sudo chown -R shiny:shiny "${APP_TARGET}"
   if [ -f "${APP_DB}" ]; then
     sudo chmod 666 "${APP_DB}"

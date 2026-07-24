@@ -100,7 +100,8 @@ SMTP_SSL=0
 SMTP_TLS=0
 # Optional: comma-separated recipient domains, for example biochem.mpg.de.
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
-MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
+MS_UPLOAD_ROOT=/fs/pool/pool-ms-user
+MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
 MS_MAX_UPLOAD_MB=75
 # Temporary: keep this only while debugging LDAP, then remove or set to 0.
 LDAP_DEBUG=1
@@ -144,15 +145,17 @@ The app sends one SMTP message per recipient and logs each result separately. Th
 Configured root:
 
 ```text
-/fs/pool/pool-bcfngs-ms-projects
+/fs/pool/pool-ms-user
 ```
 
-If this path does not exist, the app stores uploads in `uploads_pending_pool/` under the app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.
+If this path does not exist, the app stores uploads in `/srv/ms-app-data/uploads_pending_pool/` outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.
+
+New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`.
 
 Check fallback files:
 
 ```bash
-sudo find /srv/shiny-server/ms-app/uploads_pending_pool -maxdepth 2 -type f
+sudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f
 ```
 
 ## Logs

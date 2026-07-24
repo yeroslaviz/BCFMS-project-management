@@ -1371,31 +1371,68 @@ send_mail_safe <- function(con, project_id, recipients, subject, body, attachmen
   list(success = FALSE, error = first_error, failed = results)
 }
 
-resolve_project_user_email <- function(con, project) {
-  candidates <- c(
+resolve_project_user_contact <- function(con, project) {
+  user_id <- suppressWarnings(as.integer(project$user_id[[1]] %||% NA_integer_))
+  owner <- data.frame()
+  if (!is.na(user_id)) {
+    owner <- dbGetQuery(
+      con,
+      "SELECT username, full_name, email FROM users WHERE id = ? LIMIT 1",
+      params = list(user_id)
+    )
+  }
+
+  owner_name <- if (nrow(owner) > 0) trim_scalar(owner$full_name[[1]]) else ""
+  owner_username <- if (nrow(owner) > 0) trim_scalar(owner$username[[1]]) else ""
+  owner_email <- if (nrow(owner) > 0) trim_scalar(owner$email[[1]]) else ""
+  email_candidates <- normalize_recipients(c(
     scalar_text(project$submitter_email),
+    owner_email,
     if (is_email_like(project$responsible_user)) trim_scalar(project$responsible_user) else ""
+  ))
+
+  list(
+    name = first_non_empty(
+      owner_name,
+      scalar_text(project$submitter_name),
+      owner_username,
+      scalar_text(project$responsible_user),
+      "user"
+    ),
+    email = if (length(email_candidates) > 0) email_candidates[[1]] else ""
+  )
+}
+
+resolve_project_user_email <- function(con, project) {
+  normalize_recipients(resolve_project_user_contact(con, project)$email)
+}
+
+project_type_sample_description <- function(project) {
+  project_type <- scalar_text(project$project_type_name, scalar_text(project$project_type, "Project"))
+  selected_project_type <- switch(
+    scalar_text(project$project_type),
+    intact_mass = scalar_text(project$intact_project_type),
+    proteomics = scalar_text(project$proteomics_project_type),
+    metabolomics = scalar_text(project$metabolomics_analysis_family),
+    ""
+  )
+  sample_type <- switch(
+    scalar_text(project$project_type),
+    intact_mass = scalar_text(project$intact_sample_type),
+    proteomics = scalar_text(project$proteomics_sample_type),
+    metabolomics = scalar_text(project$metabolomics_sample_type),
+    ""
   )
 
-  responsible <- trim_scalar(project$responsible_user)
-  if (nzchar(responsible)) {
-    rows <- dbGetQuery(con, "
-      SELECT email
-      FROM users
-      WHERE lower(username) = lower(?)
-         OR lower(trim(full_name)) = lower(trim(?))
-      LIMIT 1
-    ", params = list(responsible, responsible))
-    if (nrow(rows) > 0) candidates <- c(candidates, rows$email[[1]])
+  details <- character()
+  if (nzchar(trim_scalar(selected_project_type)) &&
+      !identical(tolower(trim_scalar(selected_project_type)), tolower(trim_scalar(project_type)))) {
+    details <- c(details, trim_scalar(selected_project_type))
   }
-
-  user_id <- suppressWarnings(as.integer(project$user_id[[1]] %||% NA_integer_))
-  if (!is.na(user_id)) {
-    rows <- dbGetQuery(con, "SELECT email FROM users WHERE id = ? LIMIT 1", params = list(user_id))
-    if (nrow(rows) > 0) candidates <- c(candidates, rows$email[[1]])
+  if (nzchar(trim_scalar(sample_type))) {
+    details <- c(details, paste("sample type:", trim_scalar(sample_type)))
   }
-
-  normalize_recipients(candidates)
+  if (length(details) == 0) project_type else paste0(project_type, ": ", paste(details, collapse = "; "))
 }
 
 project_data_location <- function(project) {
@@ -1407,45 +1444,40 @@ project_data_location <- function(project) {
 }
 
 send_ms_submission_email <- function(con, project, samples, sample_table_path, handoff_pdf = NULL) {
-  recipients <- unique(c(resolve_project_user_email(con, project), MS_FACILITY_EMAIL))
+  recipients <- MS_FACILITY_EMAIL
+  project_type <- scalar_text(project$project_type_name, scalar_text(project$project_type))
   subject <- paste(project$project_code, "MS project submitted", sep = " - ")
   body <- paste(
-    "A new Mass Spectrometry Core Facility project was submitted.",
+    "Dear MS core facility members,",
+    "",
+    paste0("A new Mass Spectrometry Core Facility ", project_type, " project was submitted."),
     "",
     "The tab-delimited sample overview table is attached.",
     "",
     MS_SUBMISSION_WARNING,
     "",
     project_summary_text(project, samples),
-    "",
-    MS_SAMPLE_TABLE_STATEMENT,
     sep = "\n"
   )
   send_mail_safe(con, project$id[[1]], recipients, subject, body, c(sample_table_path, handoff_pdf))
 }
 
 send_ms_cost_estimation_email <- function(con, project) {
-  recipients <- unique(c(resolve_project_user_email(con, project), scalar_text(project$budget_email)))
+  contact <- resolve_project_user_contact(con, project)
+  recipients <- contact$email
   cost_text <- format_cost_value(project$total_cost)
-  additional_text <- format_cost_value(project$additional_cost)
-  additional_value <- suppressWarnings(as.numeric(project$additional_cost %||% 0))
-  show_additional <- !is.na(additional_value) && additional_value > 0
-  additional_comment <- trim_scalar(project$additional_cost_comment)
   subject <- paste(project$project_code, "MS project cost estimation", sep = " - ")
+  project_description <- project_type_sample_description(project)
+  budget_holder <- trimws(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname)))
 
   body <- paste0(
     "<html><body style='font-family: Arial, sans-serif; color: #263238;'>",
-    "<p>Dear user,</p>",
+    "<p>Dear ", html_escape(contact$name), ",</p>",
     "<p>The Mass Spectrometry Core Facility has reviewed your project.</p>",
-    "<p><strong>Project:</strong> ", html_escape(project$project_code), " - ", html_escape(project$project_name), "<br>",
-    "<strong>Budget holder:</strong> ", html_escape(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname))), "<br>",
+    "<p><strong>Project:</strong> ", html_escape(project$project_code), " (", html_escape(project_description), ")<br>",
+    "<strong>Budget holder:</strong> ", html_escape(budget_holder), "<br>",
     "<strong>Cost center:</strong> ", html_escape(project$cost_center), "</p>",
     "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
-    if (show_additional) paste0(
-      "<p>Additional Cost: ", html_escape(additional_text),
-      if (nzchar(additional_comment)) paste0("<br>Reason: ", html_escape(additional_comment)) else "",
-      "</p>"
-    ) else "",
     "<p>Please contact the facility if the estimate does not match the planned work.</p>",
     "<p>Best regards,<br>Mass Spectrometry Core Facility</p>",
     "</body></html>"
@@ -1455,11 +1487,12 @@ send_ms_cost_estimation_email <- function(con, project) {
 }
 
 send_ms_data_released_email <- function(con, project) {
-  recipients <- resolve_project_user_email(con, project)
+  contact <- resolve_project_user_contact(con, project)
+  recipients <- contact$email
   subject <- paste(project$project_code, "MS data released", sep = " - ")
   data_path <- project_data_location(project)
   body <- paste(
-    paste0("Dear ", scalar_text(project$responsible_user, "user"), ","),
+    paste0("Dear ", contact$name, ","),
     "",
     paste0("Data for Mass Spectrometry Core Facility project ", scalar_text(project$project_code), " (", scalar_text(project$project_name), ") are now available."),
     "",
@@ -1752,8 +1785,13 @@ copy_file_maybe_gzip <- function(source, destination, compress = FALSE) {
   destination
 }
 
-prepare_project_folder <- function(project_code, project_name) {
-  folder_name <- paste(sanitize_path_part(project_code), sanitize_path_part(project_name), sep = "_")
+prepare_project_folder <- function(project_code, username, submission_date = Sys.Date()) {
+  folder_name <- paste(
+    format(as.Date(submission_date), "%Y%m%d"),
+    sanitize_path_part(username),
+    sanitize_path_part(project_code),
+    sep = "_"
+  )
   root <- MS_UPLOAD_ROOT
   status <- "pool"
 
@@ -1768,6 +1806,9 @@ prepare_project_folder <- function(project_code, project_name) {
     folder <- file.path(MS_LOCAL_UPLOAD_FALLBACK, folder_name)
     dir.create(folder, recursive = TRUE, showWarnings = FALSE)
     status <- "fallback"
+  }
+  if (!dir.exists(folder)) {
+    stop("Could not create the project upload folder: ", folder)
   }
 
   list(root = root, folder = normalizePath(folder, mustWork = FALSE), status = status)
@@ -3263,7 +3304,7 @@ server <- function(input, output, session) {
         changed_at = project_values$last_status_update_at,
         changed_by = user$username
       ))
-      storage <- prepare_project_folder(project_code, project_values$project_name)
+      storage <- prepare_project_folder(project_code, user$username)
 
       update_record(con, "projects", list(
         upload_root = storage$root,
@@ -3844,7 +3885,7 @@ server <- function(input, output, session) {
     res <- send_ms_cost_estimation_email(con, project)
     if (isTRUE(res$success)) {
       load_projects()
-      showNotification("Cost estimation email sent to the project user and PI.", type = "message")
+      showNotification("Cost estimation email sent to the project user.", type = "message")
     } else {
       showNotification(res$error %||% "Cost estimation email failed.", type = "error", duration = 10)
     }

@@ -127,7 +127,8 @@ SMTP_SSL=0
 SMTP_TLS=0
 # Optional: comma-separated recipient domains, for example biochem.mpg.de.
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
-MS_UPLOAD_ROOT=/fs/pool/pool-bcfngs-ms-projects
+MS_UPLOAD_ROOT=/fs/pool/pool-ms-user
+MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
 MS_MAX_UPLOAD_MB=75
 EOF
 sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
@@ -135,7 +136,9 @@ sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-The upload pool may not exist yet. If it is missing, the app stores uploads under `uploads_pending_pool/` inside the app folder and logs/sends a facility notification instead of blocking project submission.
+The upload pool may not exist yet. If it is missing, the app stores uploads under `/srv/ms-app-data/uploads_pending_pool/`, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with `shiny:shiny` ownership.
+
+New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`, for example `20260724_asmith_Pr_1234`.
 
 ## Apache LDAP Proxy
 
