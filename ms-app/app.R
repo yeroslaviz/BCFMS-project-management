@@ -3362,7 +3362,7 @@ server <- function(input, output, session) {
           paste(project$project_code, "upload pool fallback used", sep = " - "),
           paste(
             "The configured upload pool was not available.",
-            paste("Configured root:", MS_UPLOAD_ROOT),
+            paste("Pool root:", MS_UPLOAD_ROOT),
             paste("Fallback folder:", storage$folder),
             sep = "\n"
           )
