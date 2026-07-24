@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 23.07.2026](#changes-on-24.07.2026)
 - [Changes on 23.07.2026](#changes-on-23.07.2026)
 - [Changes on 22.07.2026](#changes-on-22.07.2026)
 - [Changes on 23.06.2026](#changes-on-23.06.2026)
@@ -19,6 +20,11 @@ execute:
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
 
+
+# changes-on-23.07.2026
+
+1. Create similar structure for all three types, move project type and sample type into section 5
+2. Create a combined columns in the project table
 
 ## Changes on 23.07.2026 
 

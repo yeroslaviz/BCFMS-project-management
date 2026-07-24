@@ -876,6 +876,7 @@ project_summary_text <- function(project, samples = NULL) {
 
   if (scalar_text(project$project_type) == "intact_mass") {
     lines <- c(lines,
+      paste("Intact project type:", scalar_text(project$intact_project_type)),
       paste("Sample type:", scalar_text(project$intact_sample_type)),
       paste("Stoichiometry:", scalar_text(project$intact_stoichiometry)),
       paste("Sequence / name / structure:", scalar_text(project$intact_sequence_name_structure)),
@@ -901,7 +902,7 @@ project_summary_text <- function(project, samples = NULL) {
 
   if (scalar_text(project$project_type) == "metabolomics") {
     lines <- c(lines,
-      paste("Analysis family:", scalar_text(project$metabolomics_analysis_family)),
+      paste("Metabolomics project type:", scalar_text(project$metabolomics_analysis_family)),
       paste("Approach:", scalar_text(project$metabolomics_analysis_type)),
       paste("Sample type:", scalar_text(project$metabolomics_sample_type)),
       paste("Cell number:", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit))),
@@ -2123,6 +2124,16 @@ server <- function(input, output, session) {
                p.responsible_user, p.submitter_name, p.submitter_email,
                p.column_type, p.column_type_other, p.ms_machine, p.ms_machine_other,
                p.data_acquisition,
+               CASE p.project_type
+                 WHEN 'intact_mass' THEN p.intact_project_type
+                 WHEN 'proteomics' THEN p.proteomics_project_type
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_family
+               END AS selected_project_type,
+               CASE p.project_type
+                 WHEN 'intact_mass' THEN p.intact_sample_type
+                 WHEN 'proteomics' THEN p.proteomics_sample_type
+                 WHEN 'metabolomics' THEN p.metabolomics_sample_type
+               END AS selected_sample_type,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
@@ -2148,6 +2159,16 @@ server <- function(input, output, session) {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_name, p.submitter_email,
+               CASE p.project_type
+                 WHEN 'intact_mass' THEN p.intact_project_type
+                 WHEN 'proteomics' THEN p.proteomics_project_type
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_family
+               END AS selected_project_type,
+               CASE p.project_type
+                 WHEN 'intact_mass' THEN p.intact_sample_type
+                 WHEN 'proteomics' THEN p.proteomics_sample_type
+                 WHEN 'metabolomics' THEN p.metabolomics_sample_type
+               END AS selected_sample_type,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
@@ -2175,6 +2196,17 @@ server <- function(input, output, session) {
       projects$customer_full_name,
       projects$customer_username,
       projects$submitter_name
+    )
+    projects$project_type_display <- mapply(
+      function(selected_type, sample_type, fallback_type) {
+        selected_type <- first_non_empty(selected_type, fallback_type)
+        sample_type <- trim_scalar(sample_type)
+        if (nzchar(sample_type)) paste0(selected_type, " (", sample_type, ")") else selected_type
+      },
+      projects$selected_project_type,
+      projects$selected_sample_type,
+      projects$project_type,
+      USE.NAMES = FALSE
     )
     projects_data(projects)
   }
@@ -2217,6 +2249,7 @@ server <- function(input, output, session) {
       project_code = "Project ID",
       customer = "Customer",
       project_name = "Project Name",
+      project_type_display = "Project Type",
       num_samples = "Biological Samples",
       technical_replicates = "Technical Replicates"
     )
@@ -2244,7 +2277,6 @@ server <- function(input, output, session) {
     }
     display_columns <- c(
       display_columns,
-      project_type = "Project Type",
       budget_holder = "Budget holder",
       total_cost = "Total Cost",
       created_at = "Created"
@@ -2260,13 +2292,20 @@ server <- function(input, output, session) {
     )
 
     if (dt_available) {
+      project_type_colors <- c(
+        "Intact / Native Mass" = "rgba(221,204,119,0.16)",
+        "Proteomics" = "rgba(136,204,238,0.16)",
+        "Metabolomics" = "rgba(204,102,119,0.14)"
+      )
+      row_colors <- unname(project_type_colors[dat$project_type])
+      unique_display <- !duplicated(dat$project_type_display)
       table <- formatStyle(
         table,
         "Project Type",
         target = "row",
         backgroundColor = styleEqual(
-          c("Intact / Native Mass", "Proteomics", "Metabolomics"),
-          c("rgba(221,204,119,0.16)", "rgba(136,204,238,0.16)", "rgba(204,102,119,0.14)")
+          dat$project_type_display[unique_display],
+          row_colors[unique_display]
         )
       )
     }
@@ -2357,6 +2396,34 @@ server <- function(input, output, session) {
     ))
   })
 
+  project_and_sample_type_ui <- function(project_type, con) {
+    if (identical(project_type, "intact_mass")) {
+      return(fluidRow(
+        column(6, selectInput("intact_project_type", "Project Type *", choices = load_choice_values(con, "intact_project_type"))),
+        column(6, selectInput("intact_sample_type", field_label("Sample Type *", "Denaturing intact analysis, protein monomer, native complex, peptide, oligonucleotide, small molecule, or other."), choices = load_choice_values(con, "intact_sample_type")))
+      ))
+    }
+    if (identical(project_type, "proteomics")) {
+      return(fluidRow(
+        column(6, selectInput("proteomics_project_type", "Project Type *", choices = load_choice_values(con, "proteomics_project_type"))),
+        column(6, selectInput("proteomics_sample_type", field_label("Sample Type *", "Selecting In Gel shows the gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")))
+      ))
+    }
+    fluidRow(
+      column(6, selectInput(
+        "metabolomics_analysis_family",
+        "Project Type *",
+        choices = c("Metabolomics", "Lipidomics"),
+        selected = "Metabolomics"
+      )),
+      column(6, selectInput(
+        "metabolomics_sample_type",
+        "Sample Type *",
+        choices = load_choice_values(con, "metabolomics_sample_type")
+      ))
+    )
+  }
+
   output$new_project_form <- renderUI({
     req(input$project_type)
     con <- ms_db_connect()
@@ -2411,14 +2478,9 @@ server <- function(input, output, session) {
       div(
         class = "form-section",
         h4("5. Sample"),
+        project_and_sample_type_ui(input$project_type, con),
         if (input$project_type == "metabolomics") {
           tagList(
-            selectizeInput(
-              "metabolomics_sample_type",
-              field_label("Sample Type *", "Select all sample material types included in this submission."),
-              choices = c("Pellet", "Supernatant", "Tissue"),
-              multiple = TRUE
-            ),
             uiOutput("metabolomics_sample_type_details"),
             selectizeInput(
               "metabolomics_species",
@@ -2524,13 +2586,13 @@ server <- function(input, output, session) {
     div(
       class = "sample-type-details",
       lapply(selected, function(sample_type) {
-        if (identical(sample_type, "Pellet")) {
+        if (identical(sample_type, "Cell Pellet")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_cell_number", field_label("Cell Number *", "Number of cells in the pellet."))),
             column(6, selectInput("metabolomics_cell_number_unit", "Unit", choices = c("cells", "million cells", "other")))
           )
-        } else if (identical(sample_type, "Supernatant")) {
+        } else if (identical(sample_type, "Supernatent")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_supernatant_volume", field_label("Volumes *", "Submitted volume for supernatant samples."))),
@@ -2570,7 +2632,6 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-intact",
       h4("7. Intact / Native Mass"),
-        selectInput("intact_sample_type", field_label("Sample type *", "Protein monomer, native complex, peptide, oligonucleotide, small molecule, or other."), choices = load_choice_values(con, "intact_sample_type")),
         conditionalPanel("input.intact_sample_type == 'Other'", textInput("intact_sample_type_other", "Other sample type")),
         conditionalPanel("input.intact_sample_type == 'Protein complex / Native complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
         textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
@@ -2585,11 +2646,8 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-proteomics",
       h4("7. Proteomics"),
-        selectInput("proteomics_project_type", field_label("Project type *", "Protein ID, protein coverage/PTMs, AP-MS, total proteome, PTMomics, XL-MS, or other."), choices = load_choice_values(con, "proteomics_project_type")),
-        conditionalPanel("input.proteomics_project_type == 'Other'", textInput("proteomics_project_type_other", "Other project type")),
-        selectInput("proteomics_sample_type", field_label("Sample type *", "Gel band/lane shows gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")),
         conditionalPanel(
-          "input.proteomics_sample_type == 'Gel band / Gel lane'",
+          "input.proteomics_sample_type == 'In Gel'",
           fileInput("proteomics_gel_images", "Gel image upload (.jpg / .png / .tif)", multiple = TRUE, accept = c(".jpg", ".jpeg", ".png", ".tif", ".tiff")),
           checkboxInput("gel_image_confirmation", "I have labelled all bands with numbers and all marker bands with sizes.", value = FALSE)
         ),
@@ -2605,7 +2663,7 @@ server <- function(input, output, session) {
         selectInput("proteomics_digestion_enzyme", field_label("Digestion enzyme", "Default is Trypsin, which cleaves C-terminally of K and R."), choices = load_choice_values(con, "digestion_enzyme"), selected = "Trypsin"),
         selectizeInput("proteomics_ptms", field_label("PTMs / Variable modifications", "Select expected variable modifications."), choices = load_choice_values(con, "ptm_variable_modifications"), multiple = TRUE),
         conditionalPanel(
-          "input.proteomics_project_type == 'Crosslinking (XL-MS)'",
+          "input.proteomics_project_type == 'Crosslinking'",
           selectInput("proteomics_crosslinker", field_label("Crosslinker", "Shown for XL-MS.", "PhoX, DSS/BS3, DSSO, EDC"), choices = c("", load_choice_values(con, "crosslinker")))
         )
       ))
@@ -2614,13 +2672,6 @@ server <- function(input, output, session) {
     div(
       class = "form-section type-metabolomics",
       h4("7. Metabolomics"),
-      radioButtons(
-        "metabolomics_analysis_family",
-        field_label("Analysis Type *", "Choose the main metabolomics family."),
-        choices = c("Metabolomics", "Lipidomics"),
-        selected = "Metabolomics",
-        inline = TRUE
-      ),
       selectInput(
         "metabolomics_analysis_type",
         field_label("Approach *", "Targeted, untargeted, both, or other."),
@@ -2693,6 +2744,7 @@ server <- function(input, output, session) {
 
     if (selected_type == "intact_mass") {
       intact_required <- c(
+        intact_project_type = "Project Type",
         intact_sample_type = "Sample type",
         intact_sequence_name_structure = "Sequence / Name / Structure",
         intact_expected_mass_da = "Expected mass"
@@ -2716,7 +2768,7 @@ server <- function(input, output, session) {
       if (is.null(input$proteomics_species) || length(input$proteomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$proteomics_sample_type, "Gel band / Gel lane") &&
+      if (identical(input$proteomics_sample_type, "In Gel") &&
           !is.null(input$proteomics_gel_images) && nrow(input$proteomics_gel_images) > 0 &&
           !isTRUE(input$gel_image_confirmation)) {
         errors <- c(errors, "Gel image confirmation is required when gel images are uploaded.")
@@ -2738,10 +2790,10 @@ server <- function(input, output, session) {
       if (length(selected_sample_types) == 0) {
         errors <- c(errors, "Sample Type is required.")
       }
-      if ("Pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
+      if ("Cell Pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
         errors <- c(errors, "Cell Number is required for pellet samples.")
       }
-      if ("Supernatant" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
+      if ("Supernatent" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
         errors <- c(errors, "Volumes is required for supernatant samples.")
       }
       if ("Tissue" %in% selected_sample_types && !non_empty(input$metabolomics_tissue_weight)) {
@@ -2814,6 +2866,7 @@ server <- function(input, output, session) {
 
     if (input$project_type == "intact_mass") {
       project_values <- c(project_values, list(
+        intact_project_type = trim_scalar(input$intact_project_type),
         intact_sample_type = trim_scalar(input$intact_sample_type),
         intact_sample_type_other = trim_scalar(input$intact_sample_type_other),
         intact_stoichiometry = trim_scalar(input$intact_stoichiometry),
@@ -2846,7 +2899,7 @@ server <- function(input, output, session) {
         metabolomics_analysis_family = trim_scalar(input$metabolomics_analysis_family),
         metabolomics_analysis_type = trim_scalar(input$metabolomics_analysis_type),
         metabolomics_analysis_type_other = trim_scalar(input$metabolomics_analysis_type_other),
-        metabolomics_sample_type = join_values(input$metabolomics_sample_type),
+        metabolomics_sample_type = trim_scalar(input$metabolomics_sample_type),
         metabolomics_cell_number = trim_scalar(input$metabolomics_cell_number),
         metabolomics_cell_number_unit = trim_scalar(input$metabolomics_cell_number_unit),
         metabolomics_supernatant_volume = trim_scalar(input$metabolomics_supernatant_volume),

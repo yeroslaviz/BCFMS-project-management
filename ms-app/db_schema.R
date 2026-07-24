@@ -59,9 +59,10 @@ ms_status_options <- c(
 )
 
 ms_controlled_options <- list(
-  intact_sample_type = c("Protein (monomer)", "Protein complex / Native complex", "Peptide", "Oligonucleotide (DNA / RNA)", "Small molecule", "Other"),
-  proteomics_project_type = c("Protein ID", "Protein coverage / PTMs", "Interaction proteomics / AP-MS", "Total proteome", "PTM omics (global phospho, ubiquitin, etc.)", "Crosslinking (XL-MS)", "Other"),
-  proteomics_sample_type = c("In-solution digest", "Gel band / Gel lane", "On-beads (immunoprecipitation)", "Cell pellet", "Protein pellet", "Tissue", "Predigested peptides", "Ready-to-load (peptides in MS-compatible buffer)", "Other"),
+  intact_project_type = c("Native_Expl", "Intact/Denaturing_Expl", "Intact_QC"),
+  intact_sample_type = c("Intact-Denaturing", "Protein (monomer)", "Protein complex / Native complex", "Peptide", "Oligonucleotide (DNA / RNA)", "Small molecule", "Other"),
+  proteomics_project_type = c("Protein ID", "Protein Structure-Coverage PTM", "Interaction Proteomics", "Total Proteome", "PTMomics", "Crosslinking"),
+  proteomics_sample_type = c("In Solution", "In Gel", "On Beads", "Cell Pellet", "Protein Pellet", "Supernatent", "Tissue", "PTM-Enrichment", "Ready-to-load", "Pre-Digested", "OBE-Native"),
   proteomics_acquisition_mode = c("DDA (Data-Dependent)", "DIA (Data-Independent)", "No preference", "Discuss with facility"),
   proteomics_quantification_strategy = c("Label-free (LFQ)", "SILAC", "No quantification", "Other"),
   silac_amino_acids = c("Arg6", "Arg10", "Lys4", "Lys6", "Lys8", "Other"),
@@ -69,7 +70,7 @@ ms_controlled_options <- list(
   ptm_variable_modifications = c("Phospho (Ser/Thr/Tyr)", "Acetylation (Lys/N-term)", "GlyGly (Lys, ubiquitin)", "Methylation", "Other"),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
   metabolomics_analysis_type = c("Targeted (specific panel)", "Untargeted (global profiling)", "Lipidomics", "Other"),
-  metabolomics_sample_type = c("Cell pellet (adherent)", "Cell pellet (suspension)", "Cell culture medium / supernatant", "Tissue", "Other"),
+  metabolomics_sample_type = c("Cell Pellet", "Protein Pellet", "Supernatent", "Cell culture medium", "Tissue", "Other"),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
   sample_amount_unit = c("ug", "mg", "pmol", "nmol", "cells", "uL", "mL", "other"),
@@ -78,6 +79,14 @@ ms_controlled_options <- list(
   column_type = c("PepSep15", "PepSep8", "Aurora15", "Aurora25", "F5", "C8", "C18 Polar", "C18", "NativePac_OBE", "MAbPac-RP", "C4", "Other"),
   ms_machine = c("Expl01", "QHF2", "TimstofHT", "Tims2_Mann", "Tims3", "Zeno1_Mann", "Other"),
   data_acquisition = c("DDA", "DIA", "DIA and DDA")
+)
+
+ms_exact_controlled_option_groups <- c(
+  "intact_project_type",
+  "intact_sample_type",
+  "proteomics_project_type",
+  "proteomics_sample_type",
+  "metabolomics_sample_type"
 )
 
 ms_reference_organisms <- c(
@@ -354,6 +363,7 @@ ms_create_schema <- function(con) {
       ms_machine TEXT,
       ms_machine_other TEXT,
       data_acquisition TEXT,
+      intact_project_type TEXT,
       intact_sample_type TEXT,
       intact_sample_type_other TEXT,
       intact_stoichiometry TEXT,
@@ -569,6 +579,7 @@ ms_migrate_schema <- function(con) {
     "ms_machine TEXT",
     "ms_machine_other TEXT",
     "data_acquisition TEXT",
+    "intact_project_type TEXT",
     "intact_sample_type TEXT",
     "intact_sample_type_other TEXT",
     "intact_stoichiometry TEXT",
@@ -712,11 +723,25 @@ ms_seed_defaults <- function(con) {
 
   for (group_name in names(ms_controlled_options)) {
     values <- ms_controlled_options[[group_name]]
+    if (group_name %in% ms_exact_controlled_option_groups) {
+      dbExecute(
+        con,
+        "UPDATE controlled_options SET is_active = 0 WHERE option_group = ?",
+        params = list(group_name)
+      )
+    }
     for (i in seq_along(values)) {
       dbExecute(con, "
         INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
         VALUES (?, ?, ?)
       ", params = list(group_name, values[i], i))
+      if (group_name %in% ms_exact_controlled_option_groups) {
+        dbExecute(con, "
+          UPDATE controlled_options
+          SET display_order = ?, is_active = 1
+          WHERE option_group = ? AND value = ?
+        ", params = list(i, group_name, values[i]))
+      }
     }
   }
 
