@@ -121,6 +121,14 @@ customer_labels <- function(full_names, usernames, fallback_names = "") {
   }, character(1))
 }
 
+project_type_table_label <- function(selected_type, sample_type, approach = "", fallback_type = "") {
+  selected_type <- first_non_empty(selected_type, fallback_type)
+  sample_type <- trim_scalar(sample_type)
+  approach <- tolower(trim_scalar(approach))
+  if (nzchar(approach)) selected_type <- paste(selected_type, approach, sep = ", ")
+  if (nzchar(sample_type)) paste0(selected_type, " (", sample_type, ")") else selected_type
+}
+
 sanitize_path_part <- function(x) {
   x <- gsub("[^A-Za-z0-9._-]+", "_", trimws(x %||% ""))
   x <- gsub("_+", "_", x)
@@ -2186,6 +2194,9 @@ server <- function(input, output, session) {
                  WHEN 'proteomics' THEN p.proteomics_sample_type
                  WHEN 'metabolomics' THEN p.metabolomics_sample_type
                END AS selected_sample_type,
+               CASE p.project_type
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
+               END AS selected_approach,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
@@ -2221,6 +2232,9 @@ server <- function(input, output, session) {
                  WHEN 'proteomics' THEN p.proteomics_sample_type
                  WHEN 'metabolomics' THEN p.metabolomics_sample_type
                END AS selected_sample_type,
+               CASE p.project_type
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
+               END AS selected_approach,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
@@ -2250,13 +2264,10 @@ server <- function(input, output, session) {
       projects$submitter_name
     )
     projects$project_type_display <- mapply(
-      function(selected_type, sample_type, fallback_type) {
-        selected_type <- first_non_empty(selected_type, fallback_type)
-        sample_type <- trim_scalar(sample_type)
-        if (nzchar(sample_type)) paste0(selected_type, " (", sample_type, ")") else selected_type
-      },
+      project_type_table_label,
       projects$selected_project_type,
       projects$selected_sample_type,
+      projects$selected_approach,
       projects$project_type,
       USE.NAMES = FALSE
     )
@@ -2452,13 +2463,13 @@ server <- function(input, output, session) {
     if (identical(project_type, "intact_mass")) {
       return(fluidRow(
         column(6, selectInput("intact_project_type", "Project Type *", choices = load_choice_values(con, "intact_project_type"))),
-        column(6, selectInput("intact_sample_type", field_label("Sample Type *", "Denaturing intact analysis, protein monomer, native complex, peptide, oligonucleotide, small molecule, or other."), choices = load_choice_values(con, "intact_sample_type")))
+        column(6, selectInput("intact_sample_type", "Sample Type *", choices = load_choice_values(con, "intact_sample_type")))
       ))
     }
     if (identical(project_type, "proteomics")) {
       return(fluidRow(
         column(6, selectInput("proteomics_project_type", "Project Type *", choices = load_choice_values(con, "proteomics_project_type"))),
-        column(6, selectInput("proteomics_sample_type", field_label("Sample Type *", "Selecting In Gel shows the gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")))
+        column(6, selectInput("proteomics_sample_type", field_label("Sample Type *", "Selecting Gel band /gel lane shows the gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")))
       ))
     }
     fluidRow(
@@ -2667,13 +2678,13 @@ server <- function(input, output, session) {
     div(
       class = "sample-type-details",
       lapply(selected, function(sample_type) {
-        if (identical(sample_type, "Cell Pellet")) {
+        if (identical(sample_type, "cell pellet")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_cell_number", field_label("Cell Number *", "Number of cells in the pellet."))),
             column(6, selectInput("metabolomics_cell_number_unit", "Unit", choices = c("cells", "million cells", "other")))
           )
-        } else if (identical(sample_type, "Supernatent")) {
+        } else if (identical(sample_type, "supernatent")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_supernatant_volume", field_label("Volumes *", "Submitted volume for supernatant samples."))),
@@ -2723,8 +2734,7 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-intact",
       h4("7. Intact / Native Mass"),
-        conditionalPanel("input.intact_sample_type == 'Other'", textInput("intact_sample_type_other", "Other sample type")),
-        conditionalPanel("input.intact_sample_type == 'Protein complex / Native complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
+        conditionalPanel("input.intact_project_type == 'Native protein complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
         textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
         textInput("intact_expected_mass_da", field_label("Expected mass (Da) *", "Monoisotopic or average mass from sequence or formula.")),
         textAreaInput("intact_tags_modifications", field_label("Tags / Modifications", "Purification tags, fusion partners, known PTMs, disulfide bonds; write NA if not applicable.", "His6-SUMO, TEV site"), rows = 2),
@@ -2738,7 +2748,7 @@ server <- function(input, output, session) {
       class = "form-section type-proteomics",
       h4("7. Proteomics"),
         conditionalPanel(
-          "input.proteomics_sample_type == 'In Gel'",
+          "input.proteomics_sample_type == 'Gel band /gel lane'",
           fileInput("proteomics_gel_images", "Gel image upload (.jpg / .png / .tif)", multiple = TRUE, accept = c(".jpg", ".jpeg", ".png", ".tif", ".tiff")),
           checkboxInput("gel_image_confirmation", "I have labelled all bands with numbers and all marker bands with sizes.", value = FALSE)
         ),
@@ -2853,7 +2863,7 @@ server <- function(input, output, session) {
       if (is.null(input$proteomics_species) || length(input$proteomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$proteomics_sample_type, "In Gel") &&
+      if (identical(input$proteomics_sample_type, "Gel band /gel lane") &&
           !is.null(input$proteomics_gel_images) && nrow(input$proteomics_gel_images) > 0 &&
           !isTRUE(input$gel_image_confirmation)) {
         errors <- c(errors, "Gel image confirmation is required when gel images are uploaded.")
@@ -2875,10 +2885,10 @@ server <- function(input, output, session) {
       if (length(selected_sample_types) == 0) {
         errors <- c(errors, "Sample Type is required.")
       }
-      if ("Cell Pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
+      if ("cell pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
         errors <- c(errors, "Cell Number is required for pellet samples.")
       }
-      if ("Supernatent" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
+      if ("supernatent" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
         errors <- c(errors, "Volumes is required for supernatant samples.")
       }
       if ("Tissue" %in% selected_sample_types && !non_empty(input$metabolomics_tissue_weight)) {

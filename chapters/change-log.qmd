@@ -30,8 +30,7 @@ execute:
 - Removed Biological Samples and Technical Replicates from the creation and edit forms.
 - Sample overview upload is optional.
 - modified intact template for upload
-
-Removed biological/technical counts from Intact project summaries.
+5. Updated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.
 
 ## Changes on 23.07.2026 
 

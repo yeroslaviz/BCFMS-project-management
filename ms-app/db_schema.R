@@ -59,10 +59,10 @@ ms_status_options <- c(
 )
 
 ms_controlled_options <- list(
-  intact_project_type = c("Native_Expl", "Intact/Denaturing_Expl", "Intact_QC"),
-  intact_sample_type = c("Intact-Denaturing", "Protein (monomer)", "Protein complex / Native complex", "Peptide", "Oligonucleotide (DNA / RNA)", "Small molecule", "Other"),
-  proteomics_project_type = c("Protein ID", "Protein Structure-Coverage PTM", "Interaction Proteomics", "Total Proteome", "PTMomics", "Crosslinking"),
-  proteomics_sample_type = c("In Solution", "In Gel", "On Beads", "Cell Pellet", "Protein Pellet", "Supernatent", "Tissue", "PTM-Enrichment", "Ready-to-load", "Pre-Digested", "OBE-Native"),
+  intact_project_type = c("Protein (QC)", "Small molecule (QC)", "Peptide (QC)", "Oligonucleotide (QC)", "Protein (high resolution)", "Native protein complex"),
+  intact_sample_type = c("in-solution, Flow injection", "in-solution", "powder"),
+  proteomics_project_type = c("Protein ID", "Protein coverage /PTM", "Interaction Proteomics", "Total proteome", "PTMomics (global, enrichment)", "Crosslinking"),
+  proteomics_sample_type = c("in-solution digest", "Gel band /gel lane", "On-beads", "Cell pellet", "Protein pellet", "Supernatent", "Tissue", "ready-to-load (digested)", "ready-to-load (digested+desalted)", "Enrichement (PTM)"),
   proteomics_acquisition_mode = c("DDA (Data-Dependent)", "DIA (Data-Independent)", "No preference", "Discuss with facility"),
   proteomics_quantification_strategy = c("Label-free (LFQ)", "SILAC", "No quantification", "Other"),
   silac_amino_acids = c("Arg6", "Arg10", "Lys4", "Lys6", "Lys8", "Other"),
@@ -70,7 +70,7 @@ ms_controlled_options <- list(
   ptm_variable_modifications = c("Phospho (Ser/Thr/Tyr)", "Acetylation (Lys/N-term)", "GlyGly (Lys, ubiquitin)", "Methylation", "Other"),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
   metabolomics_analysis_type = c("Targeted (specific panel)", "Untargeted (global profiling)", "Lipidomics", "Other"),
-  metabolomics_sample_type = c("Cell Pellet", "Protein Pellet", "Supernatent", "Cell culture medium", "Tissue", "Other"),
+  metabolomics_sample_type = c("cell pellet", "supernatent", "protein pellet"),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
   sample_amount_unit = c("ug", "mg", "pmol", "nmol", "cells", "uL", "mL", "other"),
