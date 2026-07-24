@@ -866,6 +866,7 @@ next_project_code <- function(con, project_type) {
 }
 
 project_summary_text <- function(project, samples = NULL) {
+  is_intact_project <- identical(scalar_text(project$project_type), "intact_mass")
   lines <- c(
     paste("Project code:", scalar_text(project$project_code)),
     paste("Project name:", scalar_text(project$project_name)),
@@ -874,8 +875,10 @@ project_summary_text <- function(project, samples = NULL) {
     paste("Submitter:", scalar_text(project$submitter_name)),
     paste("Submitter email:", scalar_text(project$submitter_email)),
     paste("Submission date:", scalar_text(project$submission_date)),
-    paste("Biological samples:", scalar_text(project$num_samples)),
-    paste("Technical replicates:", scalar_text(project$technical_replicates, "0")),
+    if (!is_intact_project) c(
+      paste("Biological samples:", scalar_text(project$num_samples)),
+      paste("Technical replicates:", scalar_text(project$technical_replicates, "0"))
+    ),
     paste("Buffer / solvent:", scalar_text(project$sample_buffer)),
     paste("Concentration determination:", paste(trim_scalar(project$concentration_determination), trim_scalar(project$concentration_method))),
     paste("Volume submitted:", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit))),
@@ -1330,8 +1333,9 @@ detect_table_separator <- function(path) {
   separators[[which.max(counts)]]
 }
 
-read_sample_table_upload <- function(upload, project_type, num_samples = NULL) {
+read_sample_table_upload <- function(upload, project_type, num_samples = NULL, required = TRUE) {
   if (is.null(upload) || nrow(upload) == 0) {
+    if (!isTRUE(required)) return(list(errors = character(), table = NULL))
     return(list(errors = "Sample overview table upload is required.", table = NULL))
   }
 
@@ -1417,6 +1421,22 @@ read_sample_table_upload <- function(upload, project_type, num_samples = NULL) {
     table[["Tube_ID"]] <- tube_ids
   }
 
+  if ("Tube ID" %in% names(table)) {
+    tube_ids <- trimws(sample_table_column(table, "Tube ID"))
+    if (any(!nzchar(tube_ids))) errors <- c(errors, "Every sample row needs a Tube ID.")
+    duplicates <- unique(tube_ids[duplicated(tube_ids) & nzchar(tube_ids)])
+    if (length(duplicates) > 0) {
+      errors <- c(errors, paste("Tube ID values must be unique. Duplicates:", paste(duplicates, collapse = ", ")))
+    }
+    table[["Tube ID"]] <- tube_ids
+  }
+
+  if ("Sample Name" %in% names(table)) {
+    sample_names <- trimws(sample_table_column(table, "Sample Name"))
+    if (any(!nzchar(sample_names))) errors <- c(errors, "Every sample row needs a Sample Name.")
+    table[["Sample Name"]] <- sample_names
+  }
+
   if ("Control?" %in% names(table)) {
     controls <- trimws(sample_table_column(table, "Control?"))
     invalid_controls <- unique(controls[!tolower(controls) %in% c("yes", "no")])
@@ -1444,6 +1464,18 @@ sample_rows_from_table <- function(sample_table) {
       replicate = character(),
       is_control = integer(),
       description = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  if (all(c("Tube ID", "Sample Name") %in% names(sample_table))) {
+    return(data.frame(
+      row_index = seq_len(nrow(sample_table)),
+      tube_id = sample_table[["Tube ID"]],
+      condition = "",
+      replicate = "",
+      is_control = 0L,
+      description = sample_table[["Sample Name"]],
       stringsAsFactors = FALSE
     ))
   }
@@ -2476,24 +2508,53 @@ server <- function(input, output, session) {
         id = "sample_overview_section",
         class = "form-section",
         h4("3. Sample Overview Table"),
-        div(class = "info-note", "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."),
+        div(
+          class = "info-note",
+          if (identical(input$project_type, "intact_mass")) {
+            "Optional for Intact projects. Upload a non-empty table using the two-column Intact template, or use the Sample name in section 4. The downloaded template is tab-delimited; uploads may be .txt, .csv, or .tsv."
+          } else {
+            "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."
+          }
+        ),
         div(
           class = "sample-upload-actions",
-          fileInput("sample_table_upload", "Upload sample overview table (.txt / .csv / .tsv)", accept = c(".txt", ".csv", ".tsv")),
+          fileInput(
+            "sample_table_upload",
+            paste0(
+              "Upload sample overview table",
+              if (identical(input$project_type, "intact_mass")) " (optional)" else "",
+              " (.txt / .csv / .tsv)"
+            ),
+            accept = c(".txt", ".csv", ".tsv")
+          ),
           downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
         ),
         uiOutput("sample_table_validation_preview"),
-        div(class = "info-note", MS_SAMPLE_TABLE_STATEMENT)
+        div(
+          class = "info-note",
+          if (identical(input$project_type, "intact_mass")) {
+            "If a sample overview table is uploaded, please label submitted tubes exactly as listed there."
+          } else {
+            MS_SAMPLE_TABLE_STATEMENT
+          }
+        )
       ),
       div(
         class = "form-section",
         h4("4. Sample Identity"),
-        fluidRow(
-          column(4, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
-          column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-          column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
-          column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
-        )
+        if (identical(input$project_type, "intact_mass")) {
+          fluidRow(
+            column(8, textInput("project_name", field_label("Sample name *", "Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
+            column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
+          )
+        } else {
+          fluidRow(
+            column(4, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
+            column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+            column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
+            column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
+          )
+        }
       ),
       div(
         class = "form-section",
@@ -2743,13 +2804,19 @@ server <- function(input, output, session) {
       if (!non_empty(input[[id]])) errors <- c(errors, paste(required[[id]], "is required."))
     }
 
-    sample_table_result <- read_sample_table_upload(input$sample_table_upload, selected_type)
+    sample_table_result <- read_sample_table_upload(
+      input$sample_table_upload,
+      selected_type,
+      required = !identical(selected_type, "intact_mass")
+    )
     errors <- c(errors, sample_table_result$errors)
 
-    technical_replicates <- suppressWarnings(as.numeric(input$technical_replicates %||% NA_real_))
-    if (is.na(technical_replicates) || !is.finite(technical_replicates) ||
-        technical_replicates < 0 || technical_replicates != floor(technical_replicates)) {
-      errors <- c(errors, "Technical replicates must be a non-negative integer.")
+    if (!identical(selected_type, "intact_mass")) {
+      technical_replicates <- suppressWarnings(as.numeric(input$technical_replicates %||% NA_real_))
+      if (is.na(technical_replicates) || !is.finite(technical_replicates) ||
+          technical_replicates < 0 || technical_replicates != floor(technical_replicates)) {
+        errors <- c(errors, "Technical replicates must be a non-negative integer.")
+      }
     }
 
     if (!(selected_type %in% c("intact_mass", "proteomics", "metabolomics"))) {
@@ -2844,10 +2911,22 @@ server <- function(input, output, session) {
     dbExecute(con, "PRAGMA foreign_keys = ON")
 
     submitter_name <- paste(trim_scalar(input$submitter_first_name), trim_scalar(input$submitter_last_name))
-    sample_table_result <- read_sample_table_upload(input$sample_table_upload, input$project_type)
+    sample_table_result <- read_sample_table_upload(
+      input$sample_table_upload,
+      input$project_type,
+      required = !identical(input$project_type, "intact_mass")
+    )
     if (length(sample_table_result$errors) > 0) {
       showNotification(paste(sample_table_result$errors, collapse = "\n"), type = "error", duration = 12)
       return()
+    }
+    if (identical(input$project_type, "intact_mass") && is.null(sample_table_result$table)) {
+      sample_table_result$table <- data.frame(
+        "Tube ID" = "",
+        "Sample Name" = trim_scalar(input$project_name),
+        check.names = FALSE,
+        stringsAsFactors = FALSE
+      )
     }
     samples <- sample_rows_from_table(sample_table_result$table)
     selected_budget_id <- as.integer(input$budget_id)
@@ -2869,7 +2948,7 @@ server <- function(input, output, session) {
       budget_id = selected_budget_id,
       submission_date = trim_scalar(input$submission_date, as.character(Sys.Date())),
       num_samples = as.integer(nrow(sample_table_result$table)),
-      technical_replicates = as.integer(input$technical_replicates),
+      technical_replicates = if (identical(input$project_type, "intact_mass")) 0L else as.integer(input$technical_replicates),
       sample_buffer = trim_scalar(input$sample_buffer),
       concentration_determination = trim_scalar(input$concentration_determination),
       concentration_method = trim_scalar(input$concentration_method),
@@ -3045,12 +3124,19 @@ server <- function(input, output, session) {
         tabPanel(
           "Project",
           warning_banner(compact = TRUE),
-          fluidRow(
-            column(4, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
-            column(2, readonly_numeric_input("edit_num_samples", "Biological Samples", value = project$num_samples, min = 0, step = 1)),
-            column(3, numericInput("edit_technical_replicates", "Technical replicates", value = project$technical_replicates %||% 0, min = 0, step = 1)),
-            column(3, uiOutput("edit_status_badge"))
-          ),
+          if (identical(scalar_text(project$project_type), "intact_mass")) {
+            fluidRow(
+              column(9, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
+              column(3, uiOutput("edit_status_badge"))
+            )
+          } else {
+            fluidRow(
+              column(4, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
+              column(2, readonly_numeric_input("edit_num_samples", "Biological Samples", value = project$num_samples, min = 0, step = 1)),
+              column(3, numericInput("edit_technical_replicates", "Technical replicates", value = project$technical_replicates %||% 0, min = 0, step = 1)),
+              column(3, uiOutput("edit_status_badge"))
+            )
+          },
           uiOutput("edit_status_history"),
           fluidRow(
             column(6, textInput("edit_responsible_user", "Responsible user", value = project$responsible_user)),
@@ -3268,12 +3354,15 @@ server <- function(input, output, session) {
     on.exit(dbDisconnect(con), add = TRUE)
     project_before <- load_project_detail(con, project_id)
     if (nrow(project_before) == 0) return()
-    edit_technical_replicates <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
-    if (is.na(edit_technical_replicates) || !is.finite(edit_technical_replicates) ||
-        edit_technical_replicates < 0 ||
-        edit_technical_replicates != floor(edit_technical_replicates)) {
-      showNotification("Technical replicates must be a non-negative integer.", type = "error", duration = 10)
-      return()
+    is_intact_project <- identical(scalar_text(project_before$project_type), "intact_mass")
+    if (!is_intact_project) {
+      edit_technical_replicates <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
+      if (is.na(edit_technical_replicates) || !is.finite(edit_technical_replicates) ||
+          edit_technical_replicates < 0 ||
+          edit_technical_replicates != floor(edit_technical_replicates)) {
+        showNotification("Technical replicates must be a non-negative integer.", type = "error", duration = 10)
+        return()
+      }
     }
     other_fields <- c(
       "Other Column Type" = trim_scalar(input$edit_column_type_other),
@@ -3305,7 +3394,6 @@ server <- function(input, output, session) {
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
       submitter_email = trim_scalar(input$edit_submitter_email),
-      technical_replicates = as.integer(edit_technical_replicates),
       sample_buffer = trim_scalar(input$edit_sample_buffer),
       sample_concentration = trim_scalar(input$edit_sample_concentration),
       sample_concentration_unit = trim_scalar(input$edit_sample_concentration_unit),
@@ -3322,6 +3410,9 @@ server <- function(input, output, session) {
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
     )
+    if (!is_intact_project) {
+      values$technical_replicates <- as.integer(edit_technical_replicates)
+    }
     status_changed <- FALSE
     status_changed_at <- NULL
     if (can_edit_all_projects()) {

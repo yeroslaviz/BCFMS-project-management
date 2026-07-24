@@ -1,1 +1,1 @@
-Tube_ID	Condition	Replicate	Control?	Concentration	Unit	Description	Comments
+Tube ID	Sample Name
