@@ -24,7 +24,8 @@ execute:
 # changes-on-23.07.2026
 
 1. Create similar structure for all three types, move project type and sample type into section 5
-2. Create a combined columns in the project table
+2. Create a combined columns in the project table.
+3. “Biological Samples” is now read-only and tkaes it value from the Excel sheet.
 
 ## Changes on 23.07.2026 
 

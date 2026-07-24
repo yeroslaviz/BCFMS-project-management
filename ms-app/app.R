@@ -209,6 +209,19 @@ field_label <- function(text, help, example = NULL) {
   )
 }
 
+readonly_numeric_input <- function(input_id, label, value, min = NULL, step = 1) {
+  htmltools::tagQuery(numericInput(
+    input_id,
+    label,
+    value = value,
+    min = min,
+    step = step
+  ))$
+    find("input")$
+    addAttrs(readonly = "readonly", `aria-readonly` = "true")$
+    allTags()
+}
+
 warning_banner <- function(compact = FALSE) {
   div(
     class = if (compact) "submission-warning compact" else "submission-warning",
@@ -1317,7 +1330,7 @@ detect_table_separator <- function(path) {
   separators[[which.max(counts)]]
 }
 
-read_sample_table_upload <- function(upload, project_type, num_samples) {
+read_sample_table_upload <- function(upload, project_type, num_samples = NULL) {
   if (is.null(upload) || nrow(upload) == 0) {
     return(list(errors = "Sample overview table upload is required.", table = NULL))
   }
@@ -1374,13 +1387,20 @@ read_sample_table_upload <- function(upload, project_type, num_samples) {
     ))
   }
 
-  expected_rows <- suppressWarnings(as.integer(num_samples))
-  if (is.na(expected_rows) || expected_rows < 1) {
-    errors <- c(errors, "Biological Samples must be at least 1 before the sample table can be validated.")
-  } else if (nrow(table) == 0 && expected_rows > 0) {
-    errors <- c(errors, paste0("The uploaded sample overview table contains no sample rows. Add ", expected_rows, " sample row", ifelse(expected_rows == 1, "", "s"), " below the header, or adjust Biological Samples."))
-  } else if (nrow(table) != expected_rows) {
-    errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Biological Samples is ", expected_rows, "."))
+  expected_rows_supplied <- !is.null(num_samples) && length(num_samples) > 0 && !all(is.na(num_samples))
+  if (!expected_rows_supplied) {
+    if (nrow(table) == 0) {
+      errors <- c(errors, "The uploaded sample overview table must contain at least one sample row.")
+    }
+  } else {
+    expected_rows <- suppressWarnings(as.integer(num_samples))
+    if (is.na(expected_rows) || expected_rows < 1) {
+      errors <- c(errors, "Biological Samples must be at least 1 before the sample table can be validated.")
+    } else if (nrow(table) == 0) {
+      errors <- c(errors, paste0("The uploaded sample overview table contains no sample rows. Add ", expected_rows, " sample row", ifelse(expected_rows == 1, "", "s"), " below the header."))
+    } else if (nrow(table) != expected_rows) {
+      errors <- c(errors, paste0("Sample overview table has ", nrow(table), " rows, but Biological Samples is ", expected_rows, "."))
+    }
   }
 
   sample_table_column <- function(table, column_name) {
@@ -2471,7 +2491,7 @@ server <- function(input, output, session) {
         fluidRow(
           column(4, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
           column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-          column(3, numericInput("num_samples", field_label("Biological Samples *", "Drives the row count in the sample overview table."), value = 1, min = 1, max = 500, step = 1)),
+          column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
           column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
         )
       ),
@@ -2613,7 +2633,7 @@ server <- function(input, output, session) {
 
   output$sample_table_validation_preview <- renderUI({
     if (is.null(input$sample_table_upload) || nrow(input$sample_table_upload) == 0) return(NULL)
-    result <- read_sample_table_upload(input$sample_table_upload, input$project_type, input$num_samples)
+    result <- read_sample_table_upload(input$sample_table_upload, input$project_type)
     if (length(result$errors) > 0) {
       return(div(
         class = "error-box",
@@ -2626,6 +2646,16 @@ server <- function(input, output, session) {
       paste0("Sample table parsed successfully: ", nrow(result$table), " rows.")
     )
   })
+
+  observeEvent(list(input$sample_table_upload, input$project_type), {
+    if (is.null(input$sample_table_upload) || nrow(input$sample_table_upload) == 0) {
+      updateNumericInput(session, "num_samples", value = 0)
+      return()
+    }
+    result <- read_sample_table_upload(input$sample_table_upload, input$project_type)
+    row_count <- if (is.null(result$table)) 0L else nrow(result$table)
+    updateNumericInput(session, "num_samples", value = row_count)
+  }, ignoreInit = TRUE)
 
   type_specific_new_project_ui <- function(project_type, con, refs) {
     if (project_type == "intact_mass") {
@@ -2713,26 +2743,14 @@ server <- function(input, output, session) {
       if (!non_empty(input[[id]])) errors <- c(errors, paste(required[[id]], "is required."))
     }
 
-    biological_samples <- suppressWarnings(as.numeric(input$num_samples %||% NA_real_))
-    biological_samples_valid <- !is.na(biological_samples) && is.finite(biological_samples) &&
-      biological_samples >= 1 && biological_samples == floor(biological_samples)
-    if (!biological_samples_valid) {
-      errors <- c(errors, "Biological Samples must be an integer of at least 1.")
-    }
-    n <- if (biological_samples_valid) {
-      as.integer(biological_samples)
-    } else {
-      NA_integer_
-    }
+    sample_table_result <- read_sample_table_upload(input$sample_table_upload, selected_type)
+    errors <- c(errors, sample_table_result$errors)
 
     technical_replicates <- suppressWarnings(as.numeric(input$technical_replicates %||% NA_real_))
     if (is.na(technical_replicates) || !is.finite(technical_replicates) ||
         technical_replicates < 0 || technical_replicates != floor(technical_replicates)) {
       errors <- c(errors, "Technical replicates must be a non-negative integer.")
     }
-
-    sample_table_result <- read_sample_table_upload(input$sample_table_upload, selected_type, n)
-    errors <- c(errors, sample_table_result$errors)
 
     if (!(selected_type %in% c("intact_mass", "proteomics", "metabolomics"))) {
       errors <- c(errors, "Choose a measurement type.")
@@ -2826,7 +2844,7 @@ server <- function(input, output, session) {
     dbExecute(con, "PRAGMA foreign_keys = ON")
 
     submitter_name <- paste(trim_scalar(input$submitter_first_name), trim_scalar(input$submitter_last_name))
-    sample_table_result <- read_sample_table_upload(input$sample_table_upload, input$project_type, input$num_samples)
+    sample_table_result <- read_sample_table_upload(input$sample_table_upload, input$project_type)
     if (length(sample_table_result$errors) > 0) {
       showNotification(paste(sample_table_result$errors, collapse = "\n"), type = "error", duration = 12)
       return()
@@ -2850,7 +2868,7 @@ server <- function(input, output, session) {
       submitter_group = selected_budget_group,
       budget_id = selected_budget_id,
       submission_date = trim_scalar(input$submission_date, as.character(Sys.Date())),
-      num_samples = as.integer(input$num_samples),
+      num_samples = as.integer(nrow(sample_table_result$table)),
       technical_replicates = as.integer(input$technical_replicates),
       sample_buffer = trim_scalar(input$sample_buffer),
       concentration_determination = trim_scalar(input$concentration_determination),
@@ -3029,7 +3047,7 @@ server <- function(input, output, session) {
           warning_banner(compact = TRUE),
           fluidRow(
             column(4, textInput("edit_project_name", "Sample/project name", value = project$project_name)),
-            column(2, numericInput("edit_num_samples", "Biological Samples", value = project$num_samples, min = 1, step = 1)),
+            column(2, readonly_numeric_input("edit_num_samples", "Biological Samples", value = project$num_samples, min = 0, step = 1)),
             column(3, numericInput("edit_technical_replicates", "Technical replicates", value = project$technical_replicates %||% 0, min = 0, step = 1)),
             column(3, uiOutput("edit_status_badge"))
           ),
@@ -3250,13 +3268,7 @@ server <- function(input, output, session) {
     on.exit(dbDisconnect(con), add = TRUE)
     project_before <- load_project_detail(con, project_id)
     if (nrow(project_before) == 0) return()
-    edit_num_samples <- suppressWarnings(as.numeric(input$edit_num_samples %||% NA_real_))
     edit_technical_replicates <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
-    if (is.na(edit_num_samples) || !is.finite(edit_num_samples) ||
-        edit_num_samples < 1 || edit_num_samples != floor(edit_num_samples)) {
-      showNotification("Biological Samples must be an integer of at least 1.", type = "error", duration = 10)
-      return()
-    }
     if (is.na(edit_technical_replicates) || !is.finite(edit_technical_replicates) ||
         edit_technical_replicates < 0 ||
         edit_technical_replicates != floor(edit_technical_replicates)) {
@@ -3293,7 +3305,6 @@ server <- function(input, output, session) {
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
       submitter_email = trim_scalar(input$edit_submitter_email),
-      num_samples = as.integer(edit_num_samples),
       technical_replicates = as.integer(edit_technical_replicates),
       sample_buffer = trim_scalar(input$edit_sample_buffer),
       sample_concentration = trim_scalar(input$edit_sample_concentration),
