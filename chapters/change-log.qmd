@@ -31,6 +31,7 @@ execute:
 - Sample overview upload is optional.
 - modified intact template for upload
 5. Updated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.
+cost estimation was added to the system including in the mail and admin panels.
 
 ## Changes on 23.07.2026 
 

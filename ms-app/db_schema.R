@@ -70,6 +70,7 @@ ms_controlled_options <- list(
   ptm_variable_modifications = c("Phospho (Ser/Thr/Tyr)", "Acetylation (Lys/N-term)", "GlyGly (Lys, ubiquitin)", "Methylation", "Other"),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
   metabolomics_analysis_type = c("Targeted (specific panel)", "Untargeted (global profiling)", "Lipidomics", "Other"),
+  metabolomics_analysis_family = c("Metabolomics", "Lipidomics"),
   metabolomics_sample_type = c("cell pellet", "supernatent", "protein pellet"),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
@@ -81,12 +82,58 @@ ms_controlled_options <- list(
   data_acquisition = c("DDA", "DIA", "DIA and DDA")
 )
 
-ms_exact_controlled_option_groups <- c(
+ms_priced_option_groups <- c(
   "intact_project_type",
   "intact_sample_type",
   "proteomics_project_type",
   "proteomics_sample_type",
+  "metabolomics_analysis_family",
   "metabolomics_sample_type"
+)
+
+ms_default_option_costs <- list(
+  proteomics_project_type = c(
+    "Protein ID" = 25,
+    "Protein coverage /PTM" = 25,
+    "Interaction Proteomics" = 25,
+    "Total proteome" = 40,
+    "PTMomics (global, enrichment)" = 40,
+    "Crosslinking" = 25
+  ),
+  proteomics_sample_type = c(
+    "in-solution digest" = 10,
+    "Gel band /gel lane" = 10,
+    "On-beads" = 10,
+    "Cell pellet" = 10,
+    "Protein pellet" = 10,
+    "Supernatent" = 10,
+    "Tissue" = 10,
+    "ready-to-load (digested)" = 0,
+    "ready-to-load (digested+desalted)" = 0,
+    "Enrichement (PTM)" = 70
+  ),
+  metabolomics_analysis_family = c(
+    "Metabolomics" = 20,
+    "Lipidomics" = 20
+  ),
+  metabolomics_sample_type = c(
+    "cell pellet" = 5,
+    "supernatent" = 5,
+    "protein pellet" = 5
+  ),
+  intact_project_type = c(
+    "Protein (QC)" = 2,
+    "Small molecule (QC)" = 3,
+    "Peptide (QC)" = 2,
+    "Oligonucleotide (QC)" = 2,
+    "Protein (high resolution)" = 10,
+    "Native protein complex" = 18
+  ),
+  intact_sample_type = c(
+    "in-solution, Flow injection" = 1,
+    "in-solution" = 2,
+    "powder" = 2
+  )
 )
 
 ms_reference_organisms <- c(
@@ -157,7 +204,9 @@ ms_db_path <- function() {
 }
 
 ms_db_connect <- function() {
-  dbConnect(RSQLite::SQLite(), ms_db_path())
+  con <- dbConnect(RSQLite::SQLite(), ms_db_path())
+  dbExecute(con, "PRAGMA foreign_keys = ON")
+  con
 }
 
 ms_hash_password <- function(password) {
@@ -316,6 +365,40 @@ ms_create_schema <- function(con) {
   ")
 
   dbExecute(con, "
+    CREATE TABLE IF NOT EXISTS option_costs (
+      controlled_option_id INTEGER PRIMARY KEY,
+      cost REAL NOT NULL DEFAULT 1
+        CHECK (cost >= 0 AND typeof(cost) IN ('integer', 'real')),
+      is_custom INTEGER NOT NULL DEFAULT 0,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (controlled_option_id) REFERENCES controlled_options (id) ON DELETE CASCADE
+    )
+  ")
+
+  priced_groups_sql <- paste(
+    paste0("'", gsub("'", "''", ms_priced_option_groups), "'"),
+    collapse = ", "
+  )
+  dbExecute(con, paste0("
+    CREATE TRIGGER IF NOT EXISTS trg_controlled_option_cost_insert
+    AFTER INSERT ON controlled_options
+    WHEN NEW.option_group IN (", priced_groups_sql, ")
+    BEGIN
+      INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
+      VALUES (NEW.id, 1);
+    END
+  "))
+  dbExecute(con, paste0("
+    CREATE TRIGGER IF NOT EXISTS trg_controlled_option_cost_group_update
+    AFTER UPDATE OF option_group ON controlled_options
+    WHEN NEW.option_group IN (", priced_groups_sql, ")
+    BEGIN
+      INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
+      VALUES (NEW.id, 1);
+    END
+  "))
+
+  dbExecute(con, "
     CREATE TABLE IF NOT EXISTS landing_text_blocks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       block_key TEXT UNIQUE NOT NULL,
@@ -424,6 +507,10 @@ ms_create_schema <- function(con) {
       invoice_institute_address TEXT DEFAULT '", gsub("'", "''", MS_INSTITUTE_ADDRESS), "',
       report_notes TEXT,
       additional_cost REAL,
+      additional_cost_comment TEXT,
+      project_type_unit_cost REAL,
+      sample_type_unit_cost REAL,
+      base_cost REAL,
       total_cost REAL,
       technician_user_id INTEGER,
       status TEXT DEFAULT 'Submitted',
@@ -533,6 +620,10 @@ ms_create_schema <- function(con) {
 }
 
 ms_migrate_schema <- function(con) {
+  if (ms_table_exists(con, "option_costs")) {
+    ms_add_column_if_missing(con, "option_costs", "is_custom INTEGER NOT NULL DEFAULT 0")
+  }
+
   if (ms_table_exists(con, "users")) {
     ms_add_column_if_missing(con, "users", "role TEXT NOT NULL DEFAULT 'user'")
     ms_add_column_if_missing(con, "users", "cost_center TEXT")
@@ -640,6 +731,10 @@ ms_migrate_schema <- function(con) {
     paste0("invoice_institute_address TEXT DEFAULT '", gsub("'", "''", MS_INSTITUTE_ADDRESS), "'"),
     "report_notes TEXT",
     "additional_cost REAL",
+    "additional_cost_comment TEXT",
+    "project_type_unit_cost REAL",
+    "sample_type_unit_cost REAL",
+    "base_cost REAL",
     "total_cost REAL",
     "technician_user_id INTEGER",
     "last_status_update_at DATETIME"
@@ -723,25 +818,47 @@ ms_seed_defaults <- function(con) {
 
   for (group_name in names(ms_controlled_options)) {
     values <- ms_controlled_options[[group_name]]
-    if (group_name %in% ms_exact_controlled_option_groups) {
-      dbExecute(
-        con,
-        "UPDATE controlled_options SET is_active = 0 WHERE option_group = ?",
-        params = list(group_name)
-      )
-    }
     for (i in seq_along(values)) {
       dbExecute(con, "
         INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
         VALUES (?, ?, ?)
       ", params = list(group_name, values[i], i))
-      if (group_name %in% ms_exact_controlled_option_groups) {
+      if (group_name %in% ms_priced_option_groups) {
         dbExecute(con, "
           UPDATE controlled_options
           SET display_order = ?, is_active = 1
           WHERE option_group = ? AND value = ?
         ", params = list(i, group_name, values[i]))
       }
+    }
+  }
+
+  for (group_name in ms_priced_option_groups) {
+    dbExecute(con, "
+      INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
+      SELECT id, 1
+      FROM controlled_options
+      WHERE option_group = ?
+    ", params = list(group_name))
+  }
+
+  for (group_name in names(ms_default_option_costs)) {
+    group_costs <- ms_default_option_costs[[group_name]]
+    for (option_value in names(group_costs)) {
+      dbExecute(con, "
+        UPDATE option_costs
+        SET cost = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE controlled_option_id = (
+          SELECT id
+          FROM controlled_options
+          WHERE option_group = ? AND value = ?
+        )
+          AND is_custom = 0
+      ", params = list(
+        as.numeric(group_costs[[option_value]]),
+        group_name,
+        option_value
+      ))
     }
   }
 
@@ -860,6 +977,74 @@ ms_seed_defaults <- function(con) {
   ", params = list(cost_body))
 }
 
+ms_backfill_project_costs <- function(con) {
+  if (!ms_table_exists(con, "projects") || !ms_table_exists(con, "option_costs")) {
+    return(invisible(TRUE))
+  }
+
+  dbExecute(con, "
+    UPDATE projects
+    SET project_type_unit_cost = COALESCE(
+      project_type_unit_cost,
+      (
+        SELECT oc.cost
+        FROM controlled_options co
+        JOIN option_costs oc ON oc.controlled_option_id = co.id
+        WHERE co.option_group = CASE projects.project_type
+          WHEN 'proteomics' THEN 'proteomics_project_type'
+          WHEN 'metabolomics' THEN 'metabolomics_analysis_family'
+          WHEN 'intact_mass' THEN 'intact_project_type'
+        END
+          AND co.value = CASE projects.project_type
+            WHEN 'proteomics' THEN projects.proteomics_project_type
+            WHEN 'metabolomics' THEN projects.metabolomics_analysis_family
+            WHEN 'intact_mass' THEN projects.intact_project_type
+          END
+        LIMIT 1
+      ),
+      1
+    ),
+    sample_type_unit_cost = COALESCE(
+      sample_type_unit_cost,
+      (
+        SELECT oc.cost
+        FROM controlled_options co
+        JOIN option_costs oc ON oc.controlled_option_id = co.id
+        WHERE co.option_group = CASE projects.project_type
+          WHEN 'proteomics' THEN 'proteomics_sample_type'
+          WHEN 'metabolomics' THEN 'metabolomics_sample_type'
+          WHEN 'intact_mass' THEN 'intact_sample_type'
+        END
+          AND co.value = CASE projects.project_type
+            WHEN 'proteomics' THEN projects.proteomics_sample_type
+            WHEN 'metabolomics' THEN projects.metabolomics_sample_type
+            WHEN 'intact_mass' THEN projects.intact_sample_type
+          END
+        LIMIT 1
+      ),
+      1
+    )
+  ")
+
+  dbExecute(con, "
+    UPDATE projects
+    SET base_cost =
+      COALESCE(num_samples, 1) *
+      CASE
+        WHEN COALESCE(technical_replicates, 0) > 0 THEN technical_replicates
+        ELSE 1
+      END *
+      (COALESCE(project_type_unit_cost, 0) + COALESCE(sample_type_unit_cost, 0))
+  ")
+
+  dbExecute(con, "
+    UPDATE projects
+    SET total_cost = COALESCE(base_cost, 0) + COALESCE(additional_cost, 0)
+  ")
+
+  invisible(TRUE)
+}
+
 ms_initialize_database <- function(reset = FALSE) {
   if (reset && file.exists(ms_db_path())) {
     file.remove(ms_db_path())
@@ -872,6 +1057,7 @@ ms_initialize_database <- function(reset = FALSE) {
   ms_create_schema(con)
   ms_migrate_schema(con)
   ms_seed_defaults(con)
+  ms_backfill_project_costs(con)
 
   invisible(ms_db_path())
 }

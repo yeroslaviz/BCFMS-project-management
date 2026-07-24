@@ -14,12 +14,14 @@ if (dt_available) {
   renderDT <- DT::renderDT
   datatable <- DT::datatable
   formatStyle <- DT::formatStyle
+  formatCurrency <- DT::formatCurrency
   styleEqual <- DT::styleEqual
 } else {
   DTOutput <- tableOutput
   renderDT <- renderTable
   datatable <- function(data, ...) data
   formatStyle <- function(table, ...) table
+  formatCurrency <- function(table, ...) table
   styleEqual <- function(...) NULL
 }
 
@@ -197,6 +199,181 @@ format_cost_value <- function(value) {
   if (length(number) == 0 || is.na(number)) "To be confirmed" else sprintf("EUR %.2f", number)
 }
 
+format_euro <- function(value) {
+  number <- suppressWarnings(as.numeric(value))
+  if (length(number) == 0 || is.na(number) || !is.finite(number)) "€0.00" else sprintf("€%.2f", number)
+}
+
+parse_optional_currency <- function(value, label) {
+  text <- trim_scalar(value)
+  if (!nzchar(text)) return(list(valid = TRUE, empty = TRUE, value = 0))
+  normalized <- gsub("(?i)EUR", "", text, perl = TRUE)
+  normalized <- gsub("€", "", normalized, fixed = TRUE)
+  normalized <- gsub("\\s+", "", normalized)
+  if (grepl(",", normalized, fixed = TRUE) && !grepl(".", normalized, fixed = TRUE)) {
+    normalized <- sub(",", ".", normalized, fixed = TRUE)
+  }
+  if (!grepl("^[+]?[0-9]+([.][0-9]+)?$", normalized)) {
+    return(list(
+      valid = FALSE,
+      empty = FALSE,
+      value = NA_real_,
+      error = paste0(label, " must be a non-negative number, optionally with € or EUR.")
+    ))
+  }
+  number <- suppressWarnings(as.numeric(normalized))
+  if (is.na(number) || !is.finite(number) || number < 0) {
+    return(list(
+      valid = FALSE,
+      empty = FALSE,
+      value = NA_real_,
+      error = paste0(label, " must be a non-negative number, optionally with € or EUR.")
+    ))
+  }
+  list(valid = TRUE, empty = FALSE, value = number)
+}
+
+project_pricing_options <- function(project) {
+  switch(
+    scalar_text(project$project_type),
+    proteomics = list(
+      project_group = "proteomics_project_type",
+      project_value = scalar_text(project$proteomics_project_type),
+      sample_group = "proteomics_sample_type",
+      sample_value = scalar_text(project$proteomics_sample_type)
+    ),
+    metabolomics = list(
+      project_group = "metabolomics_analysis_family",
+      project_value = scalar_text(project$metabolomics_analysis_family),
+      sample_group = "metabolomics_sample_type",
+      sample_value = scalar_text(project$metabolomics_sample_type)
+    ),
+    intact_mass = list(
+      project_group = "intact_project_type",
+      project_value = scalar_text(project$intact_project_type),
+      sample_group = "intact_sample_type",
+      sample_value = scalar_text(project$intact_sample_type)
+    ),
+    list(project_group = "", project_value = "", sample_group = "", sample_value = "")
+  )
+}
+
+load_option_unit_cost <- function(con, option_group, option_value, default = 1) {
+  if (!nzchar(trim_scalar(option_group)) || !nzchar(trim_scalar(option_value))) return(as.numeric(default))
+  row <- dbGetQuery(con, "
+    SELECT oc.cost
+    FROM controlled_options co
+    JOIN option_costs oc ON oc.controlled_option_id = co.id
+    WHERE co.option_group = ? AND co.value = ?
+    LIMIT 1
+  ", params = list(option_group, option_value))
+  if (nrow(row) == 0) as.numeric(default) else as.numeric(row$cost[[1]])
+}
+
+calculate_project_cost <- function(
+  con,
+  project,
+  additional_cost = NULL,
+  technical_replicates = NULL,
+  use_snapshot = TRUE
+) {
+  options <- project_pricing_options(project)
+  snapshot_project_cost <- suppressWarnings(as.numeric(project$project_type_unit_cost %||% NA_real_))
+  snapshot_sample_cost <- suppressWarnings(as.numeric(project$sample_type_unit_cost %||% NA_real_))
+  project_unit_cost <- if (isTRUE(use_snapshot) && length(snapshot_project_cost) > 0 &&
+      !is.na(snapshot_project_cost[[1]])) {
+    snapshot_project_cost[[1]]
+  } else {
+    load_option_unit_cost(con, options$project_group, options$project_value)
+  }
+  sample_unit_cost <- if (isTRUE(use_snapshot) && length(snapshot_sample_cost) > 0 &&
+      !is.na(snapshot_sample_cost[[1]])) {
+    snapshot_sample_cost[[1]]
+  } else {
+    load_option_unit_cost(con, options$sample_group, options$sample_value)
+  }
+  biological_samples <- suppressWarnings(as.integer(project$num_samples %||% 1L))
+  if (is.na(biological_samples) || biological_samples < 1) biological_samples <- 1L
+  technical_count <- if (is.null(technical_replicates)) {
+    suppressWarnings(as.integer(project$technical_replicates %||% 0L))
+  } else {
+    suppressWarnings(as.integer(technical_replicates))
+  }
+  if (is.na(technical_count) || technical_count < 1) technical_count <- 1L
+  billable_units <- biological_samples * technical_count
+  project_subtotal <- billable_units * project_unit_cost
+  sample_subtotal <- billable_units * sample_unit_cost
+  base_cost <- project_subtotal + sample_subtotal
+  additional <- if (is.null(additional_cost)) {
+    suppressWarnings(as.numeric(project$additional_cost %||% 0))
+  } else {
+    suppressWarnings(as.numeric(additional_cost))
+  }
+  if (is.na(additional) || !is.finite(additional) || additional < 0) additional <- 0
+  list(
+    biological_samples = biological_samples,
+    technical_replicates = technical_count,
+    billable_units = billable_units,
+    project_label = options$project_value,
+    sample_label = options$sample_value,
+    project_unit_cost = project_unit_cost,
+    sample_unit_cost = sample_unit_cost,
+    project_subtotal = project_subtotal,
+    sample_subtotal = sample_subtotal,
+    base_cost = base_cost,
+    additional_cost = additional,
+    total_cost = base_cost + additional
+  )
+}
+
+project_cost_breakdown_ui <- function(project, breakdown, additional_comment = "") {
+  is_intact <- identical(scalar_text(project$project_type), "intact_mass")
+  rows <- list(
+    tags$tr(tags$th(if (is_intact) "Samples" else "Biological samples"), tags$td(breakdown$biological_samples))
+  )
+  if (!is_intact) {
+    rows <- c(rows, list(tags$tr(
+      tags$th("Technical replicate multiplier"),
+      tags$td(breakdown$technical_replicates)
+    )))
+  }
+  rows <- c(rows, list(
+    tags$tr(
+      tags$th("Billable analyses"),
+      tags$td(breakdown$billable_units)
+    ),
+    tags$tr(
+      tags$th(breakdown$project_label),
+      tags$td(paste0(
+        breakdown$billable_units, " × ", format_euro(breakdown$project_unit_cost),
+        " = ", format_euro(breakdown$project_subtotal)
+      ))
+    ),
+    tags$tr(
+      tags$th(breakdown$sample_label),
+      tags$td(paste0(
+        breakdown$billable_units, " × ", format_euro(breakdown$sample_unit_cost),
+        " = ", format_euro(breakdown$sample_subtotal)
+      ))
+    ),
+    tags$tr(class = "cost-breakdown-subtotal", tags$th("Base cost"), tags$td(format_euro(breakdown$base_cost))),
+    tags$tr(
+      tags$th("Additional cost"),
+      tags$td(tagList(
+        format_euro(breakdown$additional_cost),
+        if (nzchar(trim_scalar(additional_comment))) tags$small(paste0(" — ", trim_scalar(additional_comment)))
+      ))
+    ),
+    tags$tr(class = "cost-breakdown-total", tags$th("Total cost"), tags$td(format_euro(breakdown$total_cost)))
+  ))
+  div(
+    class = "cost-breakdown",
+    h4("Cost breakdown"),
+    tags$table(class = "table table-condensed", tags$tbody(rows)),
+    readonly_text_input("edit_total_cost", "Total cost", format_euro(breakdown$total_cost))
+  )
+}
+
 field_label <- function(text, help, example = NULL) {
   help_text <- help
   if (!is.null(example) && nzchar(example)) {
@@ -225,6 +402,13 @@ readonly_numeric_input <- function(input_id, label, value, min = NULL, step = 1)
     min = min,
     step = step
   ))$
+    find("input")$
+    addAttrs(readonly = "readonly", `aria-readonly` = "true")$
+    allTags()
+}
+
+readonly_text_input <- function(input_id, label, value) {
+  htmltools::tagQuery(textInput(input_id, label, value = value))$
     find("input")$
     addAttrs(readonly = "readonly", `aria-readonly` = "true")$
     allTags()
@@ -366,6 +550,29 @@ load_choice_values <- function(con, option_group, fallback = character()) {
   values <- rows$value
   if (length(values) == 0 && length(fallback) > 0) values <- fallback
   values
+}
+
+priced_option_group_labels <- c(
+  proteomics_project_type = "Proteomics — Project Type",
+  proteomics_sample_type = "Proteomics — Sample Type",
+  metabolomics_analysis_family = "Metabolomics — Project Type",
+  metabolomics_sample_type = "Metabolomics — Sample Type",
+  intact_project_type = "Intact — Project Type",
+  intact_sample_type = "Intact — Sample Type"
+)
+
+load_admin_option_costs <- function(con) {
+  placeholders <- paste(rep("?", length(ms_priced_option_groups)), collapse = ", ")
+  rows <- dbGetQuery(con, paste0("
+    SELECT co.id AS controlled_option_id, co.option_group, co.value, oc.cost
+    FROM controlled_options co
+    JOIN option_costs oc ON oc.controlled_option_id = co.id
+    WHERE co.option_group IN (", placeholders, ")
+      AND co.is_active = 1
+    ORDER BY co.option_group, co.display_order, co.value
+  "), params = as.list(ms_priced_option_groups))
+  rows$group <- unname(priced_option_group_labels[rows$option_group])
+  rows[, c("controlled_option_id", "group", "value", "cost"), drop = FALSE]
 }
 
 choice_values_with_current <- function(con, option_group, current = "", fallback = character()) {
@@ -988,14 +1195,17 @@ write_project_report_pdf <- function(project, samples, files, file, document_typ
 
   if (document_type == "invoice") {
     total_cost <- suppressWarnings(as.numeric(project$total_cost %||% NA_real_))
+    base_cost <- suppressWarnings(as.numeric(project$base_cost %||% NA_real_))
     additional_cost <- suppressWarnings(as.numeric(project$additional_cost %||% NA_real_))
     lines <- c(
       paste("Invoice recipient address:", scalar_text(project$invoice_recipient_address, "Not entered")),
       "",
       paste("Institute address:", gsub("\n", ", ", scalar_text(project$invoice_institute_address, MS_INSTITUTE_ADDRESS))),
       "",
-      paste("Project cost:", ifelse(is.na(total_cost), "To be confirmed", sprintf("EUR %.2f", total_cost))),
+      paste("Base project cost:", ifelse(is.na(base_cost), "To be confirmed", sprintf("EUR %.2f", base_cost))),
       paste("Additional cost:", ifelse(is.na(additional_cost), "0.00", sprintf("EUR %.2f", additional_cost))),
+      if (nzchar(trim_scalar(project$additional_cost_comment))) paste("Additional cost reason:", trim_scalar(project$additional_cost_comment)),
+      paste("Total project cost:", ifelse(is.na(total_cost), "To be confirmed", sprintf("EUR %.2f", total_cost))),
       "",
       lines
     )
@@ -1218,7 +1428,9 @@ send_ms_cost_estimation_email <- function(con, project) {
   recipients <- unique(c(resolve_project_user_email(con, project), scalar_text(project$budget_email)))
   cost_text <- format_cost_value(project$total_cost)
   additional_text <- format_cost_value(project$additional_cost)
-  show_additional <- nzchar(trim_scalar(project$additional_cost))
+  additional_value <- suppressWarnings(as.numeric(project$additional_cost %||% 0))
+  show_additional <- !is.na(additional_value) && additional_value > 0
+  additional_comment <- trim_scalar(project$additional_cost_comment)
   subject <- paste(project$project_code, "MS project cost estimation", sep = " - ")
 
   body <- paste0(
@@ -1229,7 +1441,11 @@ send_ms_cost_estimation_email <- function(con, project) {
     "<strong>Budget holder:</strong> ", html_escape(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname))), "<br>",
     "<strong>Cost center:</strong> ", html_escape(project$cost_center), "</p>",
     "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
-    if (show_additional) paste0("<p>Additional Cost: ", html_escape(additional_text), "</p>") else "",
+    if (show_additional) paste0(
+      "<p>Additional Cost: ", html_escape(additional_text),
+      if (nzchar(additional_comment)) paste0("<br>Reason: ", html_escape(additional_comment)) else "",
+      "</p>"
+    ) else "",
     "<p>Please contact the facility if the estimate does not match the planned work.</p>",
     "<p>Best regards,<br>Mass Spectrometry Core Facility</p>",
     "</body></html>"
@@ -1917,6 +2133,7 @@ server <- function(input, output, session) {
   admin_edit_bh_id <- reactiveVal(NULL)
   admin_edit_organism_id <- reactiveVal(NULL)
   admin_edit_option_id <- reactiveVal(NULL)
+  admin_edit_cost_option_id <- reactiveVal(NULL)
   admin_edit_landing_id <- reactiveVal(NULL)
   client_url_search <- reactiveVal("")
   ldap_warned <- reactiveVal(FALSE)
@@ -2353,6 +2570,7 @@ server <- function(input, output, session) {
       rownames = FALSE,
       options = list(pageLength = 15, scrollX = TRUE)
     )
+    table <- formatCurrency(table, "Total Cost", currency = "€", digits = 2)
 
     if (dt_available) {
       project_type_colors <- c(
@@ -2476,7 +2694,7 @@ server <- function(input, output, session) {
       column(6, selectInput(
         "metabolomics_analysis_family",
         "Project Type *",
-        choices = c("Metabolomics", "Lipidomics"),
+        choices = load_choice_values(con, "metabolomics_analysis_family"),
         selected = "Metabolomics"
       )),
       column(6, selectInput(
@@ -3019,6 +3237,20 @@ server <- function(input, output, session) {
       ))
     }
 
+    initial_costs <- calculate_project_cost(
+      con,
+      project_values,
+      additional_cost = 0,
+      technical_replicates = project_values$technical_replicates,
+      use_snapshot = FALSE
+    )
+    project_values$project_type_unit_cost <- initial_costs$project_unit_cost
+    project_values$sample_type_unit_cost <- initial_costs$sample_unit_cost
+    project_values$base_cost <- initial_costs$base_cost
+    project_values$additional_cost <- 0
+    project_values$additional_cost_comment <- ""
+    project_values$total_cost <- initial_costs$total_cost
+
     tryCatch({
       dbBegin(con)
       project_code <- next_project_code(con, project_values$project_type)
@@ -3119,6 +3351,12 @@ server <- function(input, output, session) {
     column_type_choices <- choice_values_with_current(con, "column_type", project$column_type)
     ms_machine_choices <- choice_values_with_current(con, "ms_machine", project$ms_machine)
     data_acquisition_choices <- choice_values_with_current(con, "data_acquisition", project$data_acquisition)
+    existing_additional_cost <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
+    additional_cost_input <- if (!is.na(existing_additional_cost) && existing_additional_cost > 0) {
+      format_euro(existing_additional_cost)
+    } else {
+      ""
+    }
     editing_project_id(project$id[[1]])
 
     showModal(modalDialog(
@@ -3209,11 +3447,23 @@ server <- function(input, output, session) {
           ),
           if (can_edit_all_projects()) tagList(
             selectInput("edit_status", "Project status", choices = ms_status_options, selected = project$status),
-            fluidRow(
-              column(6, textInput("edit_additional_cost", "Additional cost", value = scalar_text(project$additional_cost))),
-              column(6, textInput("edit_total_cost", "Total cost", value = scalar_text(project$total_cost)))
+            textInput(
+              "edit_additional_cost",
+              field_label("Additional cost", "Enter a non-negative integer or decimal. € and EUR are accepted."),
+              value = additional_cost_input
+            ),
+            conditionalPanel(
+              "input.edit_additional_cost && input.edit_additional_cost.trim() !== ''",
+              textAreaInput(
+                "edit_additional_cost_comment",
+                "Additional cost comment",
+                value = scalar_text(project$additional_cost_comment),
+                rows = 2,
+                placeholder = "Explain what the additional charge covers."
+              )
             )
-          )
+          ),
+          uiOutput("edit_cost_breakdown")
         ),
         tabPanel(
           "Samples",
@@ -3248,6 +3498,48 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, project_id)
     if (nrow(project) == 0) return(NULL)
     div(class = "status-preview", "Current status", br(), status_badge(project$status))
+  })
+
+  output$edit_cost_breakdown <- renderUI({
+    project_id <- editing_project_id()
+    req(project_id)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    project <- load_project_detail(con, project_id)
+    if (nrow(project) == 0) return(NULL)
+
+    technical_count <- project$technical_replicates[[1]] %||% 0L
+    if (can_edit_all_projects() && !is.null(input$edit_technical_replicates)) {
+      candidate <- suppressWarnings(as.numeric(input$edit_technical_replicates))
+      if (!is.na(candidate) && is.finite(candidate) && candidate >= 0 && candidate == floor(candidate)) {
+        technical_count <- as.integer(candidate)
+      }
+    }
+
+    additional_value <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
+    additional_comment <- scalar_text(project$additional_cost_comment)
+    additional_error <- NULL
+    if (can_edit_all_projects() && !is.null(input$edit_additional_cost)) {
+      parsed <- parse_optional_currency(input$edit_additional_cost, "Additional cost")
+      if (isTRUE(parsed$valid)) {
+        additional_value <- parsed$value
+        additional_comment <- trim_scalar(input$edit_additional_cost_comment)
+      } else {
+        additional_error <- parsed$error
+      }
+    }
+
+    breakdown <- calculate_project_cost(
+      con,
+      project,
+      additional_cost = additional_value,
+      technical_replicates = technical_count,
+      use_snapshot = TRUE
+    )
+    tagList(
+      if (!is.null(additional_error)) div(class = "alert alert-danger", additional_error),
+      project_cost_breakdown_ui(project, breakdown, additional_comment)
+    )
   })
 
   output$edit_status_history <- renderUI({
@@ -3374,6 +3666,20 @@ server <- function(input, output, session) {
         return()
       }
     }
+    parsed_additional <- list(valid = TRUE, empty = TRUE, value = 0)
+    additional_cost_comment <- scalar_text(project_before$additional_cost_comment)
+    if (can_edit_all_projects()) {
+      parsed_additional <- parse_optional_currency(input$edit_additional_cost, "Additional cost")
+      if (!parsed_additional$valid) {
+        showNotification(parsed_additional$error, type = "error", duration = 10)
+        return()
+      }
+      additional_cost_comment <- if (parsed_additional$value > 0) {
+        trim_scalar(input$edit_additional_cost_comment)
+      } else {
+        ""
+      }
+    }
     other_fields <- c(
       "Other Column Type" = trim_scalar(input$edit_column_type_other),
       "Other MS Machine" = trim_scalar(input$edit_ms_machine_other)
@@ -3436,8 +3742,24 @@ server <- function(input, output, session) {
       }
       technician_id <- suppressWarnings(as.integer(input$edit_technician_user_id))
       values$technician_user_id <- if (is.na(technician_id)) NA_integer_ else technician_id
-      values$additional_cost <- suppressWarnings(as.numeric(input$edit_additional_cost))
-      values$total_cost <- suppressWarnings(as.numeric(input$edit_total_cost))
+      technical_for_cost <- if (is_intact_project) {
+        project_before$technical_replicates[[1]] %||% 0L
+      } else {
+        as.integer(edit_technical_replicates)
+      }
+      cost_breakdown <- calculate_project_cost(
+        con,
+        project_before,
+        additional_cost = parsed_additional$value,
+        technical_replicates = technical_for_cost,
+        use_snapshot = TRUE
+      )
+      values$additional_cost <- parsed_additional$value
+      values$additional_cost_comment <- additional_cost_comment
+      values$project_type_unit_cost <- cost_breakdown$project_unit_cost
+      values$sample_type_unit_cost <- cost_breakdown$sample_unit_cost
+      values$base_cost <- cost_breakdown$base_cost
+      values$total_cost <- cost_breakdown$total_cost
     } else {
       should_send_data_release <- FALSE
     }
@@ -3486,20 +3808,36 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, project_id)
     if (nrow(project) == 0) return()
 
-    parsed_additional <- parse_optional_nonnegative_number(input$edit_additional_cost, "Additional cost")
+    parsed_additional <- parse_optional_currency(input$edit_additional_cost, "Additional cost")
     if (!parsed_additional$valid) {
       showNotification(parsed_additional$error, type = "error", duration = 10)
       return()
     }
-    parsed_total <- parse_optional_nonnegative_number(input$edit_total_cost, "Total cost")
-    if (!parsed_total$valid) {
-      showNotification(parsed_total$error, type = "error", duration = 10)
-      return()
+    technical_for_cost <- project$technical_replicates[[1]] %||% 0L
+    if (!identical(scalar_text(project$project_type), "intact_mass")) {
+      technical_candidate <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
+      if (is.na(technical_candidate) || !is.finite(technical_candidate) ||
+          technical_candidate < 0 || technical_candidate != floor(technical_candidate)) {
+        showNotification("Technical replicates must be a non-negative integer.", type = "error", duration = 10)
+        return()
+      }
+      technical_for_cost <- as.integer(technical_candidate)
     }
-
+    breakdown <- calculate_project_cost(
+      con,
+      project,
+      additional_cost = parsed_additional$value,
+      technical_replicates = technical_for_cost,
+      use_snapshot = TRUE
+    )
     update_record(con, "projects", list(
-      additional_cost = if (parsed_additional$empty) NA_real_ else parsed_additional$value,
-      total_cost = if (parsed_total$empty) NA_real_ else parsed_total$value
+      technical_replicates = technical_for_cost,
+      additional_cost = parsed_additional$value,
+      additional_cost_comment = if (parsed_additional$value > 0) trim_scalar(input$edit_additional_cost_comment) else "",
+      project_type_unit_cost = breakdown$project_unit_cost,
+      sample_type_unit_cost = breakdown$sample_unit_cost,
+      base_cost = breakdown$base_cost,
+      total_cost = breakdown$total_cost
     ), "id = ?", list(project_id))
 
     project <- load_project_detail(con, project_id)
@@ -3668,6 +4006,21 @@ server <- function(input, output, session) {
     )
   }
 
+  admin_costs_management_ui <- function() {
+    div(
+      class = "admin-management-modal",
+      div(
+        class = "info-note",
+        "Costs can be edited here, but rows are created from active Project Type and Sample Type dropdown options. Add a new option under Dropdown Options first; its initial cost will be €1."
+      ),
+      DTOutput("admin_costs_table"),
+      div(
+        class = "admin-management-actions",
+        actionButton("admin_edit_cost_btn", "Edit Selected Cost", class = "btn btn-warning")
+      )
+    )
+  }
+
   admin_email_log_ui <- function() {
     div(
       class = "admin-management-modal",
@@ -3710,6 +4063,7 @@ server <- function(input, output, session) {
         admin_panel_card("Budget Holders", "open_admin_budget_btn", "Manage Budget Holders"),
         admin_panel_card("Reference Organisms", "open_admin_organisms_btn", "Manage Organisms"),
         admin_panel_card("Dropdown Options", "open_admin_options_btn", "Manage Dropdown Options"),
+        admin_panel_card("Project Costs", "open_admin_costs_btn", "Manage Costs"),
         admin_panel_card("Landing Text", "open_admin_landing_btn", "Manage Landing Text"),
         admin_panel_card("Email Log", "open_admin_email_log_btn", "View Email Log")
       ),
@@ -3763,6 +4117,16 @@ server <- function(input, output, session) {
     ))
   })
 
+  observeEvent(input$open_admin_costs_btn, {
+    showModal(modalDialog(
+      title = "Project and Sample Type Costs",
+      size = "l",
+      easyClose = TRUE,
+      footer = modalButton("Close"),
+      admin_costs_management_ui()
+    ))
+  })
+
   observeEvent(input$open_admin_email_log_btn, {
     showModal(modalDialog(
       title = "Email Log",
@@ -3809,7 +4173,7 @@ server <- function(input, output, session) {
     integrity <- dbGetQuery(con, "PRAGMA integrity_check")[[1]][1]
     required_tables <- c(
       "users", "budget_holders", "project_types", "reference_organisms",
-      "controlled_options", "landing_text_blocks", "projects", "project_samples", "project_files",
+      "controlled_options", "option_costs", "landing_text_blocks", "projects", "project_samples", "project_files",
       "email_templates", "email_logs", "project_documents", "backup_logs"
     )
     missing_tables <- setdiff(required_tables, dbListTables(con))
@@ -3854,6 +4218,22 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     datatable(dbGetQuery(con, "SELECT id, option_group, value, display_order, is_active FROM controlled_options WHERE option_group = ? ORDER BY display_order, value", params = list(input$admin_option_group)), rownames = FALSE, selection = "single")
+  })
+
+  output$admin_costs_table <- renderDT({
+    admin_refresh()
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    costs <- load_admin_option_costs(con)
+    display <- costs[, c("group", "value", "cost"), drop = FALSE]
+    names(display) <- c("Category", "Option", "Cost (€)")
+    table <- datatable(
+      display,
+      rownames = FALSE,
+      selection = "single",
+      options = list(pageLength = 25, scrollX = TRUE)
+    )
+    formatCurrency(table, "Cost (€)", currency = "€", digits = 2)
   })
 
   output$admin_email_log_table <- renderDT({
@@ -4165,6 +4545,52 @@ server <- function(input, output, session) {
     removeModal()
     admin_refresh(admin_refresh() + 1)
     showNotification("Dropdown option updated.", type = "message")
+  })
+
+  observeEvent(input$admin_edit_cost_btn, {
+    selected <- input$admin_costs_table_rows_selected
+    req(selected)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    costs <- load_admin_option_costs(con)
+    req(nrow(costs) >= selected[1])
+    row <- costs[selected[1], , drop = FALSE]
+    admin_edit_cost_option_id(row$controlled_option_id[[1]])
+    showModal(modalDialog(
+      title = paste("Edit Cost —", row$value[[1]]),
+      easyClose = TRUE,
+      footer = tagList(
+        modalButton("Cancel"),
+        actionButton("admin_save_cost_btn", "Save Cost", class = "btn btn-primary")
+      ),
+      p(row$group[[1]]),
+      numericInput(
+        "admin_edit_cost_value",
+        "Cost (€)",
+        value = as.numeric(row$cost[[1]]),
+        min = 0,
+        step = 0.01
+      )
+    ))
+  })
+
+  observeEvent(input$admin_save_cost_btn, {
+    req(admin_edit_cost_option_id())
+    cost <- suppressWarnings(as.numeric(input$admin_edit_cost_value))
+    if (is.na(cost) || !is.finite(cost) || cost < 0) {
+      showNotification("Cost must be a non-negative integer or decimal.", type = "error", duration = 10)
+      return()
+    }
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    dbExecute(con, "
+      UPDATE option_costs
+      SET cost = ?, is_custom = 1, updated_at = CURRENT_TIMESTAMP
+      WHERE controlled_option_id = ?
+    ", params = list(cost, admin_edit_cost_option_id()))
+    removeModal()
+    admin_refresh(admin_refresh() + 1)
+    showNotification("Cost updated.", type = "message")
   })
 
   observeEvent(input$admin_add_landing_btn, {

@@ -557,6 +557,45 @@ table.dataTable th {
   line-height: 1.35;
 }
 
+.cost-breakdown {
+  margin-top: 18px;
+  padding: 16px;
+  border: 1px solid #d9e2e7;
+  border-radius: 8px;
+  background: #f8fbfc;
+}
+
+.cost-breakdown h4 {
+  margin-top: 0;
+}
+
+.cost-breakdown table {
+  margin-bottom: 14px;
+  background: #ffffff;
+}
+
+.cost-breakdown th {
+  width: 42%;
+  color: #2c4054;
+}
+
+.cost-breakdown td {
+  text-align: right;
+}
+
+.cost-breakdown-subtotal th,
+.cost-breakdown-subtotal td {
+  border-top: 2px solid #aebdc5 !important;
+}
+
+.cost-breakdown-total th,
+.cost-breakdown-total td {
+  border-top: 2px solid #2c4054 !important;
+  color: #b00020;
+  font-size: 15px;
+  font-weight: 700;
+}
+
 pre {
   white-space: pre-wrap;
   background: #f6f8fa;
