@@ -34,6 +34,3 @@ Before database maintenance or migration to another machine, follow the [verifie
 ## Contact
 
 Questions about the repository or facility workflows can be sent to [omicsdesk](mailto:omicsdesk@biochem.mpg.de).
-
-
-quick-start.html
