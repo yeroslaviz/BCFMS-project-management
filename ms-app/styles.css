@@ -537,9 +537,15 @@ body {
 
 .admin-management-actions {
   display: flex;
+  align-items: center;
   flex-wrap: wrap;
   gap: 10px;
   margin-top: 12px;
+}
+
+.cost-delete-note {
+  color: #607d8b;
+  font-size: 12px;
 }
 
 .admin-management-modal hr {

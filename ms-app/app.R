@@ -80,6 +80,10 @@ role_can_edit_projects <- function(role) {
   ms_normalize_user_role(role) %in% c("admin", "technician")
 }
 
+role_can_manage_project_costs <- function(role) {
+  role_is_admin(role)
+}
+
 join_values <- function(x) {
   x <- x %||% character()
   x <- trimws(as.character(x))
@@ -243,8 +247,8 @@ project_pricing_options <- function(project) {
       sample_value = scalar_text(project$proteomics_sample_type)
     ),
     metabolomics = list(
-      project_group = "metabolomics_analysis_family",
-      project_value = scalar_text(project$metabolomics_analysis_family),
+      project_group = "metabolomics_analysis_type",
+      project_value = scalar_text(project$metabolomics_analysis_type),
       sample_group = "metabolomics_sample_type",
       sample_value = scalar_text(project$metabolomics_sample_type)
     ),
@@ -555,14 +559,22 @@ load_choice_values <- function(con, option_group, fallback = character()) {
 priced_option_group_labels <- c(
   proteomics_project_type = "Proteomics — Project Type",
   proteomics_sample_type = "Proteomics — Sample Type",
-  metabolomics_analysis_family = "Metabolomics — Project Type",
+  metabolomics_analysis_type = "Metabolomics — Project Type",
   metabolomics_sample_type = "Metabolomics — Sample Type",
   intact_project_type = "Intact — Project Type",
   intact_sample_type = "Intact — Sample Type"
 )
 
-load_admin_option_costs <- function(con) {
-  placeholders <- paste(rep("?", length(ms_priced_option_groups)), collapse = ", ")
+priced_option_groups_by_project_type <- list(
+  proteomics = c("proteomics_project_type", "proteomics_sample_type"),
+  metabolomics = c("metabolomics_analysis_type", "metabolomics_sample_type"),
+  intact_mass = c("intact_project_type", "intact_sample_type")
+)
+
+load_admin_option_costs <- function(con, project_type = "") {
+  groups <- priced_option_groups_by_project_type[[trim_scalar(project_type)]]
+  if (is.null(groups)) groups <- ms_priced_option_groups
+  placeholders <- paste(rep("?", length(groups)), collapse = ", ")
   rows <- dbGetQuery(con, paste0("
     SELECT co.id AS controlled_option_id, co.option_group, co.value, oc.cost
     FROM controlled_options co
@@ -570,7 +582,7 @@ load_admin_option_costs <- function(con) {
     WHERE co.option_group IN (", placeholders, ")
       AND co.is_active = 1
     ORDER BY co.option_group, co.display_order, co.value
-  "), params = as.list(ms_priced_option_groups))
+  "), params = as.list(groups))
   rows$group <- unname(priced_option_group_labels[rows$option_group])
   rows[, c("controlled_option_id", "group", "value", "cost"), drop = FALSE]
 }
@@ -1133,8 +1145,8 @@ project_summary_text <- function(project, samples = NULL) {
 
   if (scalar_text(project$project_type) == "metabolomics") {
     lines <- c(lines,
-      paste("Metabolomics project type:", scalar_text(project$metabolomics_analysis_family)),
-      paste("Approach:", scalar_text(project$metabolomics_analysis_type)),
+      paste("Metabolomics analysis type:", scalar_text(project$metabolomics_analysis_type)),
+      paste("Approach:", scalar_text(project$metabolomics_approach)),
       paste("Sample type:", scalar_text(project$metabolomics_sample_type)),
       paste("Cell number:", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit))),
       paste("Supernatant volume:", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit))),
@@ -1185,67 +1197,233 @@ draw_pdf_lines <- function(lines, title, file) {
   }
 }
 
-write_project_report_pdf <- function(project, samples, files, file, document_type = "report") {
-  title <- if (document_type == "invoice") "Mass Spectrometry Project Invoice" else "Mass Spectrometry Project Report"
-  lines <- c(
-    MS_SUBMISSION_WARNING,
-    "",
-    strsplit(project_summary_text(project, samples), "\n", fixed = TRUE)[[1]]
+project_cost_breakdown_snapshot <- function(project) {
+  biological_samples <- suppressWarnings(as.integer(project$num_samples %||% 1L))
+  if (is.na(biological_samples) || biological_samples < 1) biological_samples <- 1L
+  is_intact <- identical(scalar_text(project$project_type), "intact_mass")
+  technical_replicates <- if (is_intact) 1L else suppressWarnings(as.integer(project$technical_replicates %||% 0L))
+  if (is.na(technical_replicates) || technical_replicates < 1) technical_replicates <- 1L
+  billable_units <- biological_samples * technical_replicates
+  project_unit_cost <- suppressWarnings(as.numeric(project$project_type_unit_cost %||% 0))
+  sample_unit_cost <- suppressWarnings(as.numeric(project$sample_type_unit_cost %||% 0))
+  additional_cost <- suppressWarnings(as.numeric(project$additional_cost %||% 0))
+  if (is.na(project_unit_cost)) project_unit_cost <- 0
+  if (is.na(sample_unit_cost)) sample_unit_cost <- 0
+  if (is.na(additional_cost)) additional_cost <- 0
+  options <- project_pricing_options(project)
+  list(
+    biological_samples = biological_samples,
+    technical_replicates = technical_replicates,
+    billable_units = billable_units,
+    project_label = options$project_value,
+    sample_label = options$sample_value,
+    project_unit_cost = project_unit_cost,
+    sample_unit_cost = sample_unit_cost,
+    project_subtotal = billable_units * project_unit_cost,
+    sample_subtotal = billable_units * sample_unit_cost,
+    base_cost = billable_units * (project_unit_cost + sample_unit_cost),
+    additional_cost = additional_cost,
+    total_cost = billable_units * (project_unit_cost + sample_unit_cost) + additional_cost
   )
-
-  if (document_type == "invoice") {
-    total_cost <- suppressWarnings(as.numeric(project$total_cost %||% NA_real_))
-    base_cost <- suppressWarnings(as.numeric(project$base_cost %||% NA_real_))
-    additional_cost <- suppressWarnings(as.numeric(project$additional_cost %||% NA_real_))
-    lines <- c(
-      paste("Invoice recipient address:", scalar_text(project$invoice_recipient_address, "Not entered")),
-      "",
-      paste("Institute address:", gsub("\n", ", ", scalar_text(project$invoice_institute_address, MS_INSTITUTE_ADDRESS))),
-      "",
-      paste("Base project cost:", ifelse(is.na(base_cost), "To be confirmed", sprintf("EUR %.2f", base_cost))),
-      paste("Additional cost:", ifelse(is.na(additional_cost), "0.00", sprintf("EUR %.2f", additional_cost))),
-      if (nzchar(trim_scalar(project$additional_cost_comment))) paste("Additional cost reason:", trim_scalar(project$additional_cost_comment)),
-      paste("Total project cost:", ifelse(is.na(total_cost), "To be confirmed", sprintf("EUR %.2f", total_cost))),
-      "",
-      lines
-    )
-  }
-
-  if (!is.null(files) && nrow(files) > 0) {
-    lines <- c(lines, "", "Uploaded files:")
-    for (i in seq_len(nrow(files))) {
-      lines <- c(lines, paste(files$file_type[i], files$original_name[i], files$path[i], sep = " | "))
-    }
-  }
-
-  draw_pdf_lines(lines, title, file)
 }
 
-write_sample_handoff_pdf <- function(project, samples, file) {
-  lines <- c(
-    paste("Project:", scalar_text(project$project_code), "-", scalar_text(project$project_name)),
-    paste("Project type:", scalar_text(project$project_type_name, scalar_text(project$project_type))),
-    paste("Responsible user:", scalar_text(project$responsible_user)),
-    paste("Submission date:", scalar_text(project$submission_date)),
-    "",
-    "Tube / ID | Condition | Replicate | Control? | Description / Comments"
+write_project_report_pdf <- function(
+  project,
+  samples,
+  files,
+  file,
+  document_type = "report",
+  cost_breakdown = NULL
+) {
+  accent <- trim_scalar(project$project_type_color, "#88CCEE")
+  if (!grepl("^#[0-9A-Fa-f]{6}$", accent)) accent <- "#88CCEE"
+  title <- switch(
+    document_type,
+    invoice = "Mass Spectrometry Project Invoice",
+    cost_estimate = "Mass Spectrometry Cost Estimate",
+    "Mass Spectrometry Project Report"
   )
+  if (is.null(cost_breakdown)) cost_breakdown <- project_cost_breakdown_snapshot(project)
+  pdf_currency <- function(value) {
+    number <- suppressWarnings(as.numeric(value))
+    if (is.na(number) || !is.finite(number)) "EUR 0.00" else sprintf("EUR %.2f", number)
+  }
+
+  grDevices::pdf(file, width = 8.27, height = 11.69, family = "Helvetica")
+  on.exit(grDevices::dev.off(), add = TRUE)
+
+  page_number <- 0L
+  y <- 0
+  navy <- "#243746"
+  text_color <- "#263238"
+  muted <- "#607D8B"
+  pale <- grDevices::adjustcolor(accent, alpha.f = 0.18)
+
+  new_page <- function() {
+    page_number <<- page_number + 1L
+    graphics::plot.new()
+    graphics::par(mar = c(0, 0, 0, 0), xpd = NA)
+    graphics::rect(0, 0.885, 1, 1, col = navy, border = NA)
+    graphics::rect(0, 0.875, 1, 0.885, col = accent, border = NA)
+    graphics::text(0.055, 0.955, title, adj = c(0, 0.5), col = "white", cex = 1.35, font = 2)
+    graphics::text(
+      0.055, 0.91,
+      paste(
+        scalar_text(project$project_code, "Project"),
+        scalar_text(project$project_type_name, scalar_text(project$project_type)),
+        sep = "  |  "
+      ),
+      adj = c(0, 0.5), col = "#E8EEF2", cex = 0.82
+    )
+    graphics::text(0.945, 0.035, paste("Page", page_number), adj = c(1, 0.5), col = muted, cex = 0.68)
+    graphics::text(0.055, 0.035, format(Sys.Date(), "%Y-%m-%d"), adj = c(0, 0.5), col = muted, cex = 0.68)
+    y <<- 0.84
+  }
+
+  ensure_space <- function(height) {
+    if (y - height < 0.07) new_page()
+  }
+
+  section <- function(label) {
+    ensure_space(0.14)
+    graphics::rect(0.05, y - 0.038, 0.95, y, col = pale, border = NA)
+    graphics::rect(0.05, y - 0.038, 0.058, y, col = accent, border = NA)
+    graphics::text(0.07, y - 0.019, label, adj = c(0, 0.5), col = navy, cex = 0.9, font = 2)
+    y <<- y - 0.052
+  }
+
+  key_value <- function(label, value) {
+    value <- trim_scalar(value)
+    if (!nzchar(value)) value <- "Not entered"
+    wrapped <- strwrap(value, width = 72)
+    if (length(wrapped) == 0) wrapped <- ""
+    row_height <- max(0.031, length(wrapped) * 0.022 + 0.008)
+    ensure_space(row_height)
+    graphics::text(0.065, y - 0.012, label, adj = c(0, 1), col = muted, cex = 0.72, font = 2)
+    for (i in seq_along(wrapped)) {
+      graphics::text(0.31, y - 0.012 - (i - 1) * 0.022, wrapped[[i]], adj = c(0, 1), col = text_color, cex = 0.78)
+    }
+    y <<- y - row_height
+  }
+
+  cost_row <- function(label, calculation, amount, total = FALSE) {
+    ensure_space(0.036)
+    fill <- if (isTRUE(total)) accent else if ((round(y * 1000) %% 2) == 0) "#F6F8F9" else "white"
+    graphics::rect(0.06, y - 0.032, 0.94, y, col = fill, border = "#E3E8EB")
+    graphics::text(0.075, y - 0.016, label, adj = c(0, 0.5), col = text_color, cex = 0.74, font = if (total) 2 else 1)
+    graphics::text(0.57, y - 0.016, calculation, adj = c(1, 0.5), col = text_color, cex = 0.7)
+    graphics::text(0.925, y - 0.016, amount, adj = c(1, 0.5), col = text_color, cex = 0.76, font = if (total) 2 else 1)
+    y <<- y - 0.032
+  }
+
+  new_page()
+  section("Project overview")
+  key_value("Project ID", scalar_text(project$project_code))
+  key_value("Sample / project name", scalar_text(project$project_name))
+  key_value("Project type", scalar_text(project$project_type_name, scalar_text(project$project_type)))
+  key_value("Status", scalar_text(project$status))
+  key_value("Submission date", scalar_text(project$submission_date))
+
+  section("Contact and billing")
+  key_value("Submitter", scalar_text(project$submitter_name))
+  key_value("Responsible user", scalar_text(project$responsible_user))
+  key_value("Email", scalar_text(project$submitter_email))
+  key_value("PI / Group", trimws(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname))))
+  key_value("Cost center", scalar_text(project$cost_center))
+
+  section("Sample and measurement")
+  key_value("Biological samples", scalar_text(project$num_samples))
+  if (!identical(scalar_text(project$project_type), "intact_mass")) {
+    key_value("Technical replicates", scalar_text(project$technical_replicates, "0"))
+  }
+  type_options <- project_pricing_options(project)
+  key_value("Project / analysis type", type_options$project_value)
+  key_value("Sample type", type_options$sample_value)
+  if (identical(scalar_text(project$project_type), "metabolomics")) {
+    key_value("Approach", scalar_text(project$metabolomics_approach))
+  }
+  key_value("Buffer / solvent", scalar_text(project$sample_buffer))
+  key_value("Sample amount", scalar_text(project$sample_amount))
+  key_value("Volume", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit)))
+
+  section("Project-specific details")
+  if (identical(scalar_text(project$project_type), "intact_mass")) {
+    key_value("Sequence / name / structure", scalar_text(project$intact_sequence_name_structure))
+    key_value("Expected mass [Da]", scalar_text(project$intact_expected_mass_da))
+    key_value("Stoichiometry", scalar_text(project$intact_stoichiometry))
+    key_value("Tags / modifications", scalar_text(project$intact_tags_modifications))
+  } else if (identical(scalar_text(project$project_type), "proteomics")) {
+    key_value("Acquisition mode", scalar_text(project$proteomics_acquisition_mode))
+    key_value("Quantification strategy", scalar_text(project$proteomics_quantification_strategy))
+    key_value("Species", scalar_text(project$proteomics_species))
+    key_value("Expression host", scalar_text(project$proteomics_expression_host))
+    key_value("Digestion enzyme", scalar_text(project$proteomics_digestion_enzyme))
+    key_value("PTMs / modifications", scalar_text(project$proteomics_ptms))
+    if (nzchar(trim_scalar(project$proteomics_crosslinker))) {
+      key_value("Crosslinker", scalar_text(project$proteomics_crosslinker))
+    }
+  } else if (identical(scalar_text(project$project_type), "metabolomics")) {
+    key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
+    key_value("Approach", scalar_text(project$metabolomics_approach))
+    key_value("Species", scalar_text(project$metabolomics_species))
+    key_value("Cell number", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit)))
+    key_value("Supernatant volume", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit)))
+    key_value("Tissue weight", paste(trim_scalar(project$metabolomics_tissue_weight), trim_scalar(project$metabolomics_tissue_weight_unit)))
+    key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
+  }
+
+  section("Biological question and requirements")
+  key_value("Biological question", scalar_text(project$sample_notes))
+  key_value("Special requirements", scalar_text(project$special_requirements))
+  if (nzchar(trim_scalar(project$report_notes))) key_value("Report notes", scalar_text(project$report_notes))
+
+  section("Cost breakdown")
+  cost_row("Biological samples", "", as.character(cost_breakdown$biological_samples))
+  if (!identical(scalar_text(project$project_type), "intact_mass")) {
+    cost_row("Technical replicate multiplier", "", as.character(cost_breakdown$technical_replicates))
+  }
+  cost_row("Billable analyses", "", as.character(cost_breakdown$billable_units))
+  cost_row(
+    first_non_empty(cost_breakdown$project_label, "Project type"),
+    paste(cost_breakdown$billable_units, "x", pdf_currency(cost_breakdown$project_unit_cost)),
+    pdf_currency(cost_breakdown$project_subtotal)
+  )
+  cost_row(
+    first_non_empty(cost_breakdown$sample_label, "Sample type"),
+    paste(cost_breakdown$billable_units, "x", pdf_currency(cost_breakdown$sample_unit_cost)),
+    pdf_currency(cost_breakdown$sample_subtotal)
+  )
+  cost_row("Base cost", "", pdf_currency(cost_breakdown$base_cost))
+  cost_row(
+    "Additional cost",
+    substr(trim_scalar(project$additional_cost_comment), 1, 45),
+    pdf_currency(cost_breakdown$additional_cost)
+  )
+  cost_row("Total cost", "", pdf_currency(cost_breakdown$total_cost), total = TRUE)
+
+  if (identical(document_type, "invoice")) {
+    section("Invoice addresses")
+    key_value("Invoice recipient", scalar_text(project$invoice_recipient_address))
+    key_value("Institute", scalar_text(project$invoice_institute_address, MS_INSTITUTE_ADDRESS))
+  }
 
   if (!is.null(samples) && nrow(samples) > 0) {
+    section("Sample overview")
     for (i in seq_len(nrow(samples))) {
-      lines <- c(lines, paste(
-        samples$tube_id[i] %||% "",
-        samples$condition[i] %||% "",
-        samples$replicate[i] %||% "",
-        ifelse(as.integer(samples$is_control[i] %||% 0) == 1, "Y", "N"),
-        samples$description[i] %||% "",
-        sep = " | "
-      ))
+      sample_label <- first_non_empty(samples$tube_id[[i]], paste("Sample", i))
+      detail_parts <- c(
+        trim_scalar(samples$condition[[i]]),
+        if (nzchar(trim_scalar(samples$replicate[[i]]))) paste("replicate", trim_scalar(samples$replicate[[i]])) else "",
+        if (as.integer(samples$is_control[[i]] %||% 0) == 1) "control" else "",
+        trim_scalar(samples$description[[i]])
+      )
+      sample_detail <- paste(detail_parts[nzchar(detail_parts)], collapse = " | ")
+      key_value(sample_label, sample_detail)
     }
   }
 
-  lines <- c(lines, "", MS_SAMPLE_TABLE_STATEMENT, "", MS_SUBMISSION_WARNING)
-  draw_pdf_lines(lines, "MS Sample Handoff Sheet", file)
+  section("Important information")
+  key_value("Sample retention", MS_SUBMISSION_WARNING)
 }
 
 log_email <- function(con, project_id, recipients, subject, status, error_message = "") {
@@ -1413,7 +1591,7 @@ project_type_sample_description <- function(project) {
     scalar_text(project$project_type),
     intact_mass = scalar_text(project$intact_project_type),
     proteomics = scalar_text(project$proteomics_project_type),
-    metabolomics = scalar_text(project$metabolomics_analysis_family),
+    metabolomics = scalar_text(project$metabolomics_analysis_type),
     ""
   )
   sample_type <- switch(
@@ -1443,7 +1621,7 @@ project_data_location <- function(project) {
   file.path(root, sanitize_path_part(scalar_text(project$project_code, "project")))
 }
 
-send_ms_submission_email <- function(con, project, samples, sample_table_path, handoff_pdf = NULL) {
+send_ms_submission_email <- function(con, project, samples, sample_table_path) {
   recipients <- MS_FACILITY_EMAIL
   project_type <- scalar_text(project$project_type_name, scalar_text(project$project_type))
   subject <- paste(project$project_code, "MS project submitted", sep = " - ")
@@ -1459,13 +1637,14 @@ send_ms_submission_email <- function(con, project, samples, sample_table_path, h
     project_summary_text(project, samples),
     sep = "\n"
   )
-  send_mail_safe(con, project$id[[1]], recipients, subject, body, c(sample_table_path, handoff_pdf))
+  send_mail_safe(con, project$id[[1]], recipients, subject, body, sample_table_path)
 }
 
-send_ms_cost_estimation_email <- function(con, project) {
+send_ms_cost_estimation_email <- function(con, project, report_file = NULL) {
   contact <- resolve_project_user_contact(con, project)
   recipients <- contact$email
   cost_text <- format_cost_value(project$total_cost)
+  breakdown <- project_cost_breakdown_snapshot(project)
   subject <- paste(project$project_code, "MS project cost estimation", sep = " - ")
   project_description <- project_type_sample_description(project)
   budget_holder <- trimws(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname)))
@@ -1477,13 +1656,19 @@ send_ms_cost_estimation_email <- function(con, project) {
     "<p><strong>Project:</strong> ", html_escape(project$project_code), " (", html_escape(project_description), ")<br>",
     "<strong>Budget holder:</strong> ", html_escape(budget_holder), "<br>",
     "<strong>Cost center:</strong> ", html_escape(project$cost_center), "</p>",
+    "<table style='border-collapse:collapse; min-width:420px;'>",
+    "<tr><td style='padding:5px 12px 5px 0;'>Project / analysis type</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$project_subtotal)), "</td></tr>",
+    "<tr><td style='padding:5px 12px 5px 0;'>Sample type</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$sample_subtotal)), "</td></tr>",
+    "<tr><td style='padding:5px 12px 5px 0;'>Additional cost</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$additional_cost)), "</td></tr>",
+    "</table>",
     "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
+    "<p>The attached report contains the complete project and cost breakdown.</p>",
     "<p>Please contact the facility if the estimate does not match the planned work.</p>",
     "<p>Best regards,<br>Mass Spectrometry Core Facility</p>",
     "</body></html>"
   )
 
-  send_mail_safe(con, project$id[[1]], recipients, subject, body, html = TRUE)
+  send_mail_safe(con, project$id[[1]], recipients, subject, body, attachments = report_file, html = TRUE)
 }
 
 send_ms_data_released_email <- function(con, project) {
@@ -2280,6 +2465,10 @@ server <- function(input, output, session) {
     role_can_edit_projects(current_user_role())
   }
 
+  can_manage_project_costs <- function() {
+    role_can_manage_project_costs(current_user_role())
+  }
+
   can_delete_projects <- function() {
     role_is_admin(current_user_role())
   }
@@ -2445,7 +2634,7 @@ server <- function(input, output, session) {
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_project_type
                  WHEN 'proteomics' THEN p.proteomics_project_type
-                 WHEN 'metabolomics' THEN p.metabolomics_analysis_family
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
                END AS selected_project_type,
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_sample_type
@@ -2453,7 +2642,7 @@ server <- function(input, output, session) {
                  WHEN 'metabolomics' THEN p.metabolomics_sample_type
                END AS selected_sample_type,
                CASE p.project_type
-                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
+                 WHEN 'metabolomics' THEN p.metabolomics_approach
                END AS selected_approach,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
@@ -2483,7 +2672,7 @@ server <- function(input, output, session) {
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_project_type
                  WHEN 'proteomics' THEN p.proteomics_project_type
-                 WHEN 'metabolomics' THEN p.metabolomics_analysis_family
+                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
                END AS selected_project_type,
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_sample_type
@@ -2491,7 +2680,7 @@ server <- function(input, output, session) {
                  WHEN 'metabolomics' THEN p.metabolomics_sample_type
                END AS selected_sample_type,
                CASE p.project_type
-                 WHEN 'metabolomics' THEN p.metabolomics_analysis_type
+                 WHEN 'metabolomics' THEN p.metabolomics_approach
                END AS selected_approach,
                COALESCE(owner.full_name, '') AS customer_full_name,
                COALESCE(owner.username, p.responsible_user, '') AS customer_username,
@@ -2733,9 +2922,9 @@ server <- function(input, output, session) {
     }
     fluidRow(
       column(6, selectInput(
-        "metabolomics_analysis_family",
+        "metabolomics_analysis_type",
         "Project Type *",
-        choices = load_choice_values(con, "metabolomics_analysis_family"),
+        choices = load_choice_values(con, "metabolomics_analysis_type"),
         selected = "Metabolomics"
       )),
       column(6, selectInput(
@@ -2819,7 +3008,7 @@ server <- function(input, output, session) {
           )
         } else {
           fluidRow(
-            column(4, textInput("project_name", field_label("Sample name *", "Short unique identifier chosen by the user, max 80 characters.", "AB-001_proteinA"))),
+            column(4, textInput("project_name", field_label("Sample name", "Optional. If left empty, the generated project ID will be used; max 80 characters.", "AB-001_proteinA"))),
             column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
             column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
             column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
@@ -2992,7 +3181,7 @@ server <- function(input, output, session) {
     if (project_type == "intact_mass") {
       return(div(
       class = "form-section type-intact",
-      h4("7. Intact / Native Mass"),
+      h4("7. Intact / Native / QC"),
         conditionalPanel("input.intact_project_type == 'Native protein complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
         textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
         textInput("intact_expected_mass_da", field_label("Expected mass (Da) *", "Monoisotopic or average mass from sequence or formula.")),
@@ -3033,14 +3222,14 @@ server <- function(input, output, session) {
       class = "form-section type-metabolomics",
       h4("7. Metabolomics"),
       selectInput(
-        "metabolomics_analysis_type",
+        "metabolomics_approach",
         field_label("Approach *", "Targeted, untargeted, both, or other."),
-        choices = c("Targeted", "Untargeted", "Both", "Other"),
+        choices = load_choice_values(con, "metabolomics_approach", c("Targeted", "Untargeted", "Both", "Other")),
         selected = "Targeted"
       ),
-      conditionalPanel("input.metabolomics_analysis_type == 'Other'", textInput("metabolomics_analysis_type_other", "Other analysis information")),
+      conditionalPanel("input.metabolomics_approach == 'Other'", textInput("metabolomics_approach_other", "Other analysis information")),
       conditionalPanel(
-        "input.metabolomics_analysis_type == 'Targeted' || input.metabolomics_analysis_type == 'Both'",
+        "input.metabolomics_approach == 'Targeted' || input.metabolomics_approach == 'Both'",
         textAreaInput("metabolomics_targeted_analyte_text", field_label("Targeted analyte list", "List compound names, CAS numbers, or HMDB IDs."), rows = 3),
         fileInput("metabolomics_library", "Targeted analyte file (.xlsx / .csv / .txt / .tsv)", accept = c(".xlsx", ".csv", ".txt", ".tsv"))
       ),
@@ -3052,7 +3241,6 @@ server <- function(input, output, session) {
     errors <- character()
     selected_type <- trim_scalar(input$project_type)
     required <- c(
-      project_name = "Sample name",
       submitter_first_name = "First name",
       submitter_last_name = "Last name",
       submitter_email = "E-mail",
@@ -3062,6 +3250,9 @@ server <- function(input, output, session) {
       concentration_determination = "Concentration determination",
       sample_notes = "Biological question"
     )
+    if (identical(selected_type, "intact_mass")) {
+      required <- c(project_name = "Sample name", required)
+    }
     if (!identical(selected_type, "metabolomics")) {
       required <- c(required,
         sample_buffer = "Buffer / Solvent",
@@ -3133,8 +3324,8 @@ server <- function(input, output, session) {
 
     if (selected_type == "metabolomics") {
       metabolomics_required <- c(
-        metabolomics_analysis_family = "Analysis type",
-        metabolomics_analysis_type = "Approach"
+        metabolomics_analysis_type = "Analysis type",
+        metabolomics_approach = "Approach"
       )
       for (id in names(metabolomics_required)) {
         if (!non_empty(input[[id]])) errors <- c(errors, paste(metabolomics_required[[id]], "is required."))
@@ -3156,10 +3347,10 @@ server <- function(input, output, session) {
       if (is.null(input$metabolomics_species) || length(input$metabolomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$metabolomics_analysis_type, "Other") && !non_empty(input$metabolomics_analysis_type_other)) {
+      if (identical(input$metabolomics_approach, "Other") && !non_empty(input$metabolomics_approach_other)) {
         errors <- c(errors, "Other analysis information is required when Approach is Other.")
       }
-      if (input$metabolomics_analysis_type %in% c("Targeted", "Both")) {
+      if (input$metabolomics_approach %in% c("Targeted", "Both")) {
         errors <- c(errors, validate_uploads(input$metabolomics_library, c("xlsx", "csv", "txt", "tsv"), as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20")), text_only = TRUE))
       }
     }
@@ -3262,9 +3453,9 @@ server <- function(input, output, session) {
 
     if (input$project_type == "metabolomics") {
       project_values <- c(project_values, list(
-        metabolomics_analysis_family = trim_scalar(input$metabolomics_analysis_family),
         metabolomics_analysis_type = trim_scalar(input$metabolomics_analysis_type),
-        metabolomics_analysis_type_other = trim_scalar(input$metabolomics_analysis_type_other),
+        metabolomics_approach = trim_scalar(input$metabolomics_approach),
+        metabolomics_approach_other = trim_scalar(input$metabolomics_approach_other),
         metabolomics_sample_type = trim_scalar(input$metabolomics_sample_type),
         metabolomics_cell_number = trim_scalar(input$metabolomics_cell_number),
         metabolomics_cell_number_unit = trim_scalar(input$metabolomics_cell_number_unit),
@@ -3296,6 +3487,9 @@ server <- function(input, output, session) {
       dbBegin(con)
       project_code <- next_project_code(con, project_values$project_type)
       project_values$project_code <- project_code
+      if (!nzchar(project_values$project_name)) {
+        project_values$project_name <- project_code
+      }
       project_values$last_status_update_at <- format(Sys.time(), "%Y-%m-%d %H:%M:%S")
       project_id <- insert_record(con, "projects", project_values)
       insert_record(con, "project_status_history", list(
@@ -3349,10 +3543,7 @@ server <- function(input, output, session) {
 
       project <- load_project_detail(con, project_id)
       saved_samples <- load_project_samples(con, project_id)
-      handoff_pdf <- tempfile(fileext = ".pdf")
-      write_sample_handoff_pdf(project, saved_samples, handoff_pdf)
-
-      send_ms_submission_email(con, project, saved_samples, unlist(stored_paths$sample_table, use.names = FALSE), handoff_pdf)
+      send_ms_submission_email(con, project, saved_samples, unlist(stored_paths$sample_table, use.names = FALSE))
 
       if (!identical(storage$status, "pool")) {
         send_mail_safe(
@@ -3406,7 +3597,7 @@ server <- function(input, output, session) {
       easyClose = FALSE,
       footer = tagList(
         modalButton("Close"),
-        if (can_edit_all_projects()) actionButton("send_cost_email_btn", "Send Cost Estimation", class = "btn btn-info"),
+        if (can_manage_project_costs()) actionButton("send_cost_email_btn", "Send Cost Estimation", class = "btn btn-info"),
         actionButton("update_project_btn", "Save Changes", class = "btn btn-primary")
       ),
       tabsetPanel(
@@ -3486,8 +3677,10 @@ server <- function(input, output, session) {
               )
             ))
           ),
-          if (can_edit_all_projects()) tagList(
-            selectInput("edit_status", "Project status", choices = ms_status_options, selected = project$status),
+          if (can_edit_all_projects()) {
+            selectInput("edit_status", "Project status", choices = ms_status_options, selected = project$status)
+          },
+          if (can_manage_project_costs()) tagList(
             textInput(
               "edit_additional_cost",
               field_label("Additional cost", "Enter a non-negative integer or decimal. € and EUR are accepted."),
@@ -3560,7 +3753,7 @@ server <- function(input, output, session) {
     additional_value <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
     additional_comment <- scalar_text(project$additional_cost_comment)
     additional_error <- NULL
-    if (can_edit_all_projects() && !is.null(input$edit_additional_cost)) {
+    if (can_manage_project_costs() && !is.null(input$edit_additional_cost)) {
       parsed <- parse_optional_currency(input$edit_additional_cost, "Additional cost")
       if (isTRUE(parsed$valid)) {
         additional_value <- parsed$value
@@ -3709,7 +3902,7 @@ server <- function(input, output, session) {
     }
     parsed_additional <- list(valid = TRUE, empty = TRUE, value = 0)
     additional_cost_comment <- scalar_text(project_before$additional_cost_comment)
-    if (can_edit_all_projects()) {
+    if (can_manage_project_costs()) {
       parsed_additional <- parse_optional_currency(input$edit_additional_cost, "Additional cost")
       if (!parsed_additional$valid) {
         showNotification(parsed_additional$error, type = "error", duration = 10)
@@ -3788,15 +3981,23 @@ server <- function(input, output, session) {
       } else {
         as.integer(edit_technical_replicates)
       }
+      additional_for_cost <- if (can_manage_project_costs()) {
+        parsed_additional$value
+      } else {
+        suppressWarnings(as.numeric(project_before$additional_cost[[1]] %||% 0))
+      }
+      if (is.na(additional_for_cost)) additional_for_cost <- 0
       cost_breakdown <- calculate_project_cost(
         con,
         project_before,
-        additional_cost = parsed_additional$value,
+        additional_cost = additional_for_cost,
         technical_replicates = technical_for_cost,
         use_snapshot = TRUE
       )
-      values$additional_cost <- parsed_additional$value
-      values$additional_cost_comment <- additional_cost_comment
+      if (can_manage_project_costs()) {
+        values$additional_cost <- parsed_additional$value
+        values$additional_cost_comment <- additional_cost_comment
+      }
       values$project_type_unit_cost <- cost_breakdown$project_unit_cost
       values$sample_type_unit_cost <- cost_breakdown$sample_unit_cost
       values$base_cost <- cost_breakdown$base_cost
@@ -3841,7 +4042,10 @@ server <- function(input, output, session) {
   })
 
   observeEvent(input$send_cost_email_btn, {
-    if (!can_edit_all_projects()) return()
+    if (!can_manage_project_costs()) {
+      showNotification("Only administrators can send cost estimations.", type = "error")
+      return()
+    }
     project_id <- editing_project_id()
     req(project_id)
     con <- ms_db_connect()
@@ -3882,7 +4086,19 @@ server <- function(input, output, session) {
     ), "id = ?", list(project_id))
 
     project <- load_project_detail(con, project_id)
-    res <- send_ms_cost_estimation_email(con, project)
+    samples <- load_project_samples(con, project_id)
+    files <- load_project_files(con, project_id)
+    cost_report <- tempfile(pattern = paste0(project$project_code[[1]], "_cost_estimate_"), fileext = ".pdf")
+    on.exit(unlink(cost_report), add = TRUE)
+    write_project_report_pdf(
+      project,
+      samples,
+      files,
+      cost_report,
+      document_type = "cost_estimate",
+      cost_breakdown = breakdown
+    )
+    res <- send_ms_cost_estimation_email(con, project, cost_report)
     if (isTRUE(res$success)) {
       load_projects()
       showNotification("Cost estimation email sent to the project user.", type = "message")
@@ -4050,6 +4266,17 @@ server <- function(input, output, session) {
   admin_costs_management_ui <- function() {
     div(
       class = "admin-management-modal",
+      radioButtons(
+        "admin_cost_project_type",
+        "Project type",
+        choices = c(
+          "Proteomics" = "proteomics",
+          "Metabolomics" = "metabolomics",
+          "Intact / Native / QC" = "intact_mass"
+        ),
+        selected = "proteomics",
+        inline = TRUE
+      ),
       div(
         class = "info-note",
         "Costs can be edited here, but rows are created from active Project Type and Sample Type dropdown options. Add a new option under Dropdown Options first; its initial cost will be €1."
@@ -4057,7 +4284,11 @@ server <- function(input, output, session) {
       DTOutput("admin_costs_table"),
       div(
         class = "admin-management-actions",
-        actionButton("admin_edit_cost_btn", "Edit Selected Cost", class = "btn btn-warning")
+        actionButton("admin_edit_cost_btn", "Edit Selected Cost", class = "btn btn-warning"),
+        span(
+          class = "cost-delete-note",
+          "Costs can be only deleted by deleting a project or sample type of the corresponding project type."
+        )
       )
     )
   }
@@ -4193,11 +4424,15 @@ server <- function(input, output, session) {
       paste0("ms_projects_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".sqlite")
     },
     content = function(file) {
-      ok <- file.copy(ms_db_path(), file, overwrite = TRUE)
-      if (!isTRUE(ok)) stop("Could not copy database file.")
-      con <- ms_db_connect()
-      on.exit(dbDisconnect(con), add = TRUE)
-      dbExecute(con, "
+      if (file.exists(file)) unlink(file)
+      source_con <- ms_db_connect()
+      on.exit(dbDisconnect(source_con), add = TRUE)
+      backup_con <- dbConnect(SQLite(), file)
+      on.exit(dbDisconnect(backup_con), add = TRUE)
+      RSQLite::sqliteCopyDatabase(source_con, backup_con)
+      integrity <- dbGetQuery(backup_con, "PRAGMA integrity_check")[[1]][[1]]
+      if (!identical(integrity, "ok")) stop("Database backup integrity check failed.")
+      dbExecute(source_con, "
         INSERT INTO backup_logs (backup_timestamp, backup_size, backed_up_by)
         VALUES (?, ?, ?)
       ", params = list(
@@ -4215,7 +4450,7 @@ server <- function(input, output, session) {
     required_tables <- c(
       "users", "budget_holders", "project_types", "reference_organisms",
       "controlled_options", "option_costs", "landing_text_blocks", "projects", "project_samples", "project_files",
-      "email_templates", "email_logs", "project_documents", "backup_logs"
+      "project_status_history", "email_templates", "email_logs", "project_documents", "backup_logs"
     )
     missing_tables <- setdiff(required_tables, dbListTables(con))
     if (identical(integrity, "ok") && length(missing_tables) == 0) {
@@ -4263,9 +4498,10 @@ server <- function(input, output, session) {
 
   output$admin_costs_table <- renderDT({
     admin_refresh()
+    req(input$admin_cost_project_type)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    costs <- load_admin_option_costs(con)
+    costs <- load_admin_option_costs(con, input$admin_cost_project_type)
     display <- costs[, c("group", "value", "cost"), drop = FALSE]
     names(display) <- c("Category", "Option", "Cost (€)")
     table <- datatable(
@@ -4590,10 +4826,10 @@ server <- function(input, output, session) {
 
   observeEvent(input$admin_edit_cost_btn, {
     selected <- input$admin_costs_table_rows_selected
-    req(selected)
+    req(selected, input$admin_cost_project_type)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    costs <- load_admin_option_costs(con)
+    costs <- load_admin_option_costs(con, input$admin_cost_project_type)
     req(nrow(costs) >= selected[1])
     row <- costs[selected[1], , drop = FALSE]
     admin_edit_cost_option_id(row$controlled_option_id[[1]])

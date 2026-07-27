@@ -10,7 +10,8 @@ execute:
 
 ### Contents
 
-- [Changes on 23.07.2026](#changes-on-24.07.2026)
+- [Changes on 27.07.2026](#changes-on-27.07.2026)
+- [Changes on 24.07.2026](#changes-on-24.07.2026)
 - [Changes on 23.07.2026](#changes-on-23.07.2026)
 - [Changes on 22.07.2026](#changes-on-22.07.2026)
 - [Changes on 23.06.2026](#changes-on-23.06.2026)
@@ -20,8 +21,15 @@ execute:
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
 
+## Changes on 27.07.2026 
 
-# changes-on-23.07.2026
+1. Admin project-cost management now has Proteomics, Metabolomics, and Intact tabs with filtered costs.
+2. minor changes were made to project- and sample types. Duplicated entries were removed.
+3. intaact template was modified
+4. Proteomics and metabolomics sample names are optional and default to the generated project ID.
+5. Submission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.
+
+## Changes on 24.07.2026 
 
 1. Create similar structure for all three types, move project type and sample type into section 5
 2. Create a combined columns in the project table.

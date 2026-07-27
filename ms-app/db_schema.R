@@ -81,8 +81,8 @@ ms_controlled_options <- list(
   digestion_enzyme = c("Trypsin", "LysC", "GluC", "AspN", "Chymotrypsin", "Trypsin+LysC", "Other", "Performed by user"),
   ptm_variable_modifications = c("Phospho (Ser/Thr/Tyr)", "Acetylation (Lys/N-term)", "GlyGly (Lys, ubiquitin)", "Methylation", "Other"),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
-  metabolomics_analysis_type = c("Targeted (specific panel)", "Untargeted (global profiling)", "Lipidomics", "Other"),
-  metabolomics_analysis_family = c("Metabolomics", "Lipidomics"),
+  metabolomics_approach = c("Targeted", "Untargeted", "Both", "Other"),
+  metabolomics_analysis_type = c("Metabolomics", "Lipidomics"),
   metabolomics_sample_type = c("cell pellet", "supernatent", "protein pellet"),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
@@ -99,7 +99,7 @@ ms_priced_option_groups <- c(
   "intact_sample_type",
   "proteomics_project_type",
   "proteomics_sample_type",
-  "metabolomics_analysis_family",
+  "metabolomics_analysis_type",
   "metabolomics_sample_type"
 )
 
@@ -124,7 +124,7 @@ ms_default_option_costs <- list(
     "ready-to-load (digested+desalted)" = 0,
     "Enrichement (PTM)" = 70
   ),
-  metabolomics_analysis_family = c(
+  metabolomics_analysis_type = c(
     "Metabolomics" = 20,
     "Lipidomics" = 20
   ),
@@ -500,6 +500,8 @@ ms_create_schema <- function(con) {
       metabolomics_analysis_type TEXT,
       metabolomics_analysis_type_other TEXT,
       metabolomics_analysis_family TEXT,
+      metabolomics_approach TEXT,
+      metabolomics_approach_other TEXT,
       metabolomics_sample_type TEXT,
       metabolomics_sample_type_other TEXT,
       metabolomics_cell_number TEXT,
@@ -655,6 +657,9 @@ ms_migrate_schema <- function(con) {
 
   if (!ms_table_exists(con, "projects")) return(invisible(TRUE))
 
+  project_fields_before_migration <- dbListFields(con, "projects")
+  migrate_metabolomics_semantics <- !("metabolomics_approach" %in% project_fields_before_migration)
+
   project_columns <- c(
     "project_code TEXT",
     "project_type TEXT DEFAULT 'proteomics'",
@@ -724,6 +729,8 @@ ms_migrate_schema <- function(con) {
     "metabolomics_analysis_type TEXT",
     "metabolomics_analysis_type_other TEXT",
     "metabolomics_analysis_family TEXT",
+    "metabolomics_approach TEXT",
+    "metabolomics_approach_other TEXT",
     "metabolomics_sample_type TEXT",
     "metabolomics_sample_type_other TEXT",
     "metabolomics_cell_number TEXT",
@@ -754,6 +761,57 @@ ms_migrate_schema <- function(con) {
 
   for (column_sql in project_columns) {
     ms_add_column_if_missing(con, "projects", column_sql)
+  }
+
+  if (isTRUE(migrate_metabolomics_semantics)) {
+    dbExecute(con, "
+      UPDATE projects
+      SET metabolomics_approach = metabolomics_analysis_type,
+          metabolomics_approach_other = metabolomics_analysis_type_other,
+          metabolomics_analysis_type = COALESCE(
+            NULLIF(trim(metabolomics_analysis_family), ''),
+            metabolomics_analysis_type
+          )
+      WHERE project_type = 'metabolomics'
+    ")
+  }
+
+  legacy_family_count <- dbGetQuery(con, "
+    SELECT COUNT(*) AS n
+    FROM controlled_options
+    WHERE option_group = 'metabolomics_analysis_family'
+  ")$n[[1]]
+  new_approach_count <- dbGetQuery(con, "
+    SELECT COUNT(*) AS n
+    FROM controlled_options
+    WHERE option_group = 'metabolomics_approach'
+  ")$n[[1]]
+  if (legacy_family_count > 0 && new_approach_count == 0) {
+    dbExecute(con, "
+      UPDATE controlled_options
+      SET option_group = 'metabolomics_approach'
+      WHERE option_group = 'metabolomics_analysis_type'
+    ")
+    dbExecute(con, "
+      UPDATE controlled_options
+      SET option_group = 'metabolomics_analysis_type'
+      WHERE option_group = 'metabolomics_analysis_family'
+    ")
+    dbExecute(con, "
+      UPDATE controlled_options
+      SET value = CASE value
+        WHEN 'Targeted (specific panel)' THEN 'Targeted'
+        WHEN 'Untargeted (global profiling)' THEN 'Untargeted'
+        ELSE value
+      END
+      WHERE option_group = 'metabolomics_approach'
+    ")
+    dbExecute(con, "
+      UPDATE controlled_options
+      SET is_active = 0
+      WHERE option_group = 'metabolomics_approach'
+        AND value = 'Lipidomics'
+    ")
   }
 
   dbExecute(con, "
@@ -1004,12 +1062,12 @@ ms_backfill_project_costs <- function(con) {
         JOIN option_costs oc ON oc.controlled_option_id = co.id
         WHERE co.option_group = CASE projects.project_type
           WHEN 'proteomics' THEN 'proteomics_project_type'
-          WHEN 'metabolomics' THEN 'metabolomics_analysis_family'
+          WHEN 'metabolomics' THEN 'metabolomics_analysis_type'
           WHEN 'intact_mass' THEN 'intact_project_type'
         END
           AND co.value = CASE projects.project_type
             WHEN 'proteomics' THEN projects.proteomics_project_type
-            WHEN 'metabolomics' THEN projects.metabolomics_analysis_family
+            WHEN 'metabolomics' THEN projects.metabolomics_analysis_type
             WHEN 'intact_mass' THEN projects.intact_project_type
           END
         LIMIT 1

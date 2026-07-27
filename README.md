@@ -28,3 +28,27 @@ We highly recommend to contact us before the start of your experiment. In collab
 * Data analysis on collaborative basis
 
 If you have any further questions, please do not hesitate to contact us @ [omicsdesk](mailto:omicsdesk@biochem.mpg.de)!
+
+## Database backups and exact rebuilds
+
+The database creation script preserves an existing database by default. It no longer deletes data unless `MS_RESET_DB=1` is explicitly set.
+
+Create a transactionally consistent, integrity-checked backup:
+
+```bash
+Rscript scripts/backup_database.R /srv/shiny-server/ms-app/ms_projects.db /secure/backups/ms_projects.sqlite
+```
+
+Restore that exact database on a new machine, then apply any newer schema migrations and seed defaults:
+
+```bash
+cd ms-app
+MS_DB_FILE=ms_projects.db \
+MS_RESTORE_DB_FROM=/secure/backups/ms_projects.sqlite \
+MS_RESET_DB=1 \
+Rscript setup_database.R
+```
+
+The SQLite backup preserves all database rows, including projects, sample records, dropdown options, custom costs, users, and status history. Project uploads are stored outside SQLite and must be backed up separately from the configured `MS_UPLOAD_ROOT` and `MS_LOCAL_UPLOAD_FALLBACK` directories.
+
+For production recovery, keep the database backup and upload-directory backup from the same maintenance window. Test recovery on a separate path before replacing the live database.

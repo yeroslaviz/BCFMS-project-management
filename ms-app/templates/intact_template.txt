@@ -1,1 +1,1 @@
-Tube ID	Sample Name
+Tube ID	Sample Name	Concentration [mg/mL]	Volume [uL]	Expected mass [Da]	Sequence
