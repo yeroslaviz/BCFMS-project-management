@@ -207,14 +207,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#quick-start" id="toc-quick-start" class="nav-link active" data-scroll-target="#quick-start"><span class="header-section-number">2.1</span> Quick Start</a>
-  <ul class="collapse">
-  <li><a href="#local-app-run" id="toc-local-app-run" class="nav-link" data-scroll-target="#local-app-run"><span class="header-section-number">2.1.1</span> Local app run</a></li>
-  <li><a href="#initialize-or-migrate-the-local-database" id="toc-initialize-or-migrate-the-local-database" class="nav-link" data-scroll-target="#initialize-or-migrate-the-local-database"><span class="header-section-number">2.1.2</span> Initialize or migrate the local database</a></li>
-  <li><a href="#local-ldapproxy-simulation" id="toc-local-ldapproxy-simulation" class="nav-link" data-scroll-target="#local-ldapproxy-simulation"><span class="header-section-number">2.1.3</span> Local LDAP/proxy simulation</a></li>
-  <li><a href="#vm-ldap-mode" id="toc-vm-ldap-mode" class="nav-link" data-scroll-target="#vm-ldap-mode"><span class="header-section-number">2.1.4</span> VM LDAP mode</a></li>
-  <li><a href="#vm-maintenance-mode" id="toc-vm-maintenance-mode" class="nav-link" data-scroll-target="#vm-maintenance-mode"><span class="header-section-number">2.1.5</span> VM maintenance mode</a></li>
-  </ul></li>
+  <li><a href="#local-app-run" id="toc-local-app-run" class="nav-link active" data-scroll-target="#local-app-run"><span class="header-section-number">2.1</span> Local app run</a></li>
+  <li><a href="#initialize-or-migrate-the-local-database" id="toc-initialize-or-migrate-the-local-database" class="nav-link" data-scroll-target="#initialize-or-migrate-the-local-database"><span class="header-section-number">2.2</span> Initialize or migrate the local database</a></li>
+  <li><a href="#local-ldapproxy-simulation" id="toc-local-ldapproxy-simulation" class="nav-link" data-scroll-target="#local-ldapproxy-simulation"><span class="header-section-number">2.3</span> Local LDAP/proxy simulation</a></li>
+  <li><a href="#vm-ldap-mode" id="toc-vm-ldap-mode" class="nav-link" data-scroll-target="#vm-ldap-mode"><span class="header-section-number">2.4</span> VM LDAP mode</a></li>
+  <li><a href="#vm-maintenance-mode" id="toc-vm-maintenance-mode" class="nav-link" data-scroll-target="#vm-maintenance-mode"><span class="header-section-number">2.5</span> VM maintenance mode</a></li>
   </ul>
 </nav>
     </div>
@@ -240,10 +237,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="quick-start" class="level2" data-number="2.1">
-<h2 data-number="2.1" class="anchored" data-anchor-id="quick-start"><span class="header-section-number">2.1</span> Quick Start</h2>
-<section id="local-app-run" class="level3" data-number="2.1.1">
-<h3 data-number="2.1.1" class="anchored" data-anchor-id="local-app-run"><span class="header-section-number">2.1.1</span> Local app run</h3>
+<section id="local-app-run" class="level2" data-number="2.1">
+<h2 data-number="2.1" class="anchored" data-anchor-id="local-app-run"><span class="header-section-number">2.1</span> Local app run</h2>
 <p>From the repository root:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">AUTH_MODE =</span> <span class="st">"local"</span>)</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"ms-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -253,16 +248,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>password: <code>admin123</code> unless <code>MS_LOCAL_ADMIN_PASSWORD</code> is set</li>
 </ul>
 </section>
-<section id="initialize-or-migrate-the-local-database" class="level3" data-number="2.1.2">
-<h3 data-number="2.1.2" class="anchored" data-anchor-id="initialize-or-migrate-the-local-database"><span class="header-section-number">2.1.2</span> Initialize or migrate the local database</h3>
+<section id="initialize-or-migrate-the-local-database" class="level2" data-number="2.2">
+<h2 data-number="2.2" class="anchored" data-anchor-id="initialize-or-migrate-the-local-database"><span class="header-section-number">2.2</span> Initialize or migrate the local database</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ms-app</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This creates <code>ms_projects.db</code> when it does not exist. If it already exists, the command preserves all rows while applying schema migrations and seed checks.</p>
 <p>Do not set <code>MS_RESET_DB=1</code> during normal setup or deployment. That option deliberately deletes and rebuilds the target database. Take a verified backup first and use it only when an empty database is intended.</p>
 <p>For moving the current database to another machine or recovering it exactly, follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a>.</p>
 </section>
-<section id="local-ldapproxy-simulation" class="level3" data-number="2.1.3">
-<h3 data-number="2.1.3" class="anchored" data-anchor-id="local-ldapproxy-simulation"><span class="header-section-number">2.1.3</span> Local LDAP/proxy simulation</h3>
+<section id="local-ldapproxy-simulation" class="level2" data-number="2.3">
+<h2 data-number="2.3" class="anchored" data-anchor-id="local-ldapproxy-simulation"><span class="header-section-number">2.3</span> Local LDAP/proxy simulation</h2>
 <p>The production VM lets Apache do LDAP authentication and passes the authenticated username to Shiny. To simulate that locally:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">AUTH_MODE =</span> <span class="st">"ldap"</span>,</span>
@@ -270,10 +265,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>)</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"ms-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Then open the app with an <code>auth_user</code> query parameter, for example:</p>
-<pre class="text"><code>http://127.0.0.1:3838/?auth_user=yeroslaviz</code></pre>
+<pre class="text"><code>http://127.0.0.1:3838/?auth_user=USER</code></pre>
 </section>
-<section id="vm-ldap-mode" class="level3" data-number="2.1.4">
-<h3 data-number="2.1.4" class="anchored" data-anchor-id="vm-ldap-mode"><span class="header-section-number">2.1.4</span> VM LDAP mode</h3>
+<section id="vm-ldap-mode" class="level2" data-number="2.4">
+<h2 data-number="2.4" class="anchored" data-anchor-id="vm-ldap-mode"><span class="header-section-number">2.4</span> VM LDAP mode</h2>
 <p>Set the Shiny runtime environment either through a systemd override or <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AUTH_MODE</span><span class="ot">=</span><span class="st">ldap</span></span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">TRUST_PROXY_AUTH_USER_QUERY</span><span class="ot">=</span><span class="dv">1</span></span>
@@ -302,15 +297,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Restart Shiny after changing runtime settings:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="vm-maintenance-mode" class="level3" data-number="2.1.5">
-<h3 data-number="2.1.5" class="anchored" data-anchor-id="vm-maintenance-mode"><span class="header-section-number">2.1.5</span> VM maintenance mode</h3>
+<section id="vm-maintenance-mode" class="level2" data-number="2.5">
+<h2 data-number="2.5" class="anchored" data-anchor-id="vm-maintenance-mode"><span class="header-section-number">2.5</span> VM maintenance mode</h2>
 <p>Switch temporarily to local login:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AUTH_MODE</span><span class="ot">=</span><span class="st">local</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Then restart:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->
@@ -406,6 +400,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
             if (link.getAttribute("rel") === null) {
               link.setAttribute("rel", "noopener");
             }
+            // default icon
+            link.classList.add("external");
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {

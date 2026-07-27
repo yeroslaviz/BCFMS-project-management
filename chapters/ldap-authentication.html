@@ -207,11 +207,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#ldap-authentication" id="toc-ldap-authentication" class="nav-link active" data-scroll-target="#ldap-authentication"><span class="header-section-number">4.1</span> LDAP Authentication</a></li>
-  <li><a href="#app-runtime" id="toc-app-runtime" class="nav-link" data-scroll-target="#app-runtime"><span class="header-section-number">4.2</span> App Runtime</a></li>
-  <li><a href="#apache-template" id="toc-apache-template" class="nav-link" data-scroll-target="#apache-template"><span class="header-section-number">4.3</span> Apache Template</a></li>
-  <li><a href="#smoke-test" id="toc-smoke-test" class="nav-link" data-scroll-target="#smoke-test"><span class="header-section-number">4.4</span> Smoke Test</a></li>
-  <li><a href="#local-simulation" id="toc-local-simulation" class="nav-link" data-scroll-target="#local-simulation"><span class="header-section-number">4.5</span> Local Simulation</a></li>
+  <li><a href="#app-runtime" id="toc-app-runtime" class="nav-link active" data-scroll-target="#app-runtime"><span class="header-section-number">4.1</span> App Runtime</a></li>
+  <li><a href="#apache-template" id="toc-apache-template" class="nav-link" data-scroll-target="#apache-template"><span class="header-section-number">4.2</span> Apache Template</a></li>
+  <li><a href="#smoke-test" id="toc-smoke-test" class="nav-link" data-scroll-target="#smoke-test"><span class="header-section-number">4.3</span> Smoke Test</a></li>
+  <li><a href="#local-simulation" id="toc-local-simulation" class="nav-link" data-scroll-target="#local-simulation"><span class="header-section-number">4.4</span> Local Simulation</a></li>
   </ul>
 </nav>
     </div>
@@ -237,13 +236,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="ldap-authentication" class="level2" data-number="4.1">
-<h2 data-number="4.1" class="anchored" data-anchor-id="ldap-authentication"><span class="header-section-number">4.1</span> LDAP Authentication</h2>
 <p>LDAP authentication is handled by Apache in front of Shiny. The app trusts the authenticated user only when <code>AUTH_MODE=ldap</code> and Apache has canonicalized the request to <code>/ms-app/?auth_user=&lt;user&gt;</code>.</p>
-<p>After authentication, the app reads the user’s LDAP <code>ou</code> and <code>departmentNumber</code> attributes. LDAP group IDs such as <code>b_cox</code> are matched to the corresponding PI / Group (<code>Cox</code>), and the department number is matched to that group’s cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. If no research group matches, <code>b_ms</code> falls back to MS Facility / <code>K350B</code> and <code>b_ngs</code> falls back to NGS Facility / <code>K350F</code>. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.</p>
-</section>
-<section id="app-runtime" class="level2" data-number="4.2">
-<h2 data-number="4.2" class="anchored" data-anchor-id="app-runtime"><span class="header-section-number">4.2</span> App Runtime</h2>
+<p>After authentication, the app reads the user’s LDAP <code>ou</code> and <code>departmentNumber</code> attributes. LDAP group IDs are matched to the corresponding PI / Group, and the department number is matched to that group’s cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. The MS- and the NGS-Facilities have their default values set. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.</p>
+<section id="app-runtime" class="level2" data-number="4.1">
+<h2 data-number="4.1" class="anchored" data-anchor-id="app-runtime"><span class="header-section-number">4.1</span> App Runtime</h2>
 <p>Set this in <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AUTH_MODE</span><span class="ot">=</span><span class="st">ldap</span></span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="dt">TRUST_PROXY_AUTH_USER_QUERY</span><span class="ot">=</span><span class="dv">1</span></span>
@@ -251,12 +247,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_COST_CENTER</span><span class="ot">=</span><span class="st">departmentNumber</span></span>
 <span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_FACILITY_GROUPS</span><span class="ot">=</span><span class="st">b_ms,b_ngs</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Set <code>LDAP_ATTR_COST_CENTER</code> to the attribute used by the local directory if it is not <code>departmentNumber</code>. The attribute value must match the corresponding <code>cost_center</code> entry in <code>budget_holders.csv</code> (comparison ignores punctuation and letter case).</p>
-<p><code>LDAP_FACILITY_GROUPS</code> lists service memberships that are considered only after research-group matching. Its default is <code>b_ms,b_ngs</code>.</p>
+<p><code>LDAP_FACILITY_GROUPS</code> lists service memberships that are considered only after research-group matching.</p>
 <p>Restart Shiny:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="apache-template" class="level2" data-number="4.3">
-<h2 data-number="4.3" class="anchored" data-anchor-id="apache-template"><span class="header-section-number">4.3</span> Apache Template</h2>
+<section id="apache-template" class="level2" data-number="4.2">
+<h2 data-number="4.2" class="anchored" data-anchor-id="apache-template"><span class="header-section-number">4.2</span> Apache Template</h2>
 <p>Use:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">scripts/ms-vm-shiny-443.conf</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The template:</p>
@@ -268,17 +264,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>proxies websocket traffic to Shiny Server</li>
 </ul>
 </section>
-<section id="smoke-test" class="level2" data-number="4.4">
-<h2 data-number="4.4" class="anchored" data-anchor-id="smoke-test"><span class="header-section-number">4.4</span> Smoke Test</h2>
+<section id="smoke-test" class="level2" data-number="4.3">
+<h2 data-number="4.3" class="anchored" data-anchor-id="smoke-test"><span class="header-section-number">4.3</span> Smoke Test</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Expected result: <code>302</code> to <code>/ms-app/?auth_user=USER</code>, followed by <code>200</code> after redirects.</p>
 </section>
-<section id="local-simulation" class="level2" data-number="4.5">
-<h2 data-number="4.5" class="anchored" data-anchor-id="local-simulation"><span class="header-section-number">4.5</span> Local Simulation</h2>
+<section id="local-simulation" class="level2" data-number="4.4">
+<h2 data-number="4.4" class="anchored" data-anchor-id="local-simulation"><span class="header-section-number">4.4</span> Local Simulation</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">AUTH_MODE =</span> <span class="st">"ldap"</span>, <span class="at">TRUST_PROXY_AUTH_USER_QUERY =</span> <span class="st">"1"</span>)</span>
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"ms-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Open:</p>
-<pre class="text"><code>http://127.0.0.1:3838/?auth_user=yeroslaviz</code></pre>
+<pre class="text"><code>http://127.0.0.1:3838/?auth_user=USER</code></pre>
 
 
 </section>
@@ -376,6 +372,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
             if (link.getAttribute("rel") === null) {
               link.setAttribute("rel", "noopener");
             }
+            // default icon
+            link.classList.add("external");
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {

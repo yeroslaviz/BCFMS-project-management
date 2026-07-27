@@ -207,14 +207,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#troubleshooting" id="toc-troubleshooting" class="nav-link active" data-scroll-target="#troubleshooting"><span class="header-section-number">5.1</span> Troubleshooting</a></li>
-  <li><a href="#app-shows-a-database-error" id="toc-app-shows-a-database-error" class="nav-link" data-scroll-target="#app-shows-a-database-error"><span class="header-section-number">5.2</span> App Shows a Database Error</a></li>
-  <li><a href="#ms-app-returns-404" id="toc-ms-app-returns-404" class="nav-link" data-scroll-target="#ms-app-returns-404"><span class="header-section-number">5.3</span> <code>/ms-app/</code> Returns 404</a></li>
-  <li><a href="#ldap-prompt-works-but-app-does-not-log-in" id="toc-ldap-prompt-works-but-app-does-not-log-in" class="nav-link" data-scroll-target="#ldap-prompt-works-but-app-does-not-log-in"><span class="header-section-number">5.4</span> LDAP Prompt Works but App Does Not Log In</a></li>
-  <li><a href="#smtp-relay-rejections" id="toc-smtp-relay-rejections" class="nav-link" data-scroll-target="#smtp-relay-rejections"><span class="header-section-number">5.5</span> SMTP Relay Rejections</a></li>
-  <li><a href="#upload-pool-missing" id="toc-upload-pool-missing" class="nav-link" data-scroll-target="#upload-pool-missing"><span class="header-section-number">5.6</span> Upload Pool Missing</a></li>
-  <li><a href="#logs" id="toc-logs" class="nav-link" data-scroll-target="#logs"><span class="header-section-number">5.7</span> Logs</a></li>
-  <li><a href="#local-maintenance-mode" id="toc-local-maintenance-mode" class="nav-link" data-scroll-target="#local-maintenance-mode"><span class="header-section-number">5.8</span> Local Maintenance Mode</a></li>
+  <li><a href="#app-shows-a-database-error" id="toc-app-shows-a-database-error" class="nav-link active" data-scroll-target="#app-shows-a-database-error"><span class="header-section-number">5.1</span> App Shows a Database Error</a></li>
+  <li><a href="#ms-app-returns-404" id="toc-ms-app-returns-404" class="nav-link" data-scroll-target="#ms-app-returns-404"><span class="header-section-number">5.2</span> <code>/ms-app/</code> Returns 404</a></li>
+  <li><a href="#ldap-prompt-works-but-app-does-not-log-in" id="toc-ldap-prompt-works-but-app-does-not-log-in" class="nav-link" data-scroll-target="#ldap-prompt-works-but-app-does-not-log-in"><span class="header-section-number">5.3</span> LDAP Prompt Works but App Does Not Log In</a></li>
+  <li><a href="#smtp-relay-rejections" id="toc-smtp-relay-rejections" class="nav-link" data-scroll-target="#smtp-relay-rejections"><span class="header-section-number">5.4</span> SMTP Relay Rejections</a></li>
+  <li><a href="#upload-pool-missing" id="toc-upload-pool-missing" class="nav-link" data-scroll-target="#upload-pool-missing"><span class="header-section-number">5.5</span> Upload Pool Missing</a></li>
+  <li><a href="#logs" id="toc-logs" class="nav-link" data-scroll-target="#logs"><span class="header-section-number">5.6</span> Logs</a></li>
+  <li><a href="#local-maintenance-mode" id="toc-local-maintenance-mode" class="nav-link" data-scroll-target="#local-maintenance-mode"><span class="header-section-number">5.7</span> Local Maintenance Mode</a></li>
   </ul>
 </nav>
     </div>
@@ -240,22 +239,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="troubleshooting" class="level2" data-number="5.1">
-<h2 data-number="5.1" class="anchored" data-anchor-id="troubleshooting"><span class="header-section-number">5.1</span> Troubleshooting</h2>
-</section>
-<section id="app-shows-a-database-error" class="level2" data-number="5.2">
-<h2 data-number="5.2" class="anchored" data-anchor-id="app-shows-a-database-error"><span class="header-section-number">5.2</span> App Shows a Database Error</h2>
+<section id="app-shows-a-database-error" class="level2" data-number="5.1">
+<h2 data-number="5.1" class="anchored" data-anchor-id="app-shows-a-database-error"><span class="header-section-number">5.1</span> App Shows a Database Error</h2>
 <p>Initialize the MS database:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The setup command preserves an existing database by default while applying migrations and seed checks. Do not use <code>MS_RESET_DB=1</code> as a troubleshooting step; it deliberately deletes the target database. If replacement is necessary, first follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a>.</p>
+<p>The setup command preserves an existing database by default while applying migrations and seed checks. Do not use <code>MS_RESET_DB=1</code> as a troubleshooting step; <strong>it deletes the target database.</strong> If replacement is necessary, first follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a>.</p>
 <p>Check ownership:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">ls</span> <span class="at">-l</span> /srv/shiny-server/ms-app/ms_projects.db</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/ms_projects.db</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="ms-app-returns-404" class="level2" data-number="5.3">
-<h2 data-number="5.3" class="anchored" data-anchor-id="ms-app-returns-404"><span class="header-section-number">5.3</span> <code>/ms-app/</code> Returns 404</h2>
+<section id="ms-app-returns-404" class="level2" data-number="5.2">
+<h2 data-number="5.2" class="anchored" data-anchor-id="ms-app-returns-404"><span class="header-section-number">5.2</span> <code>/ms-app/</code> Returns 404</h2>
 <p>Check that Shiny serves the app:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Check Apache proxy paths in <code>scripts/ms-vm-shiny-443.conf</code>:</p>
@@ -266,8 +262,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="ldap-prompt-works-but-app-does-not-log-in" class="level2" data-number="5.4">
-<h2 data-number="5.4" class="anchored" data-anchor-id="ldap-prompt-works-but-app-does-not-log-in"><span class="header-section-number">5.4</span> LDAP Prompt Works but App Does Not Log In</h2>
+<section id="ldap-prompt-works-but-app-does-not-log-in" class="level2" data-number="5.3">
+<h2 data-number="5.3" class="anchored" data-anchor-id="ldap-prompt-works-but-app-does-not-log-in"><span class="header-section-number">5.3</span> LDAP Prompt Works but App Does Not Log In</h2>
 <p>This is the same failure mode documented for BCFNGS: Apache LDAP works, but the Shiny R worker is still running with local-mode environment settings. Do not rely only on <code>systemctl show shiny-server --property=Environment</code>; the working BCFNGS setup uses the app-local <code>.Renviron</code>.</p>
 <p>Confirm the app-local runtime mode:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cat /srv/shiny-server/ms-app/.Renviron</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -317,13 +313,13 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Expected: <code>Location: https://mscf-vm.biochem.mpg.de/ms-app/?auth_user=USER</code>.</p>
 </section>
-<section id="smtp-relay-rejections" class="level2" data-number="5.5">
-<h2 data-number="5.5" class="anchored" data-anchor-id="smtp-relay-rejections"><span class="header-section-number">5.5</span> SMTP Relay Rejections</h2>
+<section id="smtp-relay-rejections" class="level2" data-number="5.4">
+<h2 data-number="5.4" class="anchored" data-anchor-id="smtp-relay-rejections"><span class="header-section-number">5.4</span> SMTP Relay Rejections</h2>
 <p>If <code>scripts/test.mailR.R</code> can send mail from the VM but the app logs <code>550 5.7.54 SMTP; Unable to relay recipient in non-accepted domain</code>, first compare the script’s <code>from</code> address with <code>MS_MAIL_FROM</code> in <code>/srv/shiny-server/ms-app/.Renviron</code>. The relay must accept the app’s sender address, not only the standalone test sender.</p>
 <p>The app sends one SMTP message per recipient and logs each result separately. This means one rejected address should no longer prevent the other recipients from receiving the message. If the relay should only receive internal recipients while testing, set <code>MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</code> in <code>.Renviron</code>; otherwise leave it unset.</p>
 </section>
-<section id="upload-pool-missing" class="level2" data-number="5.6">
-<h2 data-number="5.6" class="anchored" data-anchor-id="upload-pool-missing"><span class="header-section-number">5.6</span> Upload Pool Missing</h2>
+<section id="upload-pool-missing" class="level2" data-number="5.5">
+<h2 data-number="5.5" class="anchored" data-anchor-id="upload-pool-missing"><span class="header-section-number">5.5</span> Upload Pool Missing</h2>
 <p>Configured root:</p>
 <pre class="text"><code>/fs/pool/pool-ms-user</code></pre>
 <p>If this path does not exist, the app stores uploads in <code>/srv/ms-app-data/uploads_pending_pool/</code> outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.</p>
@@ -331,23 +327,20 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Check fallback files:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> find /srv/ms-app-data/uploads_pending_pool <span class="at">-maxdepth</span> 2 <span class="at">-type</span> f</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="logs" class="level2" data-number="5.7">
-<h2 data-number="5.7" class="anchored" data-anchor-id="logs"><span class="header-section-number">5.7</span> Logs</h2>
+<section id="logs" class="level2" data-number="5.6">
+<h2 data-number="5.6" class="anchored" data-anchor-id="logs"><span class="header-section-number">5.6</span> Logs</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/shiny-server/ms-app-shiny-<span class="pp">*</span>.log</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>To take a look only at the latest one:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="va">LATEST</span><span class="op">=</span><span class="va">$(</span><span class="fu">sudo</span> ls <span class="at">-1t</span> /var/log/shiny-server/ms-app-shiny-<span class="pp">*</span>.log <span class="kw">|</span> <span class="fu">head</span> <span class="at">-n1</span><span class="va">)</span></span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 <span class="st">"</span><span class="va">$LATEST</span><span class="st">"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Those two do not exist</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/apache2/ms-app-ssl-access.log</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/apache2/ms-app-ssl-error.log</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="local-maintenance-mode" class="level2" data-number="5.8">
-<h2 data-number="5.8" class="anchored" data-anchor-id="local-maintenance-mode"><span class="header-section-number">5.8</span> Local Maintenance Mode</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=local/'</span> /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="local-maintenance-mode" class="level2" data-number="5.7">
+<h2 data-number="5.7" class="anchored" data-anchor-id="local-maintenance-mode"><span class="header-section-number">5.7</span> Local Maintenance Mode</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=local/'</span> /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Return to LDAP:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=ldap/'</span> /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=ldap/'</span> /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
 </section>
@@ -445,6 +438,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
             if (link.getAttribute("rel") === null) {
               link.setAttribute("rel", "noopener");
             }
+            // default icon
+            link.classList.add("external");
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {

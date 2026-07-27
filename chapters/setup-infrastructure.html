@@ -207,17 +207,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#setup-infrastructure" id="toc-setup-infrastructure" class="nav-link active" data-scroll-target="#setup-infrastructure"><span class="header-section-number">3.1</span> Setup &amp; Infrastructure</a></li>
-  <li><a href="#install-requirements" id="toc-install-requirements" class="nav-link" data-scroll-target="#install-requirements"><span class="header-section-number">3.2</span> Install Requirements</a></li>
-  <li><a href="#install-shiny-server" id="toc-install-shiny-server" class="nav-link" data-scroll-target="#install-shiny-server"><span class="header-section-number">3.3</span> Install Shiny Server</a></li>
-  <li><a href="#configure-app-folder" id="toc-configure-app-folder" class="nav-link" data-scroll-target="#configure-app-folder"><span class="header-section-number">3.4</span> Configure App Folder</a></li>
-  <li><a href="#initialize-sqlite" id="toc-initialize-sqlite" class="nav-link" data-scroll-target="#initialize-sqlite"><span class="header-section-number">3.5</span> Initialize SQLite</a></li>
-  <li><a href="#deploy-vm" id="toc-deploy-vm" class="nav-link" data-scroll-target="#deploy-vm"><span class="header-section-number">3.6</span> Deploy (VM)</a></li>
-  <li><a href="#runtime-environment" id="toc-runtime-environment" class="nav-link" data-scroll-target="#runtime-environment"><span class="header-section-number">3.7</span> Runtime Environment</a></li>
-  <li><a href="#apache-ldap-proxy" id="toc-apache-ldap-proxy" class="nav-link" data-scroll-target="#apache-ldap-proxy"><span class="header-section-number">3.8</span> Apache LDAP Proxy</a></li>
-  <li><a href="#smoke-tests" id="toc-smoke-tests" class="nav-link" data-scroll-target="#smoke-tests"><span class="header-section-number">3.9</span> Smoke Tests</a></li>
-  <li><a href="#backups" id="toc-backups" class="nav-link" data-scroll-target="#backups"><span class="header-section-number">3.10</span> Backups</a></li>
-  <li><a href="#external-reference" id="toc-external-reference" class="nav-link" data-scroll-target="#external-reference"><span class="header-section-number">3.11</span> External Reference</a></li>
+  <li><a href="#install-requirements" id="toc-install-requirements" class="nav-link active" data-scroll-target="#install-requirements"><span class="header-section-number">3.1</span> Install Requirements</a></li>
+  <li><a href="#install-shiny-server" id="toc-install-shiny-server" class="nav-link" data-scroll-target="#install-shiny-server"><span class="header-section-number">3.2</span> Install Shiny Server</a></li>
+  <li><a href="#configure-app-folder" id="toc-configure-app-folder" class="nav-link" data-scroll-target="#configure-app-folder"><span class="header-section-number">3.3</span> Configure App Folder</a></li>
+  <li><a href="#initialize-sqlite" id="toc-initialize-sqlite" class="nav-link" data-scroll-target="#initialize-sqlite"><span class="header-section-number">3.4</span> Initialize SQLite</a></li>
+  <li><a href="#deploy-vm" id="toc-deploy-vm" class="nav-link" data-scroll-target="#deploy-vm"><span class="header-section-number">3.5</span> Deploy (VM)</a></li>
+  <li><a href="#runtime-environment" id="toc-runtime-environment" class="nav-link" data-scroll-target="#runtime-environment"><span class="header-section-number">3.6</span> Runtime Environment</a></li>
+  <li><a href="#apache-ldap-proxy" id="toc-apache-ldap-proxy" class="nav-link" data-scroll-target="#apache-ldap-proxy"><span class="header-section-number">3.7</span> Apache LDAP Proxy</a></li>
+  <li><a href="#smoke-tests" id="toc-smoke-tests" class="nav-link" data-scroll-target="#smoke-tests"><span class="header-section-number">3.8</span> Smoke Tests</a></li>
+  <li><a href="#backups" id="toc-backups" class="nav-link" data-scroll-target="#backups"><span class="header-section-number">3.9</span> Backups</a></li>
+  <li><a href="#external-reference" id="toc-external-reference" class="nav-link" data-scroll-target="#external-reference"><span class="header-section-number">3.10</span> External Reference</a></li>
   </ul>
 </nav>
     </div>
@@ -243,22 +242,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="setup-infrastructure" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="setup-infrastructure"><span class="header-section-number">3.1</span> Setup &amp; Infrastructure</h2>
 <p>This chapter covers the pieces needed to run the MS project-management app on <code>mscf-vm</code>.</p>
-</section>
-<section id="install-requirements" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="install-requirements"><span class="header-section-number">3.2</span> Install Requirements</h2>
+<section id="install-requirements" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="install-requirements"><span class="header-section-number">3.1</span> Install Requirements</h2>
 <p>Clone the repository on the VM and run the requirement checker:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Install missing system or R packages when the checker reports them:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh <span class="at">--install</span></span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh <span class="at">--install-r</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The VM package check includes Shiny, <code>shinyjs</code>, DBI, RSQLite, digest, <code>DT</code>, rJava, and <code>mailR</code>. The app still starts if <code>DT</code> or <code>mailR</code> is absent, but the VM should install them so searchable tables and email behave like production.</p>
+<p>The VM package check includes <code>Shiny, shinyjs, DBI, RSQLite, digest, DT, rJava</code>, and <code>mailR</code>. The app still starts if <code>DT</code> or <code>mailR</code> is absent, but the VM should install them so searchable tables and email behave like production.</p>
 </section>
-<section id="install-shiny-server" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="install-shiny-server"><span class="header-section-number">3.3</span> Install Shiny Server</h2>
+<section id="install-shiny-server" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="install-shiny-server"><span class="header-section-number">3.2</span> Install Shiny Server</h2>
 <p>Install Shiny Server from Posit’s <code>.deb</code> package:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> gdebi-core</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb</span>
@@ -266,8 +262,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable shiny-server</span>
 <span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="configure-app-folder" class="level2" data-number="3.4">
-<h2 data-number="3.4" class="anchored" data-anchor-id="configure-app-folder"><span class="header-section-number">3.4</span> Configure App Folder</h2>
+<section id="configure-app-folder" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="configure-app-folder"><span class="header-section-number">3.3</span> Configure App Folder</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> usermod <span class="at">-a</span> <span class="at">-G</span> shiny <span class="st">"</span><span class="va">$USER</span><span class="st">"</span></span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /srv/shiny-server/ms-app</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span>
@@ -277,16 +273,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--delete</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> <span class="at">--exclude</span> <span class="st">'.Renviron'</span> ms-app/ /srv/shiny-server/ms-app/</span>
 <span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="initialize-sqlite" class="level2" data-number="3.5">
-<h2 data-number="3.5" class="anchored" data-anchor-id="initialize-sqlite"><span class="header-section-number">3.5</span> Initialize SQLite</h2>
+<section id="initialize-sqlite" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="initialize-sqlite"><span class="header-section-number">3.4</span> Initialize SQLite</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
 <span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This creates <code>ms_projects.db</code>, the local <code>admin</code> user, budget holders, project types, status options, reference organisms, email templates, and the MS-specific project/sample/upload tables.</p>
 <p>If <code>ms_projects.db</code> already exists, the command preserves its rows and only applies schema migrations and seed checks. Database deletion requires the explicit, destructive setting <code>MS_RESET_DB=1</code>.</p>
 <p>For verified backups, transfer to another machine, and exact recovery, use the procedure in <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Deploy &amp; Operations</a>.</p>
 </section>
-<section id="deploy-vm" class="level2" data-number="3.6">
-<h2 data-number="3.6" class="anchored" data-anchor-id="deploy-vm"><span class="header-section-number">3.6</span> Deploy (VM)</h2>
+<section id="deploy-vm" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="deploy-vm"><span class="header-section-number">3.5</span> Deploy (VM)</h2>
 <p>After the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run <code>deploy.sh</code> so <code>/srv/shiny-server/ms-app/app.R</code> gets the latest LDAP fixes and updates.</p>
 <p>On the VM:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
@@ -298,8 +294,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>deploy.sh</code> runs LDAP smoke tests and asks for an LDAP username/password unless we set <code>SKIP_SMOKE_TEST=1</code>. For a quick deploy without that prompt:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="va">SKIP_SMOKE_TEST</span><span class="op">=</span>1 <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="runtime-environment" class="level2" data-number="3.7">
-<h2 data-number="3.7" class="anchored" data-anchor-id="runtime-environment"><span class="header-section-number">3.7</span> Runtime Environment</h2>
+<section id="runtime-environment" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="runtime-environment"><span class="header-section-number">3.6</span> Runtime Environment</h2>
 <p>Create <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
 <span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
@@ -334,8 +330,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>The upload pool may not exist yet. If it is missing, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with <code>shiny:shiny</code> ownership.</p>
 <p>New project folders use the pattern <code>YYYYMMDD_USERNAME_PROJECTID</code>, for example <code>20260724_asmith_Pr_1234</code>.</p>
 </section>
-<section id="apache-ldap-proxy" class="level2" data-number="3.8">
-<h2 data-number="3.8" class="anchored" data-anchor-id="apache-ldap-proxy"><span class="header-section-number">3.8</span> Apache LDAP Proxy</h2>
+<section id="apache-ldap-proxy" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="apache-ldap-proxy"><span class="header-section-number">3.7</span> Apache LDAP Proxy</h2>
 <p>Copy the Apache template:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Enable required modules and the site:</p>
@@ -345,8 +341,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The template proxies <code>/ms-app/</code>, protects it with LDAP, and rewrites to <code>/ms-app/?auth_user=&lt;logged-user&gt;</code> so Shiny can provision or find the corresponding user row.</p>
 </section>
-<section id="smoke-tests" class="level2" data-number="3.9">
-<h2 data-number="3.9" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">3.9</span> Smoke Tests</h2>
+<section id="smoke-tests" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">3.8</span> Smoke Tests</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
 <span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -358,16 +354,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>the Shiny backend answers on port <code>3838</code></li>
 </ul>
 </section>
-<section id="backups" class="level2" data-number="3.10">
-<h2 data-number="3.10" class="anchored" data-anchor-id="backups"><span class="header-section-number">3.10</span> Backups</h2>
+<section id="backups" class="level2" data-number="3.9">
+<h2 data-number="3.9" class="anchored" data-anchor-id="backups"><span class="header-section-number">3.9</span> Backups</h2>
 <p>Before risky code or Apache maintenance, preserve the deployed application and web-server configuration:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span>/</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Do not use a plain file copy as the primary backup method for a database that may be in use. Follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a> for a transactionally consistent SQLite backup and the separate upload-directory backup.</p>
 </section>
-<section id="external-reference" class="level2" data-number="3.11">
-<h2 data-number="3.11" class="anchored" data-anchor-id="external-reference"><span class="header-section-number">3.11</span> External Reference</h2>
-<p>The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. Treat it as background reference, not as an instruction source for app names or paths in this MS repository.</p>
+<section id="external-reference" class="level2" data-number="3.10">
+<h2 data-number="3.10" class="anchored" data-anchor-id="external-reference"><span class="header-section-number">3.10</span> External Reference</h2>
+<p>The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. If we encounter problem, we can first search there for probable use-cases.</p>
 
 
 </section>
@@ -465,6 +461,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
             if (link.getAttribute("rel") === null) {
               link.setAttribute("rel", "noopener");
             }
+            // default icon
+            link.classList.add("external");
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {

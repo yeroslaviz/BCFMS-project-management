@@ -207,20 +207,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#deploy-operations" id="toc-deploy-operations" class="nav-link active" data-scroll-target="#deploy-operations"><span class="header-section-number">8.1</span> Deploy &amp; Operations</a></li>
-  <li><a href="#routine-deploy" id="toc-routine-deploy" class="nav-link" data-scroll-target="#routine-deploy"><span class="header-section-number">8.2</span> Routine Deploy</a></li>
-  <li><a href="#pre-deploy-backups" id="toc-pre-deploy-backups" class="nav-link" data-scroll-target="#pre-deploy-backups"><span class="header-section-number">8.3</span> Pre-Deploy Backups</a></li>
-  <li><a href="#restart-services" id="toc-restart-services" class="nav-link" data-scroll-target="#restart-services"><span class="header-section-number">8.4</span> Restart Services</a></li>
-  <li><a href="#smoke-tests" id="toc-smoke-tests" class="nav-link" data-scroll-target="#smoke-tests"><span class="header-section-number">8.5</span> Smoke Tests</a></li>
-  <li><a href="#database-behavior" id="toc-database-behavior" class="nav-link" data-scroll-target="#database-behavior"><span class="header-section-number">8.6</span> Database Behavior</a></li>
-  <li><a href="#database-backup-and-exact-recovery" id="toc-database-backup-and-exact-recovery" class="nav-link" data-scroll-target="#database-backup-and-exact-recovery"><span class="header-section-number">8.7</span> Database backup and exact recovery</a>
+  <li><a href="#routine-deploy" id="toc-routine-deploy" class="nav-link active" data-scroll-target="#routine-deploy"><span class="header-section-number">8.1</span> Routine Deploy</a></li>
+  <li><a href="#pre-deploy-backups" id="toc-pre-deploy-backups" class="nav-link" data-scroll-target="#pre-deploy-backups"><span class="header-section-number">8.2</span> Pre-Deploy Backups</a></li>
+  <li><a href="#restart-services" id="toc-restart-services" class="nav-link" data-scroll-target="#restart-services"><span class="header-section-number">8.3</span> Restart Services</a></li>
+  <li><a href="#smoke-tests" id="toc-smoke-tests" class="nav-link" data-scroll-target="#smoke-tests"><span class="header-section-number">8.4</span> Smoke Tests</a></li>
+  <li><a href="#database-behavior" id="toc-database-behavior" class="nav-link" data-scroll-target="#database-behavior"><span class="header-section-number">8.5</span> Database Behavior</a></li>
+  <li><a href="#database-backup-and-exact-recovery" id="toc-database-backup-and-exact-recovery" class="nav-link" data-scroll-target="#database-backup-and-exact-recovery"><span class="header-section-number">8.6</span> Database backup and exact recovery</a>
   <ul class="collapse">
-  <li><a href="#create-a-verified-database-backup" id="toc-create-a-verified-database-backup" class="nav-link" data-scroll-target="#create-a-verified-database-backup"><span class="header-section-number">8.7.1</span> Create a verified database backup</a></li>
-  <li><a href="#test-a-recovery" id="toc-test-a-recovery" class="nav-link" data-scroll-target="#test-a-recovery"><span class="header-section-number">8.7.2</span> Test a recovery</a></li>
-  <li><a href="#restore-production-or-move-to-another-machine" id="toc-restore-production-or-move-to-another-machine" class="nav-link" data-scroll-target="#restore-production-or-move-to-another-machine"><span class="header-section-number">8.7.3</span> Restore production or move to another machine</a></li>
+  <li><a href="#create-a-verified-database-backup" id="toc-create-a-verified-database-backup" class="nav-link" data-scroll-target="#create-a-verified-database-backup"><span class="header-section-number">8.6.1</span> Create a verified database backup</a></li>
+  <li><a href="#test-a-recovery" id="toc-test-a-recovery" class="nav-link" data-scroll-target="#test-a-recovery"><span class="header-section-number">8.6.2</span> Test a recovery</a></li>
+  <li><a href="#restore-production-or-move-to-another-machine" id="toc-restore-production-or-move-to-another-machine" class="nav-link" data-scroll-target="#restore-production-or-move-to-another-machine"><span class="header-section-number">8.6.3</span> Restore production or move to another machine</a></li>
   </ul></li>
-  <li><a href="#rollback" id="toc-rollback" class="nav-link" data-scroll-target="#rollback"><span class="header-section-number">8.8</span> Rollback</a></li>
-  <li><a href="#logs" id="toc-logs" class="nav-link" data-scroll-target="#logs"><span class="header-section-number">8.9</span> Logs</a></li>
+  <li><a href="#rollback" id="toc-rollback" class="nav-link" data-scroll-target="#rollback"><span class="header-section-number">8.7</span> Rollback</a></li>
+  <li><a href="#logs" id="toc-logs" class="nav-link" data-scroll-target="#logs"><span class="header-section-number">8.8</span> Logs</a></li>
   </ul>
 </nav>
     </div>
@@ -246,31 +245,28 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="deploy-operations" class="level2" data-number="8.1">
-<h2 data-number="8.1" class="anchored" data-anchor-id="deploy-operations"><span class="header-section-number">8.1</span> Deploy &amp; Operations</h2>
-</section>
-<section id="routine-deploy" class="level2" data-number="8.2">
-<h2 data-number="8.2" class="anchored" data-anchor-id="routine-deploy"><span class="header-section-number">8.2</span> Routine Deploy</h2>
+<section id="routine-deploy" class="level2" data-number="8.1">
+<h2 data-number="8.1" class="anchored" data-anchor-id="routine-deploy"><span class="header-section-number">8.1</span> Routine Deploy</h2>
 <p>On the VM:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
 <span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull origin main</span>
 <span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The deploy script syncs <code>ms-app/</code> to <code>/srv/shiny-server/ms-app/</code>, excludes <code>ms_projects.db</code> and <code>.Renviron</code>, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless <code>SKIP_SMOKE_TEST=1</code>.</p>
 </section>
-<section id="pre-deploy-backups" class="level2" data-number="8.3">
-<h2 data-number="8.3" class="anchored" data-anchor-id="pre-deploy-backups"><span class="header-section-number">8.3</span> Pre-Deploy Backups</h2>
+<section id="pre-deploy-backups" class="level2" data-number="8.2">
+<h2 data-number="8.2" class="anchored" data-anchor-id="pre-deploy-backups"><span class="header-section-number">8.2</span> Pre-Deploy Backups</h2>
 <p>Routine deployment excludes the database, but preserve the currently deployed code and Apache configuration before risky maintenance:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span>/</span>
 <span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>For database maintenance, machine migration, or disaster recovery, also create the verified database and upload backups described in <a href="#database-backup-and-exact-recovery">Database backup and exact recovery</a>.</p>
 </section>
-<section id="restart-services" class="level2" data-number="8.4">
-<h2 data-number="8.4" class="anchored" data-anchor-id="restart-services"><span class="header-section-number">8.4</span> Restart Services</h2>
+<section id="restart-services" class="level2" data-number="8.3">
+<h2 data-number="8.3" class="anchored" data-anchor-id="restart-services"><span class="header-section-number">8.3</span> Restart Services</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span>
 <span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="smoke-tests" class="level2" data-number="8.5">
-<h2 data-number="8.5" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">8.5</span> Smoke Tests</h2>
+<section id="smoke-tests" class="level2" data-number="8.4">
+<h2 data-number="8.4" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">8.4</span> Smoke Tests</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
 <span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
 <span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -281,16 +277,16 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>Override the public URL:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="va">PUBLIC_BASE_URL</span><span class="op">=</span><span class="st">"https://mscf-vm.biochem.mpg.de"</span> <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="database-behavior" class="level2" data-number="8.6">
-<h2 data-number="8.6" class="anchored" data-anchor-id="database-behavior"><span class="header-section-number">8.6</span> Database Behavior</h2>
+<section id="database-behavior" class="level2" data-number="8.5">
+<h2 data-number="8.5" class="anchored" data-anchor-id="database-behavior"><span class="header-section-number">8.5</span> Database Behavior</h2>
 <p>Deploy is code-only. It does not rebuild or overwrite <code>ms_projects.db</code>.</p>
 <p>To initialize a missing database or apply migrations and seed checks to an existing database:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
 <span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Existing rows are preserved by default. Never set <code>MS_RESET_DB=1</code> during a routine deployment. That setting deliberately deletes and rebuilds the target database.</p>
 </section>
-<section id="database-backup-and-exact-recovery" class="level2" data-number="8.7">
-<h2 data-number="8.7" class="anchored" data-anchor-id="database-backup-and-exact-recovery"><span class="header-section-number">8.7</span> Database backup and exact recovery</h2>
+<section id="database-backup-and-exact-recovery" class="level2" data-number="8.6">
+<h2 data-number="8.6" class="anchored" data-anchor-id="database-backup-and-exact-recovery"><span class="header-section-number">8.6</span> Database backup and exact recovery</h2>
 <p>The database seed definitions reproduce application defaults, not the current production state. To retain every current project, sample, dropdown option, custom cost, user, and status-history row, preserve a transactionally consistent SQLite snapshot.</p>
 <p>Uploaded files are stored outside SQLite. A complete recovery therefore needs:</p>
 <ol type="1">
@@ -299,8 +295,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <li>A backup of <code>MS_LOCAL_UPLOAD_FALLBACK</code>.</li>
 <li>The runtime configuration that defines those paths.</li>
 </ol>
-<section id="create-a-verified-database-backup" class="level3" data-number="8.7.1">
-<h3 data-number="8.7.1" class="anchored" data-anchor-id="create-a-verified-database-backup"><span class="header-section-number">8.7.1</span> Create a verified database backup</h3>
+<section id="create-a-verified-database-backup" class="level3" data-number="8.6.1">
+<h3 data-number="8.6.1" class="anchored" data-anchor-id="create-a-verified-database-backup"><span class="header-section-number">8.6.1</span> Create a verified database backup</h3>
 <p>Run the backup script from the repository checkout. Store backups outside the deployed application directory so deployment and code rollback cannot remove them:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
 <span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> install <span class="at">-d</span> <span class="at">-o</span> shiny <span class="at">-g</span> shiny <span class="at">-m</span> 750 /srv/ms-app-data/db-backups</span>
@@ -315,8 +311,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> /srv/ms-app-data/uploads_pending_pool/ /secure/backups/uploads_pending_pool/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Back up <code>MS_UPLOAD_ROOT</code> using the facility storage system’s snapshot or backup procedure. Do not assume that the SQLite backup contains project uploads.</p>
 </section>
-<section id="test-a-recovery" class="level3" data-number="8.7.2">
-<h3 data-number="8.7.2" class="anchored" data-anchor-id="test-a-recovery"><span class="header-section-number">8.7.2</span> Test a recovery</h3>
+<section id="test-a-recovery" class="level3" data-number="8.6.2">
+<h3 data-number="8.6.2" class="anchored" data-anchor-id="test-a-recovery"><span class="header-section-number">8.6.2</span> Test a recovery</h3>
 <p>Restore to a separate path first:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
 <span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny env <span class="dt">\</span></span>
@@ -333,8 +329,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a><span class="cf">done</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Remove the temporary test database after the comparison.</p>
 </section>
-<section id="restore-production-or-move-to-another-machine" class="level3" data-number="8.7.3">
-<h3 data-number="8.7.3" class="anchored" data-anchor-id="restore-production-or-move-to-another-machine"><span class="header-section-number">8.7.3</span> Restore production or move to another machine</h3>
+<section id="restore-production-or-move-to-another-machine" class="level3" data-number="8.6.3">
+<h3 data-number="8.6.3" class="anchored" data-anchor-id="restore-production-or-move-to-another-machine"><span class="header-section-number">8.6.3</span> Restore production or move to another machine</h3>
 <p>Deploy the application code and configure <code>.Renviron</code> first. Restore the upload directories to the same configured paths, then restore the database:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl stop shiny-server</span>
 <span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
@@ -348,8 +344,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p><code>MS_RESET_DB=1</code> is required here only because an existing target is being intentionally replaced by a verified backup. After restoration, <code>setup_database.R</code> applies any schema migrations and seed defaults required by the deployed application version.</p>
 </section>
 </section>
-<section id="rollback" class="level2" data-number="8.8">
-<h2 data-number="8.8" class="anchored" data-anchor-id="rollback"><span class="header-section-number">8.8</span> Rollback</h2>
+<section id="rollback" class="level2" data-number="8.7">
+<h2 data-number="8.7" class="anchored" data-anchor-id="rollback"><span class="header-section-number">8.7</span> Rollback</h2>
 <p>This rollback restores application code only and leaves the current database in place:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl stop shiny-server</span>
 <span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--delete</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/</span>
@@ -358,8 +354,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>If the database itself must be rolled back, use the verified restore procedure above rather than copying a potentially active SQLite file.</p>
 </section>
-<section id="logs" class="level2" data-number="8.9">
-<h2 data-number="8.9" class="anchored" data-anchor-id="logs"><span class="header-section-number">8.9</span> Logs</h2>
+<section id="logs" class="level2" data-number="8.8">
+<h2 data-number="8.8" class="anchored" data-anchor-id="logs"><span class="header-section-number">8.8</span> Logs</h2>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/shiny-server/ms-app-shiny-<span class="pp">*</span>.log</span>
 <span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/apache2/ms-app-ssl-access.log</span>
 <span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tail <span class="at">-n</span> 120 /var/log/apache2/ms-app-ssl-error.log</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
@@ -460,6 +456,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
             if (link.getAttribute("rel") === null) {
               link.setAttribute("rel", "noopener");
             }
+            // default icon
+            link.classList.add("external");
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
