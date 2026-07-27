@@ -2,16 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.26">
+<meta name="generator" content="quarto-1.8.27">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>2&nbsp; Quick Start – Documentation</title>
 <style>
-/* Default styles provided by pandoc.
-** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
-*/
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
 div.columns{display: flex; gap: min(4vw, 1.5em);}
@@ -72,14 +69,15 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <link href="../index.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="../site_libs/quarto-html/popper.min.js"></script>
 <script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-61780a260fdcf47536a34fde95582725.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-87aed0b8589e23e45aa8556edf37a91b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-99913b7803b80b0c1d2b970a25816663.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -165,26 +163,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../chapters/ldap-authentication.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">LDAP Authentication</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/troubleshooting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Troubleshooting</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../chapters/git-github.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Git and Github</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/vm-installation.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">VM Installation Guide (ngs-vm &amp; bcf-vm)</span></span></a>
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">VM Installation Guide</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/deploy-operations.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Deploy &amp; Operations</span></span></a>
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Deploy &amp; Operations</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/change-log.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Change Log</span></span></a>
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Change Log</span></span></a>
   </div>
 </li>
     </ul>
@@ -199,7 +209,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
   <ul>
   <li><a href="#quick-start" id="toc-quick-start" class="nav-link active" data-scroll-target="#quick-start"><span class="header-section-number">2.1</span> Quick Start</a>
   <ul class="collapse">
-  <li><a href="#contents" id="toc-contents" class="nav-link" data-scroll-target="#contents"><span class="header-section-number">2.1.1</span> Contents</a></li>
+  <li><a href="#local-app-run" id="toc-local-app-run" class="nav-link" data-scroll-target="#local-app-run"><span class="header-section-number">2.1.1</span> Local app run</a></li>
+  <li><a href="#initialize-or-migrate-the-local-database" id="toc-initialize-or-migrate-the-local-database" class="nav-link" data-scroll-target="#initialize-or-migrate-the-local-database"><span class="header-section-number">2.1.2</span> Initialize or migrate the local database</a></li>
+  <li><a href="#local-ldapproxy-simulation" id="toc-local-ldapproxy-simulation" class="nav-link" data-scroll-target="#local-ldapproxy-simulation"><span class="header-section-number">2.1.3</span> Local LDAP/proxy simulation</a></li>
+  <li><a href="#vm-ldap-mode" id="toc-vm-ldap-mode" class="nav-link" data-scroll-target="#vm-ldap-mode"><span class="header-section-number">2.1.4</span> VM LDAP mode</a></li>
+  <li><a href="#vm-maintenance-mode" id="toc-vm-maintenance-mode" class="nav-link" data-scroll-target="#vm-maintenance-mode"><span class="header-section-number">2.1.5</span> VM maintenance mode</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -228,64 +242,74 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 <section id="quick-start" class="level2" data-number="2.1">
 <h2 data-number="2.1" class="anchored" data-anchor-id="quick-start"><span class="header-section-number">2.1</span> Quick Start</h2>
-<section id="contents" class="level3" data-number="2.1.1">
-<h3 data-number="2.1.1" class="anchored" data-anchor-id="contents"><span class="header-section-number">2.1.1</span> Contents</h3>
+<section id="local-app-run" class="level3" data-number="2.1.1">
+<h3 data-number="2.1.1" class="anchored" data-anchor-id="local-app-run"><span class="header-section-number">2.1.1</span> Local app run</h3>
+<p>From the repository root:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">AUTH_MODE =</span> <span class="st">"local"</span>)</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"ms-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The local test administrator is created by <code>setup_database.R</code>:</p>
 <ul>
-<li><a href="#local-dev--local-mode">Local dev — local mode</a></li>
-<li><a href="#local-dev--ldap-simulation">Local dev — LDAP simulation</a></li>
-<li><a href="#local-dev--unset">Local dev — unset</a></li>
-<li><a href="#vm--ldap-mode-production">VM — LDAP mode (production)</a></li>
-<li><a href="#vm--local-mode-maintenance">VM — local mode (maintenance)</a></li>
-<li><a href="#vm--unset-clear-overrides">VM — unset (clear overrides)</a></li>
+<li>username: <code>admin</code></li>
+<li>password: <code>admin123</code> unless <code>MS_LOCAL_ADMIN_PASSWORD</code> is set</li>
 </ul>
-<section id="local-dev-local-mode" class="level4" data-number="2.1.1.1">
-<h4 data-number="2.1.1.1" class="anchored" data-anchor-id="local-dev-local-mode"><span class="header-section-number">2.1.1.1</span> Local dev — local mode</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(<span class="at">APP_ENV =</span> <span class="st">"dev"</span>, <span class="at">AUTH_MODE =</span> <span class="st">"local"</span>)</span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"sequencing-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="local-dev-ldap-simulation" class="level4" data-number="2.1.1.2">
-<h4 data-number="2.1.1.2" class="anchored" data-anchor-id="local-dev-ldap-simulation"><span class="header-section-number">2.1.1.2</span> Local dev — LDAP simulation</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(</span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">APP_ENV =</span> <span class="st">"dev"</span>,</span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">AUTH_MODE =</span> <span class="st">"ldap"</span>,</span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">DEV_REMOTE_USER =</span> <span class="st">"your_username"</span>,</span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">LDAP_URI =</span> <span class="st">"ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636"</span>,</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">LDAP_BASE_DN =</span> <span class="st">"dc=biochem,dc=mpg,dc=de"</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>)</span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"sequencing-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>To run this locally, replace “your_username” with actual user name.</p>
+<section id="initialize-or-migrate-the-local-database" class="level3" data-number="2.1.2">
+<h3 data-number="2.1.2" class="anchored" data-anchor-id="initialize-or-migrate-the-local-database"><span class="header-section-number">2.1.2</span> Initialize or migrate the local database</h3>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> ms-app</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="ex">Rscript</span> setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This creates <code>ms_projects.db</code> when it does not exist. If it already exists, the command preserves all rows while applying schema migrations and seed checks.</p>
+<p>Do not set <code>MS_RESET_DB=1</code> during normal setup or deployment. That option deliberately deletes and rebuilds the target database. Take a verified backup first and use it only when an empty database is intended.</p>
+<p>For moving the current database to another machine or recovering it exactly, follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a>.</p>
 </section>
-<section id="local-dev-unset" class="level4" data-number="2.1.1.3">
-<h4 data-number="2.1.1.3" class="anchored" data-anchor-id="local-dev-unset"><span class="header-section-number">2.1.1.3</span> Local dev — unset</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.unsetenv</span>(<span class="fu">c</span>(</span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"APP_ENV"</span>,<span class="st">"AUTH_MODE"</span>,<span class="st">"DEV_REMOTE_USER"</span>,</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"LDAP_BIND_DN"</span>,<span class="st">"LDAP_BIND_PW"</span>,</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"LDAP_URI"</span>,<span class="st">"LDAP_BASE_DN"</span>,<span class="st">"LDAP_DEBUG"</span></span>
-<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="local-ldapproxy-simulation" class="level3" data-number="2.1.3">
+<h3 data-number="2.1.3" class="anchored" data-anchor-id="local-ldapproxy-simulation"><span class="header-section-number">2.1.3</span> Local LDAP/proxy simulation</h3>
+<p>The production VM lets Apache do LDAP authentication and passes the authenticated username to Shiny. To simulate that locally:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">Sys.setenv</span>(</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">AUTH_MODE =</span> <span class="st">"ldap"</span>,</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">TRUST_PROXY_AUTH_USER_QUERY =</span> <span class="st">"1"</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>)</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>shiny<span class="sc">::</span><span class="fu">runApp</span>(<span class="st">"ms-app"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then open the app with an <code>auth_user</code> query parameter, for example:</p>
+<pre class="text"><code>http://127.0.0.1:3838/?auth_user=yeroslaviz</code></pre>
 </section>
-<section id="vm-ldap-mode-production" class="level4" data-number="2.1.1.4">
-<h4 data-number="2.1.1.4" class="anchored" data-anchor-id="vm-ldap-mode-production"><span class="header-section-number">2.1.1.4</span> VM — LDAP mode (production)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl edit shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[Service]</span></span>
-<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">AUTH_MODE=ldap</span></span>
-<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636</span></span>
-<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="vm-ldap-mode" class="level3" data-number="2.1.4">
+<h3 data-number="2.1.4" class="anchored" data-anchor-id="vm-ldap-mode"><span class="header-section-number">2.1.4</span> VM LDAP mode</h3>
+<p>Set the Shiny runtime environment either through a systemd override or <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AUTH_MODE</span><span class="ot">=</span><span class="st">ldap</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="dt">TRUST_PROXY_AUTH_USER_QUERY</span><span class="ot">=</span><span class="dv">1</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_URI</span><span class="ot">=</span><span class="st">ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_BASE_DN</span><span class="ot">=</span><span class="st">dc=biochem,dc=mpg,dc=de</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_UID</span><span class="ot">=</span><span class="st">uid</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_MAIL</span><span class="ot">=</span><span class="st">mail</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_PHONE</span><span class="ot">=</span><span class="st">telephoneNumber</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_OU</span><span class="ot">=</span><span class="st">ou</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_COST_CENTER</span><span class="ot">=</span><span class="st">departmentNumber</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_FACILITY_GROUPS</span><span class="ot">=</span><span class="st">b_ms,b_ngs</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_CN</span><span class="ot">=</span><span class="st">cn</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_GIVENNAME</span><span class="ot">=</span><span class="st">givenName</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="dt">LDAP_ATTR_SN</span><span class="ot">=</span><span class="st">sn</span></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a><span class="dt">MS_FACILITY_EMAIL</span><span class="ot">=</span><span class="st">ms-service@biochem.mpg.de</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a><span class="dt">MS_MAIL_FROM</span><span class="ot">=</span><span class="st">ms-service@biochem.mpg.de</span></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="dt">MS_POOL_FALLBACK_EMAIL</span><span class="ot">=</span><span class="st">omicsdesk@biochem.mpg.de</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a><span class="dt">SMTP_HOST</span><span class="ot">=</span><span class="st">msx.biochem.mpg.de</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a><span class="dt">SMTP_PORT</span><span class="ot">=</span><span class="dv">25</span></span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a><span class="dt">SMTP_SSL</span><span class="ot">=</span><span class="dv">0</span></span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a><span class="dt">SMTP_TLS</span><span class="ot">=</span><span class="dv">0</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="co"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="co"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a><span class="dt">MS_UPLOAD_ROOT</span><span class="ot">=</span><span class="st">/fs/pool/pool-ms-user</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a><span class="dt">MS_LOCAL_UPLOAD_FALLBACK</span><span class="ot">=</span><span class="st">/srv/ms-app-data/uploads_pending_pool</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Restart Shiny after changing runtime settings:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="vm-local-mode-maintenance" class="level4" data-number="2.1.1.5">
-<h4 data-number="2.1.1.5" class="anchored" data-anchor-id="vm-local-mode-maintenance"><span class="header-section-number">2.1.1.5</span> VM — local mode (maintenance)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="kw">[Service]</span></span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="dt">Environment</span><span class="ot">=</span><span class="st">AUTH_MODE=local</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="vm-maintenance-mode" class="level3" data-number="2.1.5">
+<h3 data-number="2.1.5" class="anchored" data-anchor-id="vm-maintenance-mode"><span class="header-section-number">2.1.5</span> VM maintenance mode</h3>
+<p>Switch temporarily to local login:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode ini code-with-copy"><code class="sourceCode ini"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="dt">AUTH_MODE</span><span class="ot">=</span><span class="st">local</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Then restart:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="vm-unset-clear-overrides" class="level4" data-number="2.1.1.6">
-<h4 data-number="2.1.1.6" class="anchored" data-anchor-id="vm-unset-clear-overrides"><span class="header-section-number">2.1.1.6</span> VM — unset (clear overrides)</h4>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl edit shiny-server</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="co"># remove AUTH_MODE/LDAP_* lines, save, then:</span></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 
 
-</section>
 </section>
 </section>
 
@@ -377,6 +401,11 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {

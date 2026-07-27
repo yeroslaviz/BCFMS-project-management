@@ -2,16 +2,13 @@
 <html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
 
 <meta charset="utf-8">
-<meta name="generator" content="quarto-1.9.26">
+<meta name="generator" content="quarto-1.8.27">
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
 <title>3&nbsp; Setup &amp; Infrastructure – Documentation</title>
 <style>
-/* Default styles provided by pandoc.
-** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
-*/
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
 div.columns{display: flex; gap: min(4vw, 1.5em);}
@@ -68,18 +65,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <script src="../site_libs/quarto-search/fuse.min.js"></script>
 <script src="../site_libs/quarto-search/quarto-search.js"></script>
 <meta name="quarto:offset" content="../">
-<link href="../chapters/git-github.html" rel="next">
+<link href="../chapters/ldap-authentication.html" rel="next">
 <link href="../chapters/quick-start.html" rel="prev">
 <script src="../site_libs/quarto-html/quarto.js" type="module"></script>
 <script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
 <script src="../site_libs/quarto-html/popper.min.js"></script>
 <script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
 <script src="../site_libs/quarto-html/anchor.min.js"></script>
 <link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../site_libs/quarto-html/quarto-syntax-highlighting-61780a260fdcf47536a34fde95582725.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
 <script src="../site_libs/bootstrap/bootstrap.min.js"></script>
 <link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../site_libs/bootstrap/bootstrap-87aed0b8589e23e45aa8556edf37a91b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-99913b7803b80b0c1d2b970a25816663.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "sidebar",
   "copy-button": false,
@@ -165,26 +163,38 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
+  <a href="../chapters/ldap-authentication.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">LDAP Authentication</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../chapters/troubleshooting.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">Troubleshooting</span></span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
   <a href="../chapters/git-github.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></span></a>
+ <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Git and Github</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/vm-installation.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">5</span>&nbsp; <span class="chapter-title">VM Installation Guide (ngs-vm &amp; bcf-vm)</span></span></a>
+ <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">VM Installation Guide</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/deploy-operations.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">6</span>&nbsp; <span class="chapter-title">Deploy &amp; Operations</span></span></a>
+ <span class="menu-text"><span class="chapter-number">8</span>&nbsp; <span class="chapter-title">Deploy &amp; Operations</span></span></a>
   </div>
 </li>
         <li class="sidebar-item">
   <div class="sidebar-item-container"> 
   <a href="../chapters/change-log.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text"><span class="chapter-number">7</span>&nbsp; <span class="chapter-title">Change Log</span></span></a>
+ <span class="menu-text"><span class="chapter-number">9</span>&nbsp; <span class="chapter-title">Change Log</span></span></a>
   </div>
 </li>
     </ul>
@@ -197,56 +207,17 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <h2 id="toc-title">Table of contents</h2>
    
   <ul>
-  <li><a href="#install-all-dependencies" id="toc-install-all-dependencies" class="nav-link active" data-scroll-target="#install-all-dependencies"><span class="header-section-number">3.1</span> Install all dependencies</a>
-  <ul class="collapse">
-  <li><a href="#install-packages" id="toc-install-packages" class="nav-link" data-scroll-target="#install-packages"><span class="header-section-number">3.1.1</span> Install packages</a></li>
-  <li><a href="#install-shiny-server" id="toc-install-shiny-server" class="nav-link" data-scroll-target="#install-shiny-server"><span class="header-section-number">3.1.2</span> Install Shiny Server</a></li>
-  <li><a href="#install-java-mail-packages-required-for-email-notifications" id="toc-install-java-mail-packages-required-for-email-notifications" class="nav-link" data-scroll-target="#install-java-mail-packages-required-for-email-notifications"><span class="header-section-number">3.1.3</span> Install Java + mail packages (required for email notifications)</a></li>
-  <li><a href="#install-ldap-packages-ubuntu-r" id="toc-install-ldap-packages-ubuntu-r" class="nav-link" data-scroll-target="#install-ldap-packages-ubuntu-r"><span class="header-section-number">3.1.4</span> Install LDAP packages (Ubuntu + R)</a></li>
-  </ul></li>
-  <li><a href="#configure-the-shiny-app-folder" id="toc-configure-the-shiny-app-folder" class="nav-link" data-scroll-target="#configure-the-shiny-app-folder"><span class="header-section-number">3.2</span> Configure the Shiny app folder</a>
-  <ul class="collapse">
-  <li><a href="#clone-repo-and-set-app-folder" id="toc-clone-repo-and-set-app-folder" class="nav-link" data-scroll-target="#clone-repo-and-set-app-folder"><span class="header-section-number">3.2.1</span> Clone repo and set app folder</a></li>
-  </ul></li>
-  <li><a href="#configure-apache-test-https-redirect" id="toc-configure-apache-test-https-redirect" class="nav-link" data-scroll-target="#configure-apache-test-https-redirect"><span class="header-section-number">3.3</span> Configure Apache (test HTTPS redirect)</a>
-  <ul class="collapse">
-  <li><a href="#enable-the-site-and-restart-apache" id="toc-enable-the-site-and-restart-apache" class="nav-link" data-scroll-target="#enable-the-site-and-restart-apache"><span class="header-section-number">3.3.1</span> Enable the site and restart Apache:</a></li>
-  <li><a href="#initialize-the-sqlite-db" id="toc-initialize-the-sqlite-db" class="nav-link" data-scroll-target="#initialize-the-sqlite-db"><span class="header-section-number">3.3.2</span> Initialize the SQLite DB</a></li>
-  <li><a href="#deploy-the-app-files" id="toc-deploy-the-app-files" class="nav-link" data-scroll-target="#deploy-the-app-files"><span class="header-section-number">3.3.3</span> Deploy the app files:</a></li>
-  </ul></li>
-  <li><a href="#server-infrastructure" id="toc-server-infrastructure" class="nav-link" data-scroll-target="#server-infrastructure"><span class="header-section-number">3.4</span> Server Infrastructure</a></li>
-  <li><a href="#modify-text-announcements" id="toc-modify-text-announcements" class="nav-link" data-scroll-target="#modify-text-announcements"><span class="header-section-number">3.5</span> Modify Text (Announcements)</a>
-  <ul class="collapse">
-  <li><a href="#markdown-lite-syntax" id="toc-markdown-lite-syntax" class="nav-link" data-scroll-target="#markdown-lite-syntax"><span class="header-section-number">3.5.1</span> Markdown-lite syntax</a></li>
-  <li><a href="#where-it-is-stored" id="toc-where-it-is-stored" class="nav-link" data-scroll-target="#where-it-is-stored"><span class="header-section-number">3.5.2</span> Where it is stored</a></li>
-  <li><a href="#sql-handling-moved" id="toc-sql-handling-moved" class="nav-link" data-scroll-target="#sql-handling-moved"><span class="header-section-number">3.5.3</span> SQL handling (moved)</a></li>
-  <li><a href="#install-required-system-dependencies" id="toc-install-required-system-dependencies" class="nav-link" data-scroll-target="#install-required-system-dependencies"><span class="header-section-number">3.5.4</span> Install required system dependencies</a></li>
-  <li><a href="#changing-hostname-to-fit-the-apache2-config-file" id="toc-changing-hostname-to-fit-the-apache2-config-file" class="nav-link" data-scroll-target="#changing-hostname-to-fit-the-apache2-config-file"><span class="header-section-number">3.5.5</span> Changing hostname to fit the apache2 config file</a></li>
-  <li><a href="#automatic-start-up" id="toc-automatic-start-up" class="nav-link" data-scroll-target="#automatic-start-up"><span class="header-section-number">3.5.6</span> Automatic start-up</a></li>
-  </ul></li>
-  <li><a href="#ubuntu-bare-server-setup-howto-shiny-ldap" id="toc-ubuntu-bare-server-setup-howto-shiny-ldap" class="nav-link" data-scroll-target="#ubuntu-bare-server-setup-howto-shiny-ldap"><span class="header-section-number">3.6</span> Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)</a>
-  <ul class="collapse">
-  <li><a href="#restart-communication-quick-resume" id="toc-restart-communication-quick-resume" class="nav-link" data-scroll-target="#restart-communication-quick-resume"><span class="header-section-number">3.6.1</span> Restart communication (quick resume)</a></li>
-  <li><a href="#base-os-prep" id="toc-base-os-prep" class="nav-link" data-scroll-target="#base-os-prep"><span class="header-section-number">3.6.2</span> Base OS prep</a></li>
-  <li><a href="#install-r" id="toc-install-r" class="nav-link" data-scroll-target="#install-r"><span class="header-section-number">3.6.3</span> Install R</a></li>
-  <li><a href="#install-shiny-server-1" id="toc-install-shiny-server-1" class="nav-link" data-scroll-target="#install-shiny-server-1"><span class="header-section-number">3.6.4</span> Install Shiny Server</a></li>
-  <li><a href="#clone-the-repo" id="toc-clone-the-repo" class="nav-link" data-scroll-target="#clone-the-repo"><span class="header-section-number">3.6.5</span> Clone the repo</a></li>
-  <li><a href="#configure-the-shiny-app-folder-1" id="toc-configure-the-shiny-app-folder-1" class="nav-link" data-scroll-target="#configure-the-shiny-app-folder-1"><span class="header-section-number">3.6.6</span> Configure the Shiny app folder</a></li>
-  <li><a href="#install-required-r-packages" id="toc-install-required-r-packages" class="nav-link" data-scroll-target="#install-required-r-packages"><span class="header-section-number">3.6.7</span> Install required R packages</a></li>
-  <li><a href="#configure-shiny-server-environment-variables" id="toc-configure-shiny-server-environment-variables" class="nav-link" data-scroll-target="#configure-shiny-server-environment-variables"><span class="header-section-number">3.6.8</span> Configure Shiny Server environment variables</a></li>
-  <li><a href="#configure-ldap-trust-openldap-client" id="toc-configure-ldap-trust-openldap-client" class="nav-link" data-scroll-target="#configure-ldap-trust-openldap-client"><span class="header-section-number">3.6.9</span> Configure LDAP trust (OpenLDAP client)</a></li>
-  <li><a href="#configure-apache-reverse-proxy-ldap-auth" id="toc-configure-apache-reverse-proxy-ldap-auth" class="nav-link" data-scroll-target="#configure-apache-reverse-proxy-ldap-auth"><span class="header-section-number">3.6.10</span> Configure Apache reverse proxy + LDAP auth</a></li>
-  <li><a href="#validate-the-full-flow" id="toc-validate-the-full-flow" class="nav-link" data-scroll-target="#validate-the-full-flow"><span class="header-section-number">3.6.11</span> Validate the full flow</a></li>
-  <li><a href="#routine-updates" id="toc-routine-updates" class="nav-link" data-scroll-target="#routine-updates"><span class="header-section-number">3.6.12</span> Routine updates</a></li>
-  <li><a href="#production-hygiene" id="toc-production-hygiene" class="nav-link" data-scroll-target="#production-hygiene"><span class="header-section-number">3.6.13</span> Production hygiene</a></li>
-  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references"><span class="header-section-number">3.6.14</span> References</a></li>
-  </ul></li>
-  <li><a href="#ssl-certificates" id="toc-ssl-certificates" class="nav-link" data-scroll-target="#ssl-certificates"><span class="header-section-number">3.7</span> SSL Certificates</a></li>
-  <li><a href="#ssl-certificate-for-https" id="toc-ssl-certificate-for-https" class="nav-link" data-scroll-target="#ssl-certificate-for-https"><span class="header-section-number">3.8</span> SSL Certificate (for HTTPS)</a></li>
-  <li><a href="#firewall" id="toc-firewall" class="nav-link" data-scroll-target="#firewall"><span class="header-section-number">3.9</span> Firewall</a>
-  <ul class="collapse">
-  <li><a href="#firewall-1" id="toc-firewall-1" class="nav-link" data-scroll-target="#firewall-1"><span class="header-section-number">3.9.1</span> Firewall</a></li>
-  </ul></li>
+  <li><a href="#setup-infrastructure" id="toc-setup-infrastructure" class="nav-link active" data-scroll-target="#setup-infrastructure"><span class="header-section-number">3.1</span> Setup &amp; Infrastructure</a></li>
+  <li><a href="#install-requirements" id="toc-install-requirements" class="nav-link" data-scroll-target="#install-requirements"><span class="header-section-number">3.2</span> Install Requirements</a></li>
+  <li><a href="#install-shiny-server" id="toc-install-shiny-server" class="nav-link" data-scroll-target="#install-shiny-server"><span class="header-section-number">3.3</span> Install Shiny Server</a></li>
+  <li><a href="#configure-app-folder" id="toc-configure-app-folder" class="nav-link" data-scroll-target="#configure-app-folder"><span class="header-section-number">3.4</span> Configure App Folder</a></li>
+  <li><a href="#initialize-sqlite" id="toc-initialize-sqlite" class="nav-link" data-scroll-target="#initialize-sqlite"><span class="header-section-number">3.5</span> Initialize SQLite</a></li>
+  <li><a href="#deploy-vm" id="toc-deploy-vm" class="nav-link" data-scroll-target="#deploy-vm"><span class="header-section-number">3.6</span> Deploy (VM)</a></li>
+  <li><a href="#runtime-environment" id="toc-runtime-environment" class="nav-link" data-scroll-target="#runtime-environment"><span class="header-section-number">3.7</span> Runtime Environment</a></li>
+  <li><a href="#apache-ldap-proxy" id="toc-apache-ldap-proxy" class="nav-link" data-scroll-target="#apache-ldap-proxy"><span class="header-section-number">3.8</span> Apache LDAP Proxy</a></li>
+  <li><a href="#smoke-tests" id="toc-smoke-tests" class="nav-link" data-scroll-target="#smoke-tests"><span class="header-section-number">3.9</span> Smoke Tests</a></li>
+  <li><a href="#backups" id="toc-backups" class="nav-link" data-scroll-target="#backups"><span class="header-section-number">3.10</span> Backups</a></li>
+  <li><a href="#external-reference" id="toc-external-reference" class="nav-link" data-scroll-target="#external-reference"><span class="header-section-number">3.11</span> External Reference</a></li>
   </ul>
 </nav>
     </div>
@@ -272,414 +243,133 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </header>
 
 
-<section id="install-all-dependencies" class="level2" data-number="3.1">
-<h2 data-number="3.1" class="anchored" data-anchor-id="install-all-dependencies"><span class="header-section-number">3.1</span> Install all dependencies</h2>
-<section id="install-packages" class="level3" data-number="3.1.1">
-<h3 data-number="3.1.1" class="anchored" data-anchor-id="install-packages"><span class="header-section-number">3.1.1</span> Install packages</h3>
-<p>This should be done at the beginning after the VM was set up by the IT.</p>
-<pre class="{bash}"><code>mkdir -p /home/yeroslaviz/BCFMS-project-management
-cd /home/yeroslaviz/BCFMS-project-management
-bash scripts/check_requirements.sh</code></pre>
-<div class="callout callout-style-default callout-tip callout-titled">
-<div class="callout-header d-flex align-content-center">
-<div class="callout-icon-container">
-<i class="callout-icon"></i>
-</div>
-<div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Tip</span>The scripts ends with
-</div>
-</div>
-<div class="callout-body-container callout-body">
-<pre><code>Manual steps still required:
-- Install Shiny Server (.deb) if not present.
-- Configure Apache vhost, LDAP, and systemd env vars.</code></pre>
-</div>
-</div>
+<section id="setup-infrastructure" class="level2" data-number="3.1">
+<h2 data-number="3.1" class="anchored" data-anchor-id="setup-infrastructure"><span class="header-section-number">3.1</span> Setup &amp; Infrastructure</h2>
+<p>This chapter covers the pieces needed to run the MS project-management app on <code>mscf-vm</code>.</p>
 </section>
-<section id="install-shiny-server" class="level3" data-number="3.1.2">
-<h3 data-number="3.1.2" class="anchored" data-anchor-id="install-shiny-server"><span class="header-section-number">3.1.2</span> Install Shiny Server</h3>
-<p>Download the latest Shiny Server <code>.deb</code> from Posit and install it:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example pattern (replace filename with the current version)</span></span>
-<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install gdebi-core</span>
-<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb</span>
-<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> gdebi shiny-server-1.5.23.1030-amd64.deb</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Start and enable the service:</p>
-<pre class="{bash}"><code>sudo systemctl enable shiny-server
-sudo systemctl start shiny-server</code></pre>
+<section id="install-requirements" class="level2" data-number="3.2">
+<h2 data-number="3.2" class="anchored" data-anchor-id="install-requirements"><span class="header-section-number">3.2</span> Install Requirements</h2>
+<p>Clone the repository on the VM and run the requirement checker:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Install missing system or R packages when the checker reports them:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh <span class="at">--install</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">bash</span> scripts/check_requirements.sh <span class="at">--install-r</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The VM package check includes Shiny, <code>shinyjs</code>, DBI, RSQLite, digest, <code>DT</code>, rJava, and <code>mailR</code>. The app still starts if <code>DT</code> or <code>mailR</code> is absent, but the VM should install them so searchable tables and email behave like production.</p>
 </section>
-<section id="install-java-mail-packages-required-for-email-notifications" class="level3" data-number="3.1.3">
-<h3 data-number="3.1.3" class="anchored" data-anchor-id="install-java-mail-packages-required-for-email-notifications"><span class="header-section-number">3.1.3</span> Install Java + mail packages (required for email notifications)</h3>
-<p>The app sends emails via mailR, which requires Java / rJava. This is for email notifications, not for LDAP auth itself.</p>
-<pre class="{bash}"><code>sudo apt-get install -y default-jdk
-sudo R CMD javareconf
-sudo Rscript --vanilla -e 'install.packages(c("rJava","mailR"), repos="https://cloud.r-project.org")'</code></pre>
+<section id="install-shiny-server" class="level2" data-number="3.3">
+<h2 data-number="3.3" class="anchored" data-anchor-id="install-shiny-server"><span class="header-section-number">3.3</span> Install Shiny Server</h2>
+<p>Install Shiny Server from Posit’s <code>.deb</code> package:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> gdebi-core</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> gdebi shiny-server-1.5.23.1030-amd64.deb</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable shiny-server</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="install-ldap-packages-ubuntu-r" class="level3" data-number="3.1.4">
-<h3 data-number="3.1.4" class="anchored" data-anchor-id="install-ldap-packages-ubuntu-r"><span class="header-section-number">3.1.4</span> Install LDAP packages (Ubuntu + R)</h3>
-<pre class="{bash}"><code>sudo apt-get install -y ldap-utils libldap2-dev libsasl2-dev ca-certificates</code></pre>
-<p>These packages should already be installed via the installation script above, but just to make sure!</p>
-<section id="configure-openldap" class="level4" data-number="3.1.4.1">
-<h4 data-number="3.1.4.1" class="anchored" data-anchor-id="configure-openldap"><span class="header-section-number">3.1.4.1</span> Configure OpenLDAP</h4>
-<p>The client trust in <code>/etc/ldap/ldap.conf</code>:</p>
-<pre class="{bash}"><code>sudo tee /etc/ldap/ldap.conf &gt;/dev/null &lt;&lt;'EOF'
-BASE            dc=biochem,dc=mpg,dc=de
-URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
-TLS_REQCERT     hard
-TLS_CACERTDIR   /etc/ssl/certs
-EOF</code></pre>
-<p>Install the R LDAP package:</p>
-<pre class="{bash}"><code>sudo Rscript --vanilla -e 'if (!requireNamespace("remotes", quietly=TRUE)) install.packages("remotes", repos="https://cloud.r-project.org"); remotes::install_github("liamgilbey/ldapr")'</code></pre>
-<p>Quick checks:</p>
-<pre class="{bash}"><code>ldapsearch -x -H ldaps://ldap01.biochem.mpg.de:636 -b "dc=biochem,dc=mpg,dc=de" "(uid=yeroslaviz)" mail
-sudo -u shiny Rscript --vanilla -e 'library(ldapr); cat("ldapr OK\n")'</code></pre>
-</section>
-</section>
-</section>
-<section id="configure-the-shiny-app-folder" class="level2" data-number="3.2">
-<h2 data-number="3.2" class="anchored" data-anchor-id="configure-the-shiny-app-folder"><span class="header-section-number">3.2</span> Configure the Shiny app folder</h2>
-<pre class="{bash}"><code>sudo usermod -a -G shiny $USER
-sudo mv /srv/shiny-server/ms-app /srv/shiny-server/ms-app.backup 2&gt;/dev/null || true
-sudo mkdir -p /srv/shiny-server/ms-app
-sudo chown -R $USER:shiny /srv/shiny-server/ms-app</code></pre>
-<section id="clone-repo-and-set-app-folder" class="level3" data-number="3.2.1">
-<h3 data-number="3.2.1" class="anchored" data-anchor-id="clone-repo-and-set-app-folder"><span class="header-section-number">3.2.1</span> Clone repo and set app folder</h3>
-<pre class="{bash}"><code>sudo rsync -av /home/yeroslaviz/BCFMS-project-management/ms-app/ /srv/shiny-server/ms-app/
-sudo chown -R shiny:shiny /srv/shiny-server/ms-app</code></pre>
-</section>
-</section>
-<section id="configure-apache-test-https-redirect" class="level2" data-number="3.3">
-<h2 data-number="3.3" class="anchored" data-anchor-id="configure-apache-test-https-redirect"><span class="header-section-number">3.3</span> Configure Apache (test HTTPS redirect)</h2>
-<p>copy the apache2 config file</p>
-<pre class="{bash}"><code>sudo cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</code></pre>
-<section id="enable-the-site-and-restart-apache" class="level3" data-number="3.3.1">
-<h3 data-number="3.3.1" class="anchored" data-anchor-id="enable-the-site-and-restart-apache"><span class="header-section-number">3.3.1</span> Enable the site and restart Apache:</h3>
-<pre class="{bash}"><code>sudo a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap
-sudo a2ensite ms-vm-shiny-443.conf # this creates symlink to sites-enabled
-sudo apache2ctl -t
-sudo systemctl restart apache2
-</code></pre>
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<p>We have to wait for the certificate to activate this.</p>
-</blockquote>
-</blockquote>
-</blockquote>
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<blockquote class="blockquote">
-<p>Done so far. Below is all copied from BCFNGS</p>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</blockquote>
-</section>
-<section id="initialize-the-sqlite-db" class="level3" data-number="3.3.2">
-<h3 data-number="3.3.2" class="anchored" data-anchor-id="initialize-the-sqlite-db"><span class="header-section-number">3.3.2</span> Initialize the SQLite DB</h3>
-<pre class="{bash}"><code>cd /srv/shiny-server/ms-app
-sudo -u shiny Rscript setup_database.R</code></pre>
-</section>
-<section id="deploy-the-app-files" class="level3" data-number="3.3.3">
-<h3 data-number="3.3.3" class="anchored" data-anchor-id="deploy-the-app-files"><span class="header-section-number">3.3.3</span> Deploy the app files:</h3>
-<pre class="{bash}"><code>cd /home/yeroslaviz/BCFMS-project-management
-./scripts/deploy.sh</code></pre>
-</section>
-</section>
-<section id="server-infrastructure" class="level2" data-number="3.4">
-<h2 data-number="3.4" class="anchored" data-anchor-id="server-infrastructure"><span class="header-section-number">3.4</span> Server Infrastructure</h2>
-</section>
-<section id="modify-text-announcements" class="level2" data-number="3.5">
-<h2 data-number="3.5" class="anchored" data-anchor-id="modify-text-announcements"><span class="header-section-number">3.5</span> Modify Text (Announcements)</h2>
-<p>The post-login landing text is now <strong>admin-editable in the app UI</strong> (no code edit needed for content changes):</p>
-<ol type="1">
-<li>Log in as admin.</li>
-<li>Open <code>Administer Projects</code> -&gt; <code>Manage Landing Text</code>.</li>
-<li>Select the panel:
-<ul>
-<li><code>Announcement</code></li>
-<li><code>service_info</code> (service/instructions panel)</li>
-</ul></li>
-<li>Add/Edit/Delete/Reorder white text boxes.</li>
-<li>Changes are published immediately and stored in SQLite.</li>
-</ol>
-<section id="markdown-lite-syntax" class="level3" data-number="3.5.1">
-<h3 data-number="3.5.1" class="anchored" data-anchor-id="markdown-lite-syntax"><span class="header-section-number">3.5.1</span> Markdown-lite syntax</h3>
-<p>Use these formats in each box:</p>
-<ul>
-<li>Bold: <code>**important text**</code></li>
-<li>Bullet list:
-<ul>
-<li><code>- first item</code></li>
-<li><code>- second item</code></li>
-</ul></li>
-<li>Numbered list:
-<ul>
-<li><code>1. first</code></li>
-<li><code>2. second</code></li>
-</ul></li>
-<li>Link: <code>[@NGS](mailto:ngs@biochem.mpg.de)</code></li>
-</ul>
-</section>
-<section id="where-it-is-stored" class="level3" data-number="3.5.2">
-<h3 data-number="3.5.2" class="anchored" data-anchor-id="where-it-is-stored"><span class="header-section-number">3.5.2</span> Where it is stored</h3>
-<ul>
-<li>DB tables:
-<ul>
-<li><code>announcement_panels</code></li>
-<li><code>announcement_items</code></li>
-</ul></li>
-<li>App render + admin handlers:
-<ul>
-<li><code>/Users/yeroslaviz/Documents/Github/BCFNGS-project-management/sequencing-app/app.R</code></li>
-</ul></li>
-<li>Style classes (unchanged):
-<ul>
-<li><code>.announcement-panel</code></li>
-<li><code>.service-panel</code></li>
-<li><code>.info-box</code></li>
-</ul></li>
-</ul>
-<p>If tables are missing, the app auto-creates them and seeds default content on startup.</p>
-</section>
-<section id="sql-handling-moved" class="level3" data-number="3.5.3">
-<h3 data-number="3.5.3" class="anchored" data-anchor-id="sql-handling-moved"><span class="header-section-number">3.5.3</span> SQL handling (moved)</h3>
-<p>All SQL database commands and explanations were moved to <strong><code>notes/sql-handling.qmd</code></strong>.<br>
-This includes:</p>
-<ul>
-<li>DB rebuild procedure</li>
-<li>Admin user promotion in LDAP mode</li>
-<li>Budget holder updates (CSV vs DB)</li>
-<li>SQLite inspection and maintenance commands</li>
-</ul>
-</section>
-<section id="install-required-system-dependencies" class="level3" data-number="3.5.4">
-<h3 data-number="3.5.4" class="anchored" data-anchor-id="install-required-system-dependencies"><span class="header-section-number">3.5.4</span> Install required system dependencies</h3>
-<pre class="{bash}"><code>
-sudo apt install -y libssl-dev libxml2-dev libcurl4-openssl-dev libudunits2-dev libgdal-dev
-</code></pre>
-</section>
-<section id="changing-hostname-to-fit-the-apache2-config-file" class="level3" data-number="3.5.5">
-<h3 data-number="3.5.5" class="anchored" data-anchor-id="changing-hostname-to-fit-the-apache2-config-file"><span class="header-section-number">3.5.5</span> Changing hostname to fit the apache2 config file</h3>
-<pre class="{bash}"><code>
-# Change the hostname
-sudo hostnamectl set-hostname ngs-testing-vm.biochem.mpg.de
-
-# Verify the change
-hostnamectl status
-</code></pre>
-<pre class="{bash}"><code>nslookup ngs-testing-vm.biochem.mpg.de
-ping ngs-testing-vm.biochem.mpg.de</code></pre>
-<pre><code>Server:     127.0.0.53
-Address:    127.0.0.53#53
-
-Non-authoritative answer:
-Name:   ngs-testing-vm.biochem.mpg.de
-Address: 10.33.0.60
-
-PING ngs-testing-vm.biochem.mpg.de (10.33.0.60) 56(84) bytes of data.
-64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=1 ttl=64 time=0.079 ms
-64 bytes from ngs-testing-vm.biochem.mpg.de (10.33.0.60): icmp_seq=2 ttl=64 time=0.074 ms</code></pre>
-<pre class="{bash}"><code>
-sudo systemctl restart apache2
-</code></pre>
-</section>
-<section id="automatic-start-up" class="level3" data-number="3.5.6">
-<h3 data-number="3.5.6" class="anchored" data-anchor-id="automatic-start-up"><span class="header-section-number">3.5.6</span> Automatic start-up</h3>
-<pre class="{bash}"><code>
-sudo systemctl enable apache2
-sudo systemctl enable shiny-server
-</code></pre>
-</section>
-</section>
-<section id="ubuntu-bare-server-setup-howto-shiny-ldap" class="level2" data-number="3.6">
-<h2 data-number="3.6" class="anchored" data-anchor-id="ubuntu-bare-server-setup-howto-shiny-ldap"><span class="header-section-number">3.6</span> Ubuntu Bare Server Setup HOWTO (Shiny + LDAP)</h2>
-<section id="restart-communication-quick-resume" class="level3" data-number="3.6.1">
-<h3 data-number="3.6.1" class="anchored" data-anchor-id="restart-communication-quick-resume"><span class="header-section-number">3.6.1</span> Restart communication (quick resume)</h3>
-<p>If I ever need to resume this work with a new AI tool or a new chat session:</p>
-<ol type="1">
-<li>Read <strong>Troubleshooting</strong> for common failures and fixes.</li>
-<li>Read <strong>Deploy &amp; Operations</strong> for the current deploy/validation steps.</li>
-<li>Read <strong>Change Log</strong> for the latest configuration changes and decisions.</li>
-</ol>
-</section>
-<section id="base-os-prep" class="level3" data-number="3.6.2">
-<h3 data-number="3.6.2" class="anchored" data-anchor-id="base-os-prep"><span class="header-section-number">3.6.2</span> Base OS prep</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt update</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt upgrade <span class="at">-y</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Install common tools and libraries:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> <span class="dt">\</span></span>
-<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a>  git rsync curl ca-certificates <span class="dt">\</span></span>
-<span id="cb23-3"><a href="#cb23-3" aria-hidden="true" tabindex="-1"></a>  build-essential <span class="dt">\</span></span>
-<span id="cb23-4"><a href="#cb23-4" aria-hidden="true" tabindex="-1"></a>  libcurl4-openssl-dev libssl-dev libxml2-dev <span class="dt">\</span></span>
-<span id="cb23-5"><a href="#cb23-5" aria-hidden="true" tabindex="-1"></a>  sqlite3 libsqlite3-dev <span class="dt">\</span></span>
-<span id="cb23-6"><a href="#cb23-6" aria-hidden="true" tabindex="-1"></a>  ldap-utils <span class="dt">\</span></span>
-<span id="cb23-7"><a href="#cb23-7" aria-hidden="true" tabindex="-1"></a>  apache2 apache2-utils</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>If mail sending via <code>mailR</code> is needed, install a Java runtime:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> default-jre</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>If LDAP-related R packages need OpenLDAP headers, install:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> libldap2-dev libsasl2-dev</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="install-r" class="level3" data-number="3.6.3">
-<h3 data-number="3.6.3" class="anchored" data-anchor-id="install-r"><span class="header-section-number">3.6.3</span> Install R</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt install <span class="at">-y</span> r-base</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>If you need a newer R version than the Ubuntu default, add the CRAN repo and install from there (optional).</p>
-</section>
-<section id="install-shiny-server-1" class="level3" data-number="3.6.4">
-<h3 data-number="3.6.4" class="anchored" data-anchor-id="install-shiny-server-1"><span class="header-section-number">3.6.4</span> Install Shiny Server</h3>
-<p>Download the latest Shiny Server <code>.deb</code> from Posit and install it:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Example pattern (replace filename with the current version)</span></span>
-<span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a><span class="co"># wget https://download3.rstudio.org/ubuntu-22.04/x86_64/shiny-server-&lt;version&gt;.deb</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a><span class="co"># sudo dpkg -i shiny-server-&lt;version&gt;.deb</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a><span class="co"># sudo apt -f install -y</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Start and enable the service:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable shiny-server</span>
-<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="clone-the-repo" class="level3" data-number="3.6.5">
-<h3 data-number="3.6.5" class="anchored" data-anchor-id="clone-the-repo"><span class="header-section-number">3.6.5</span> Clone the repo</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>your-user<span class="op">&gt;</span></span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> clone git@github.com:yeroslaviz/BCFNGS-project-management.git</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="configure-the-shiny-app-folder-1" class="level3" data-number="3.6.6">
-<h3 data-number="3.6.6" class="anchored" data-anchor-id="configure-the-shiny-app-folder-1"><span class="header-section-number">3.6.6</span> Configure the Shiny app folder</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> usermod <span class="at">-a</span> <span class="at">-G</span> shiny <span class="va">$USER</span></span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mv /srv/shiny-server/sequencing-app /srv/shiny-server/sequencing-app.backup <span class="dv">2</span><span class="op">&gt;</span>/dev/null <span class="kw">||</span> <span class="fu">true</span></span>
-<span id="cb30-3"><a href="#cb30-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /srv/shiny-server/sequencing-app</span>
-<span id="cb30-4"><a href="#cb30-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> <span class="va">$USER</span>:shiny /srv/shiny-server/sequencing-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="configure-app-folder" class="level2" data-number="3.4">
+<h2 data-number="3.4" class="anchored" data-anchor-id="configure-app-folder"><span class="header-section-number">3.4</span> Configure App Folder</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> usermod <span class="at">-a</span> <span class="at">-G</span> shiny <span class="st">"</span><span class="va">$USER</span><span class="st">"</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /srv/shiny-server/ms-app</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 755 /srv/shiny-server /srv/shiny-server/ms-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Deploy the app files:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>your-user<span class="op">&gt;</span>/BCFNGS-project-management</span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--delete</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> <span class="at">--exclude</span> <span class="st">'.Renviron'</span> ms-app/ /srv/shiny-server/ms-app/</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="install-required-r-packages" class="level3" data-number="3.6.7">
-<h3 data-number="3.6.7" class="anchored" data-anchor-id="install-required-r-packages"><span class="header-section-number">3.6.7</span> Install required R packages</h3>
-<p>From R (or <code>R -q -e</code>):</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">install.packages</span>(<span class="fu">c</span>(</span>
-<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a>  <span class="st">"shiny"</span>,</span>
-<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a>  <span class="st">"shinyjs"</span>,</span>
-<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a>  <span class="st">"DBI"</span>,</span>
-<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a>  <span class="st">"RSQLite"</span>,</span>
-<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a>  <span class="st">"digest"</span>,</span>
-<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a>  <span class="st">"DT"</span>,</span>
-<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a>  <span class="st">"shinyWidgets"</span>,</span>
-<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a>  <span class="st">"mailR"</span>,</span>
-<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a>  <span class="st">"ldapr"</span></span>
-<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>If any package fails, install missing system libraries and retry.</p>
+<section id="initialize-sqlite" class="level2" data-number="3.5">
+<h2 data-number="3.5" class="anchored" data-anchor-id="initialize-sqlite"><span class="header-section-number">3.5</span> Initialize SQLite</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This creates <code>ms_projects.db</code>, the local <code>admin</code> user, budget holders, project types, status options, reference organisms, email templates, and the MS-specific project/sample/upload tables.</p>
+<p>If <code>ms_projects.db</code> already exists, the command preserves its rows and only applies schema migrations and seed checks. Database deletion requires the explicit, destructive setting <code>MS_RESET_DB=1</code>.</p>
+<p>For verified backups, transfer to another machine, and exact recovery, use the procedure in <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Deploy &amp; Operations</a>.</p>
 </section>
-<section id="configure-shiny-server-environment-variables" class="level3" data-number="3.6.8">
-<h3 data-number="3.6.8" class="anchored" data-anchor-id="configure-shiny-server-environment-variables"><span class="header-section-number">3.6.8</span> Configure Shiny Server environment variables</h3>
-<p>Recommended: systemd drop-in (production-safe).</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl edit shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Add:</p>
-<pre><code>[Service]
-Environment=AUTH_MODE=ldap
-Environment=LDAP_URI=ldaps://ldapserv1.biochem.mpg.de:636,ldaps://ldapserv2.biochem.mpg.de:636,ldaps://ldapserv3.biochem.mpg.de:636
-Environment=LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de
-# Optional debug (dev only):
-# Environment=APP_ENV=dev
-# Environment=LDAP_DEBUG=1</code></pre>
-<p>Then restart:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Alternative: <code>/home/shiny/.Renviron</code> (simpler, less explicit).</p>
+<section id="deploy-vm" class="level2" data-number="3.6">
+<h2 data-number="3.6" class="anchored" data-anchor-id="deploy-vm"><span class="header-section-number">3.6</span> Deploy (VM)</h2>
+<p>After the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run <code>deploy.sh</code> so <code>/srv/shiny-server/ms-app/app.R</code> gets the latest LDAP fixes and updates.</p>
+<p>On the VM:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Before running it, we need to make sure <code>/srv/shiny-server/ms-app/.Renviron</code> has the <a href="#runtime-environment">full block</a>, because <code>deploy.sh</code> preserves <code>.Renviron</code> and does not overwrite it:</p>
+<p>After deploy, confirm the deployed app contains the new LDAP code:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> grep <span class="at">-n</span> <span class="st">"client_url_search\|auth-status-box\|is_ldap_mode"</span> /srv/shiny-server/ms-app/app.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>deploy.sh</code> runs LDAP smoke tests and asks for an LDAP username/password unless we set <code>SKIP_SMOKE_TEST=1</code>. For a quick deploy without that prompt:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="va">SKIP_SMOKE_TEST</span><span class="op">=</span>1 <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
-<section id="configure-ldap-trust-openldap-client" class="level3" data-number="3.6.9">
-<h3 data-number="3.6.9" class="anchored" data-anchor-id="configure-ldap-trust-openldap-client"><span class="header-section-number">3.6.9</span> Configure LDAP trust (OpenLDAP client)</h3>
-<p>Edit <code>/etc/ldap/ldap.conf</code> and ensure:</p>
-<pre><code>BASE            dc=biochem,dc=mpg,dc=de
-URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de
-TLS_REQCERT     hard
-TLS_CACERTDIR   /etc/ssl/certs</code></pre>
-<p>Test:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="ex">ldapsearch</span> <span class="at">-x</span> <span class="at">-H</span> ldaps://ldapserv1.biochem.mpg.de:636 <span class="dt">\</span></span>
-<span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">-b</span> <span class="st">"dc=biochem,dc=mpg,dc=de"</span> <span class="st">"(uid=USER)"</span> mail</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="runtime-environment" class="level2" data-number="3.7">
+<h2 data-number="3.7" class="anchored" data-anchor-id="runtime-environment"><span class="header-section-number">3.7</span> Runtime Environment</h2>
+<p>Create <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="st">TRUST_PROXY_AUTH_USER_QUERY=1</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_UID=uid</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_MAIL=mail</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_PHONE=telephoneNumber</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_OU=ou</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_COST_CENTER=departmentNumber</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_FACILITY_GROUPS=b_ms,b_ngs</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_CN=cn</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_GIVENNAME=givenName</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_SN=sn</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="st">MS_FACILITY_EMAIL=ms-service@biochem.mpg.de</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAIL_FROM=ms-service@biochem.mpg.de</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a><span class="st">MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_HOST=msx.biochem.mpg.de</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_PORT=25</span></span>
+<span id="cb10-20"><a href="#cb10-20" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_SSL=0</span></span>
+<span id="cb10-21"><a href="#cb10-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
+<span id="cb10-22"><a href="#cb10-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
+<span id="cb10-23"><a href="#cb10-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
+<span id="cb10-24"><a href="#cb10-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-user</span></span>
+<span id="cb10-25"><a href="#cb10-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
+<span id="cb10-26"><a href="#cb10-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
+<span id="cb10-27"><a href="#cb10-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
+<span id="cb10-28"><a href="#cb10-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb10-29"><a href="#cb10-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb10-30"><a href="#cb10-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The upload pool may not exist yet. If it is missing, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with <code>shiny:shiny</code> ownership.</p>
+<p>New project folders use the pattern <code>YYYYMMDD_USERNAME_PROJECTID</code>, for example <code>20260724_asmith_Pr_1234</code>.</p>
 </section>
-<section id="configure-apache-reverse-proxy-ldap-auth" class="level3" data-number="3.6.10">
-<h3 data-number="3.6.10" class="anchored" data-anchor-id="configure-apache-reverse-proxy-ldap-auth"><span class="header-section-number">3.6.10</span> Configure Apache reverse proxy + LDAP auth</h3>
-<p>Copy the repo Apache config and enable required modules:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/<span class="op">&lt;</span>your-user<span class="op">&gt;</span>/BCFNGS-project-management/mpiseq2/ngs-vm_01-main.conf /etc/apache2/sites-enabled/01-main.conf</span>
-<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod proxy proxy_http proxy_wstunnel rewrite ssl headers ldap authnz_ldap</span>
-<span id="cb38-3"><a href="#cb38-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
-<span id="cb38-4"><a href="#cb38-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="apache-ldap-proxy" class="level2" data-number="3.8">
+<h2 data-number="3.8" class="anchored" data-anchor-id="apache-ldap-proxy"><span class="header-section-number">3.8</span> Apache LDAP Proxy</h2>
+<p>Copy the Apache template:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Enable required modules and the site:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The template proxies <code>/ms-app/</code>, protects it with LDAP, and rewrites to <code>/ms-app/?auth_user=&lt;logged-user&gt;</code> so Shiny can provision or find the corresponding user row.</p>
 </section>
-<section id="validate-the-full-flow" class="level3" data-number="3.6.11">
-<h3 data-number="3.6.11" class="anchored" data-anchor-id="validate-the-full-flow"><span class="header-section-number">3.6.11</span> Validate the full flow</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb39"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb39-1"><a href="#cb39-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://ngs-testing-vm.biochem.mpg.de/</span>
-<span id="cb39-2"><a href="#cb39-2" aria-hidden="true" tabindex="-1"></a><span class="co"># Expect 401</span></span>
-<span id="cb39-3"><a href="#cb39-3" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb39-4"><a href="#cb39-4" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://ngs-testing-vm.biochem.mpg.de/</span>
-<span id="cb39-5"><a href="#cb39-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Expect 302 to /sequencing-app/?auth_user=USER</span></span>
-<span id="cb39-6"><a href="#cb39-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb39-7"><a href="#cb39-7" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://ngs-testing-vm.biochem.mpg.de/sequencing-app/</span>
-<span id="cb39-8"><a href="#cb39-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Expect 200</span></span>
-<span id="cb39-9"><a href="#cb39-9" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb39-10"><a href="#cb39-10" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://localhost:3838/sequencing-app/</span>
-<span id="cb39-11"><a href="#cb39-11" aria-hidden="true" tabindex="-1"></a><span class="co"># Expect 200</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="routine-updates" class="level3" data-number="3.6.12">
-<h3 data-number="3.6.12" class="anchored" data-anchor-id="routine-updates"><span class="header-section-number">3.6.12</span> Routine updates</h3>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb40"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb40-1"><a href="#cb40-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>your-user<span class="op">&gt;</span>/BCFNGS-project-management</span>
-<span id="cb40-2"><a href="#cb40-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull origin main</span>
-<span id="cb40-3"><a href="#cb40-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-</section>
-<section id="production-hygiene" class="level3" data-number="3.6.13">
-<h3 data-number="3.6.13" class="anchored" data-anchor-id="production-hygiene"><span class="header-section-number">3.6.13</span> Production hygiene</h3>
-<ol type="1">
-<li>Use a <strong>service bind account</strong> if LDAP requires bind credentials.</li>
-<li>Keep DB files out of git.</li>
-<li>Keep Apache debug logs off unless diagnosing a problem.</li>
-</ol>
-</section>
-<section id="references" class="level3" data-number="3.6.14">
-<h3 data-number="3.6.14" class="anchored" data-anchor-id="references"><span class="header-section-number">3.6.14</span> References</h3>
+<section id="smoke-tests" class="level2" data-number="3.9">
+<h2 data-number="3.9" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">3.9</span> Smoke Tests</h2>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Expected behavior:</p>
 <ul>
-<li><code>notes/vm-troubleshooting-guide.md</code></li>
-<li><code>Server_preparations.qmd</code></li>
+<li><code>/</code> redirects to <code>/ms-app/</code></li>
+<li>unauthenticated HTTPS requests receive an LDAP challenge</li>
+<li>authenticated <code>/ms-app/</code> requests redirect once to the canonical <code>auth_user</code></li>
+<li>the Shiny backend answers on port <code>3838</code></li>
 </ul>
 </section>
+<section id="backups" class="level2" data-number="3.10">
+<h2 data-number="3.10" class="anchored" data-anchor-id="backups"><span class="header-section-number">3.10</span> Backups</h2>
+<p>Before risky code or Apache maintenance, preserve the deployed application and web-server configuration:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span>/</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Do not use a plain file copy as the primary backup method for a database that may be in use. Follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a> for a transactionally consistent SQLite backup and the separate upload-directory backup.</p>
 </section>
-<section id="ssl-certificates" class="level2" data-number="3.7">
-<h2 data-number="3.7" class="anchored" data-anchor-id="ssl-certificates"><span class="header-section-number">3.7</span> SSL Certificates</h2>
-</section>
-<section id="ssl-certificate-for-https" class="level2" data-number="3.8">
-<h2 data-number="3.8" class="anchored" data-anchor-id="ssl-certificate-for-https"><span class="header-section-number">3.8</span> SSL Certificate (for HTTPS)</h2>
-<p>the new setting of the certificates. I have three files.</p>
-<p>The private key I created when applying for the certificate. The other two were downloaded, when the emial came from Harica (the certificate provider).</p>
-<p>the <code>PEM</code> is the pem file and the <code>DER (issuer)</code> is the chain file. Both of them are needed.</p>
-<p>Setting for the readability of the files:</p>
-<pre><code>cd /etc/apache2/certificate/2026
--rw------- 1 yeroslaviz b_mcf 3272 Nov 10 15:58 private-key.pem # udo chmod 600 /path/to/private.key  # Readable only by root
--rw-r--r-- 1 yeroslaviz b_mcf 1545 Nov 14 12:12 NGS_2026_Issuer_ChainFile.cer # sudo chmod 644 /path/to/chain.crt  # Readable by all
--rw-r--r-- 1 yeroslaviz b_mcf 2796 Nov 14 12:34 NGS_2026_Cert.pem # sudo chmod 644 /path/to/certificate.crt # Readable by all</code></pre>
-<p>All the files are saved under <code>/etc/apache2/certificate/2026</code>.</p>
-<p>Now I created soft links for each of these files.</p>
-<pre class="{bash}"><code>sudo ln -s /etc/apache2/certificate/2026/private-key.pem /etc/ssl/private/2026_private-key.pem
-sudo ln -s /etc/apache2/certificate/2026/NGS_2026_Cert.pem /etc/ssl/certs/2026_NGS_Cert.pem
-</code></pre>
-</section>
-<section id="firewall" class="level2" data-number="3.9">
-<h2 data-number="3.9" class="anchored" data-anchor-id="firewall"><span class="header-section-number">3.9</span> Firewall</h2>
-<section id="firewall-1" class="level3" data-number="3.9.1">
-<h3 data-number="3.9.1" class="anchored" data-anchor-id="firewall-1"><span class="header-section-number">3.9.1</span> Firewall</h3>
-<p>at the moment is not active, but maybe in the future.</p>
-<pre class="{bash}"><code>
-sudo ufw allow 3838
-sudo ufw allow 80
-sudo ufw allow 443
-</code></pre>
+<section id="external-reference" class="level2" data-number="3.11">
+<h2 data-number="3.11" class="anchored" data-anchor-id="external-reference"><span class="header-section-number">3.11</span> External Reference</h2>
+<p>The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. Treat it as background reference, not as an instruction source for app names or paths in this MS repository.</p>
 
 
-</section>
 </section>
 
 </main> <!-- /main -->
@@ -770,6 +460,11 @@ sudo ufw allow 443
           if (link.dataset.originalHref !== undefined) {
             link.href = link.dataset.originalHref;
           }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
         }
       }
     function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
@@ -1090,8 +785,8 @@ sudo ufw allow 443
       </a>          
   </div>
   <div class="nav-page nav-page-next">
-      <a href="../chapters/git-github.html" class="pagination-link" aria-label="Git and Github">
-        <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">Git and Github</span></span> <i class="bi bi-arrow-right-short"></i>
+      <a href="../chapters/ldap-authentication.html" class="pagination-link" aria-label="LDAP Authentication">
+        <span class="nav-page-text"><span class="chapter-number">4</span>&nbsp; <span class="chapter-title">LDAP Authentication</span></span> <i class="bi bi-arrow-right-short"></i>
       </a>
   </div>
 </nav>
