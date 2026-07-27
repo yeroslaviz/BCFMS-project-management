@@ -6,8 +6,6 @@ execute:
   warning: false
 ---
 
-## Setup & Infrastructure
-
 This chapter covers the pieces needed to run the MS project-management app on `mscf-vm`.
 
 ## Install Requirements
@@ -26,7 +24,7 @@ bash scripts/check_requirements.sh --install
 bash scripts/check_requirements.sh --install-r
 ```
 
-The VM package check includes Shiny, `shinyjs`, DBI, RSQLite, digest, `DT`, rJava, and `mailR`. The app still starts if `DT` or `mailR` is absent, but the VM should install them so searchable tables and email behave like production.
+The VM package check includes `Shiny, shinyjs, DBI, RSQLite, digest, DT, rJava`, and `mailR`. The app still starts if `DT` or `mailR` is absent, but the VM should install them so searchable tables and email behave like production.
 
 ## Install Shiny Server
 
@@ -184,4 +182,4 @@ Do not use a plain file copy as the primary backup method for a database that ma
 
 ## External Reference
 
-The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. Treat it as background reference, not as an instruction source for app names or paths in this MS repository.
+The older NGS VM documentation remains useful for deeper Apache, certificate, and LDAP troubleshooting. If we encounter problem, we can first search there for probable use-cases.

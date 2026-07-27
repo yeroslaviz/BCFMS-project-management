@@ -6,8 +6,6 @@ execute:
   warning: false
 ---
 
-## Deploy & Operations
-
 ## Routine Deploy
 
 On the VM:

@@ -6,9 +6,7 @@ execute:
   warning: false
 ---
 
-## Quick Start
-
-### Local app run
+## Local app run
 
 From the repository root:
 
@@ -22,7 +20,7 @@ The local test administrator is created by `setup_database.R`:
 - username: `admin`
 - password: `admin123` unless `MS_LOCAL_ADMIN_PASSWORD` is set
 
-### Initialize or migrate the local database
+## Initialize or migrate the local database
 
 ```bash
 cd ms-app
@@ -35,7 +33,7 @@ Do not set `MS_RESET_DB=1` during normal setup or deployment. That option delibe
 
 For moving the current database to another machine or recovering it exactly, follow [Database backup and exact recovery](deploy-operations.qmd#database-backup-and-exact-recovery).
 
-### Local LDAP/proxy simulation
+## Local LDAP/proxy simulation
 
 The production VM lets Apache do LDAP authentication and passes the authenticated username to Shiny. To simulate that locally:
 
@@ -50,10 +48,10 @@ shiny::runApp("ms-app")
 Then open the app with an `auth_user` query parameter, for example:
 
 ```text
-http://127.0.0.1:3838/?auth_user=yeroslaviz
+http://127.0.0.1:3838/?auth_user=USER
 ```
 
-### VM LDAP mode
+## VM LDAP mode
 
 Set the Shiny runtime environment either through a systemd override or `/srv/shiny-server/ms-app/.Renviron`:
 
@@ -90,7 +88,7 @@ Restart Shiny after changing runtime settings:
 sudo systemctl restart shiny-server
 ```
 
-### VM maintenance mode
+## VM maintenance mode
 
 Switch temporarily to local login:
 
