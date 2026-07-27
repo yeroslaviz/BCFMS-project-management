@@ -292,12 +292,12 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="apply-for-https-certificate" class="level2" data-number="7.6">
 <h2 data-number="7.6" class="anchored" data-anchor-id="apply-for-https-certificate"><span class="header-section-number">7.6</span> Apply for https certificate</h2>
 <p>Run the following command which generates a private key ‘private-key.pem’ and a certificate request ‘certificate-request.pem’. Change the file names to the appropriate ones.</p>
-<pre class="{bash}"><code>cd /home/yeroslaviz/certificate_request/2027/
-
-openssl req -newkey rsa:4096 -sha256 -nodes -keyout mscf-private-key.pem -out mscf-certificate-request.pem</code></pre>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/certificate_request/2027/</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> req <span class="at">-newkey</span> rsa:4096 <span class="at">-sha256</span> <span class="at">-nodes</span> <span class="at">-keyout</span> mscf-private-key.pem <span class="at">-out</span> mscf-certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Leave all fields at their default values.</p>
 <p>View the content of the certificate request. You will need to insert it in the final step of the next section when submitting the request.</p>
-<pre class="{bash}"><code>cat certificate-request.pem</code></pre>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <ul>
 <li><p>Login to <a href="https://cm.harica.gr">https://cm.harica.gr</a> &gt; use <code>Academic Login</code></p></li>
 <li><p>Search / Select “MPI of Biochemistry”, then log in with your biochem user account.</p></li>
