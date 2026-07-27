@@ -24,6 +24,7 @@ format:
     toc-depth: 3
     number-sections: true
     code-fold: true
+    link-external-icon: true
     grid:
       body-width: 1880px
       margin-width: 280px
