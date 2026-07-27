@@ -4,15 +4,15 @@ Shiny application for managing proteomics, metabolomics, and intact/native mass-
 
 ## Documentation
 
-The complete setup and maintenance manual starts at [Documentation](index.qmd).
+The complete setup and maintenance manual starts at [Documentation](https://yeroslaviz.github.io/BCFMS-project-management/).
 
-- [Quick Start](chapters/quick-start.qmd)
-- [Setup and Infrastructure](chapters/setup-infrastructure.qmd)
-- [LDAP Authentication](chapters/ldap-authentication.qmd)
-- [Troubleshooting](chapters/troubleshooting.qmd)
-- [Deploy and Operations](chapters/deploy-operations.qmd)
-- [Database backup and exact recovery](chapters/deploy-operations.qmd#database-backup-and-exact-recovery)
-- [Change Log](chapters/change-log.qmd)
+- [Quick Start](https://yeroslaviz.github.io/BCFMS-project-management/chapters/quick-start.html)
+- [Setup and Infrastructure](https://yeroslaviz.github.io/BCFMS-project-management/chapters/setup-infrastructure.html)
+- [LDAP Authentication](https://yeroslaviz.github.io/BCFMS-project-management/chapters/ldap-authentication.html)
+- [Troubleshooting](https://yeroslaviz.github.io/BCFMS-project-management/chapters/troubleshooting.html)
+- [Deploy and Operations](https://yeroslaviz.github.io/BCFMS-project-management/chapters/deploy-operations.html)
+- [Database backup and exact recovery](https://yeroslaviz.github.io/BCFMS-project-management/chapters/deploy-operations.html#database-backup-and-exact-recovery)
+- [Change Log](https://yeroslaviz.github.io/BCFMS-project-management/chapters/change-log.html)
 
 ## Local start
 
@@ -34,3 +34,6 @@ Before database maintenance or migration to another machine, follow the [verifie
 ## Contact
 
 Questions about the repository or facility workflows can be sent to [omicsdesk](mailto:omicsdesk@biochem.mpg.de).
+
+
+quick-start.html
