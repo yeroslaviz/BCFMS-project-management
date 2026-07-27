@@ -79,7 +79,7 @@ sudo chown -R shiny:shiny /srv/shiny-server/ms-app
 
 Run the following command which generates a private key 'private-key.pem' and a certificate request 'certificate-request.pem'. Change the file names to the appropriate ones.
 
-```{bash}
+```bash
 cd /home/yeroslaviz/certificate_request/2027/
 
 openssl req -newkey rsa:4096 -sha256 -nodes -keyout mscf-private-key.pem -out mscf-certificate-request.pem
@@ -89,7 +89,7 @@ Leave all fields at their default values.
 
 View the content of the certificate request. You will need to insert it in the final step of the next section when submitting the request.
 
-```{bash}
+```bash
 cat certificate-request.pem
 ```
 
