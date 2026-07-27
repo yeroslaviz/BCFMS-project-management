@@ -1,54 +1,36 @@
-# BCFMS-project-management
+# BCFMS Project Management
 
-## Welcome to the Mass-Spectrometry Facility at MPI for Biochemistry
+Shiny application for managing proteomics, metabolomics, and intact/native mass-spectrometry projects at the MPI for Biochemistry MS Core Facility.
 
-This is the repository of the shiny app for a project management system for the BCF MS core facility
+## Documentation
 
-The MS Core Facility provides services such as ​
-- Identification of proteins (in-gel or in-solution)
-  - “Protein ID”
-  - “Protein Coverage”
-- In-depth proteome analysis (with and without fractionation)
-​  - “Total Proteome”
-- Interaction proteomics by Affinity Purification Mass Spectrometry (AP-MS)	
-​​​  - “Interaction proteomics”
-- Post-translational modification identification (e.g. phosphorylation, ubiquitination, acetylation or glycosylation). Low stoichiometry modifications can be brought into view by enrichment (e.g. Fe-IMAC for phosphorylation)
-  - “PTMomics”
-  - “Protein Coverage”
-- Crosslinking-MS (XL-MS) to extract protein structure distance information
-  - “Crosslinking MS”
-- Intact mass of proteins and other biomolecules as well as small molecules 
-  - “Intact mass”
-- Lipidomics / Metabolomics.
+The complete setup and maintenance manual starts at [Documentation](index.qmd).
 
-We highly recommend to contact us before the start of your experiment. In collaboration with the Bioinformatics Core Facility, we provide:
+- [Quick Start](chapters/quick-start.qmd)
+- [Setup and Infrastructure](chapters/setup-infrastructure.qmd)
+- [LDAP Authentication](chapters/ldap-authentication.qmd)
+- [Troubleshooting](chapters/troubleshooting.qmd)
+- [Deploy and Operations](chapters/deploy-operations.qmd)
+- [Database backup and exact recovery](chapters/deploy-operations.qmd#database-backup-and-exact-recovery)
+- [Change Log](chapters/change-log.qmd)
 
-* Assistance with experimental design of the studies (required number of samples and replicates)
-* Assistance with mass spectrometry data interpretation and downstream analysis planning
-* Data analysis on collaborative basis
+## Local start
 
-If you have any further questions, please do not hesitate to contact us @ [omicsdesk](mailto:omicsdesk@biochem.mpg.de)!
+From the repository root:
 
-## Database backups and exact rebuilds
-
-The database creation script preserves an existing database by default. It no longer deletes data unless `MS_RESET_DB=1` is explicitly set.
-
-Create a transactionally consistent, integrity-checked backup:
-
-```bash
-Rscript scripts/backup_database.R /srv/shiny-server/ms-app/ms_projects.db /secure/backups/ms_projects.sqlite
+```r
+Sys.setenv(AUTH_MODE = "local")
+shiny::runApp("ms-app")
 ```
 
-Restore that exact database on a new machine, then apply any newer schema migrations and seed defaults:
+See the [Quick Start](chapters/quick-start.qmd) for database initialization, test-login details, and local LDAP simulation.
 
-```bash
-cd ms-app
-MS_DB_FILE=ms_projects.db \
-MS_RESTORE_DB_FROM=/secure/backups/ms_projects.sqlite \
-MS_RESET_DB=1 \
-Rscript setup_database.R
-```
+## Production
 
-The SQLite backup preserves all database rows, including projects, sample records, dropdown options, custom costs, users, and status history. Project uploads are stored outside SQLite and must be backed up separately from the configured `MS_UPLOAD_ROOT` and `MS_LOCAL_UPLOAD_FALLBACK` directories.
+Use the documented [deployment procedure](chapters/deploy-operations.qmd#routine-deploy). A routine deployment preserves the production database and runtime configuration.
 
-For production recovery, keep the database backup and upload-directory backup from the same maintenance window. Test recovery on a separate path before replacing the live database.
+Before database maintenance or migration to another machine, follow the [verified backup and exact recovery procedure](chapters/deploy-operations.qmd#database-backup-and-exact-recovery). Uploaded project files must be backed up separately from the SQLite database.
+
+## Contact
+
+Questions about the repository or facility workflows can be sent to [omicsdesk](mailto:omicsdesk@biochem.mpg.de).

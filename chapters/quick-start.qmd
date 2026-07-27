@@ -22,19 +22,18 @@ The local test administrator is created by `setup_database.R`:
 - username: `admin`
 - password: `admin123` unless `MS_LOCAL_ADMIN_PASSWORD` is set
 
-### Initialize or rebuild the local database
+### Initialize or migrate the local database
 
 ```bash
 cd ms-app
 Rscript setup_database.R
 ```
 
-By default this rebuilds `ms_projects.db`. To run schema/seed checks without deleting an existing database:
+This creates `ms_projects.db` when it does not exist. If it already exists, the command preserves all rows while applying schema migrations and seed checks.
 
-```bash
-cd ms-app
-MS_RESET_DB=0 Rscript setup_database.R
-```
+Do not set `MS_RESET_DB=1` during normal setup or deployment. That option deliberately deletes and rebuilds the target database. Take a verified backup first and use it only when an empty database is intended.
+
+For moving the current database to another machine or recovering it exactly, follow [Database backup and exact recovery](deploy-operations.qmd#database-backup-and-exact-recovery).
 
 ### Local LDAP/proxy simulation
 

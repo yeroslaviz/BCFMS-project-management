@@ -302,11 +302,7 @@ cd /srv/shiny-server/ms-app
 sudo -u shiny Rscript setup_database.R
 ```
 
-For schema/seed checks without deleting the DB:
-
-```bash
-sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
-```
+This creates a missing database. When the database already exists, it preserves all rows and applies only schema migrations and seed checks. The destructive reset option, `MS_RESET_DB=1`, must not be used during routine installation or deployment.
 
 ## Runtime Environment
 
@@ -396,18 +392,4 @@ sudo systemctl restart shiny-server
 
 ## Backup / Restore
 
-Backup:
-
-```bash
-sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
-```
-
-Restore:
-
-```bash
-sudo systemctl stop shiny-server
-sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
-sudo chown -R shiny:shiny /srv/shiny-server/ms-app
-sudo systemctl start shiny-server
-```
+Use [Database backup and exact recovery](deploy-operations.qmd#database-backup-and-exact-recovery) for a consistent SQLite snapshot, upload-directory backup, integrity verification, and recovery procedure. Application-code rollback is documented separately in [Rollback](deploy-operations.qmd#rollback).

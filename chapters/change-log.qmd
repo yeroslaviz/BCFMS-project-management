@@ -28,6 +28,7 @@ execute:
 3. intaact template was modified
 4. Proteomics and metabolomics sample names are optional and default to the generated project ID.
 5. Submission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.
+6. Documentation has been reorganized and synchronized.
 
 ## Changes on 24.07.2026 
 

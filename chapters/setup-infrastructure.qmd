@@ -66,12 +66,9 @@ sudo -u shiny Rscript setup_database.R
 
 This creates `ms_projects.db`, the local `admin` user, budget holders, project types, status options, reference organisms, email templates, and the MS-specific project/sample/upload tables.
 
-Use this when you want to check or seed without deleting an existing database:
+If `ms_projects.db` already exists, the command preserves its rows and only applies schema migrations and seed checks. Database deletion requires the explicit, destructive setting `MS_RESET_DB=1`.
 
-```bash
-cd /srv/shiny-server/ms-app
-sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
-```
+For verified backups, transfer to another machine, and exact recovery, use the procedure in [Deploy & Operations](deploy-operations.qmd#database-backup-and-exact-recovery).
 
 ##  Deploy (VM)
 
@@ -176,13 +173,14 @@ Expected behavior:
 
 ## Backups
 
-Before risky maintenance:
+Before risky code or Apache maintenance, preserve the deployed application and web-server configuration:
 
 ```bash
-sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
+sudo rsync -av --exclude 'ms_projects.db' /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
 sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
+
+Do not use a plain file copy as the primary backup method for a database that may be in use. Follow [Database backup and exact recovery](deploy-operations.qmd#database-backup-and-exact-recovery) for a transactionally consistent SQLite backup and the separate upload-directory backup.
 
 ## External Reference
 

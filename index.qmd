@@ -19,18 +19,22 @@ If you have any further questions regarding this repository, please do not hesit
 
 # Chapters
 
-- [Quick Start](chapters/quick-start.html)
-- [Setup & Infrastructure](chapters/setup-infrastructure.html)
-- [Git & GitHub](chapters/git-github.html)
+- [Quick Start](chapters/quick-start.qmd)
+- [Setup & Infrastructure](chapters/setup-infrastructure.qmd)
+- [LDAP Authentication](chapters/ldap-authentication.qmd)
+- [Troubleshooting](chapters/troubleshooting.qmd)
+- [Git & GitHub](chapters/git-github.qmd)
 - [VM installation](chapters/vm-installation.qmd)
-- [Deploy & Operations](chapters/deploy-operations.html)
-- [Change Log](chapters/change-log.html)
+- [Deploy & Operations](chapters/deploy-operations.qmd)
+- [Change Log](chapters/change-log.qmd)
 
 ## How to render
 
 
 ```bash
-quarto render Documentation/
+quarto render
 ```
 
 This booklet is a short manual for setting up and maintaining `mscf-vm` for the MS core facility. The older BCFNGS VM documentation can still be used as a deeper reference for Apache, certificates, and LDAP troubleshooting, but app names and paths in this repository should always use the MS conventions.
+
+The repository landing page is available on [GitHub](https://github.com/yeroslaviz/BCFMS-project-management).

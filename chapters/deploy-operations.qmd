@@ -22,11 +22,14 @@ The deploy script syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_p
 
 ## Pre-Deploy Backups
 
+Routine deployment excludes the database, but preserve the currently deployed code and Apache configuration before risky maintenance:
+
 ```bash
-sudo rsync -av /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
-sudo cp /srv/shiny-server/ms-app/ms_projects.db /srv/shiny-server/ms-app/ms_projects.db.bak.$(date +%F-%H%M%S)
+sudo rsync -av --exclude 'ms_projects.db' /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_$(date +%Y%m%d_%H%M)/
 sudo cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_$(date +%Y%m%d_%H%M)
 ```
+
+For database maintenance, machine migration, or disaster recovery, also create the verified database and upload backups described in [Database backup and exact recovery](#database-backup-and-exact-recovery).
 
 ## Restart Services
 
@@ -65,30 +68,108 @@ PUBLIC_BASE_URL="https://mscf-vm.biochem.mpg.de" ./scripts/deploy.sh
 
 Deploy is code-only. It does not rebuild or overwrite `ms_projects.db`.
 
-To initialize a new database:
+To initialize a missing database or apply migrations and seed checks to an existing database:
 
 ```bash
 cd /srv/shiny-server/ms-app
 sudo -u shiny Rscript setup_database.R
 ```
 
-To apply schema/seed checks without deleting existing data:
+Existing rows are preserved by default. Never set `MS_RESET_DB=1` during a routine deployment. That setting deliberately deletes and rebuilds the target database.
+
+## Database backup and exact recovery
+
+The database seed definitions reproduce application defaults, not the current production state. To retain every current project, sample, dropdown option, custom cost, user, and status-history row, preserve a transactionally consistent SQLite snapshot.
+
+Uploaded files are stored outside SQLite. A complete recovery therefore needs:
+
+1. The verified SQLite backup.
+2. A backup or storage snapshot of `MS_UPLOAD_ROOT`.
+3. A backup of `MS_LOCAL_UPLOAD_FALLBACK`.
+4. The runtime configuration that defines those paths.
+
+### Create a verified database backup
+
+Run the backup script from the repository checkout. Store backups outside the deployed application directory so deployment and code rollback cannot remove them:
+
+```bash
+cd /home/yeroslaviz/BCFMS-project-management
+sudo install -d -o shiny -g shiny -m 750 /srv/ms-app-data/db-backups
+backup_file="/srv/ms-app-data/db-backups/ms_projects_$(date +%Y%m%d_%H%M%S).sqlite"
+sudo -u shiny Rscript scripts/backup_database.R \
+  /srv/shiny-server/ms-app/ms_projects.db \
+  "$backup_file"
+sudo -u shiny sqlite3 "$backup_file" 'PRAGMA integrity_check;'
+sudo -u shiny sha256sum "$backup_file"
+```
+
+The backup script uses SQLite's backup mechanism and refuses to overwrite an existing destination. Both integrity checks must return `ok`. Record the SHA-256 checksum with the backup.
+
+Back up the persistent fallback upload directory during the same maintenance window:
+
+```bash
+sudo rsync -av /srv/ms-app-data/uploads_pending_pool/ /secure/backups/uploads_pending_pool/
+```
+
+Back up `MS_UPLOAD_ROOT` using the facility storage system's snapshot or backup procedure. Do not assume that the SQLite backup contains project uploads.
+
+### Test a recovery
+
+Restore to a separate path first:
 
 ```bash
 cd /srv/shiny-server/ms-app
-sudo -u shiny MS_RESET_DB=0 Rscript setup_database.R
+sudo -u shiny env \
+  MS_DB_FILE=/private/tmp/ms_projects_restore_test.db \
+  MS_RESTORE_DB_FROM=/srv/ms-app-data/db-backups/ms_projects_YYYYMMDD_HHMMSS.sqlite \
+  Rscript setup_database.R
+sudo -u shiny sqlite3 /private/tmp/ms_projects_restore_test.db 'PRAGMA integrity_check;'
 ```
 
-## Rollback
+Compare important table counts between production and the test restore:
+
+```bash
+for table in projects project_samples controlled_options option_costs users project_status_history; do
+  printf '%-28s production=' "$table"
+  sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db "SELECT COUNT(*) FROM $table;"
+  printf '%-28s restored=' "$table"
+  sudo -u shiny sqlite3 /private/tmp/ms_projects_restore_test.db "SELECT COUNT(*) FROM $table;"
+done
+```
+
+Remove the temporary test database after the comparison.
+
+### Restore production or move to another machine
+
+Deploy the application code and configure `.Renviron` first. Restore the upload directories to the same configured paths, then restore the database:
 
 ```bash
 sudo systemctl stop shiny-server
-sudo rsync -av --delete /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
-sudo cp /srv/shiny-server/ms-app/ms_projects.db.bak.<timestamp> /srv/shiny-server/ms-app/ms_projects.db
+cd /srv/shiny-server/ms-app
+sudo -u shiny env \
+  MS_DB_FILE=/srv/shiny-server/ms-app/ms_projects.db \
+  MS_RESTORE_DB_FROM=/secure/backups/ms_projects.sqlite \
+  MS_RESET_DB=1 \
+  Rscript setup_database.R
+sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db 'PRAGMA integrity_check;'
+sudo systemctl start shiny-server
+```
+
+`MS_RESET_DB=1` is required here only because an existing target is being intentionally replaced by a verified backup. After restoration, `setup_database.R` applies any schema migrations and seed defaults required by the deployed application version.
+
+## Rollback
+
+This rollback restores application code only and leaves the current database in place:
+
+```bash
+sudo systemctl stop shiny-server
+sudo rsync -av --delete --exclude 'ms_projects.db' /srv/shiny-server/ms-app.backup_YYYYMMDD_HHMM/ /srv/shiny-server/ms-app/
 sudo chown -R shiny:shiny /srv/shiny-server/ms-app
 sudo systemctl start shiny-server
 sudo systemctl restart apache2
 ```
+
+If the database itself must be rolled back, use the verified restore procedure above rather than copying a potentially active SQLite file.
 
 ## Logs
 
@@ -97,4 +178,3 @@ sudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log
 sudo tail -n 120 /var/log/apache2/ms-app-ssl-error.log
 ```
-
