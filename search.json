@@ -4,7 +4,7 @@
     "href": "index.html",
     "title": "Documentation",
     "section": "",
-    "text": "BCFMS-project-management is a Shiny app for a project management system for the MS core facility.\nThe MS Core Facility provides services such as ​\n\nIdentification of proteins (in-gel or in-solution)\nIn-depth proteome analysis (with and without fractionation)\nInteraction proteomics by Affinity Purification Mass Spectrometry (AP-MS)\nPost-translational modification identification (e.g. phosphorylation, ubiquitination, acetylation or glycosylation). Low stoichiometry modifications can be brought into view by enrichment (e.g. Fe-IMAC for phosphorylation)\nCrosslinking-MS (XL-MS) to extract protein structure distance information\nIntact mass of proteins and other biomolecules as well as small molecules\nLipidomics / Metabolomics.\n\nIf you have any further questions regarding this repository, please do not hesitate to contact us @ omicsdesk!\n\n1 Chapters\n\nQuick Start\nSetup & Infrastructure\nLDAP Authentication\nTroubleshooting\nGit & GitHub\nVM installation\nDeploy & Operations\nChange Log",
+    "text": "BCFMS-project-management is a Shiny app for a project management system for the MS core facility.\nThe MS Core Facility provides services such as ​\n\nIdentification of proteins (in-gel or in-solution)\nIn-depth proteome analysis (with and without fractionation)\nInteraction proteomics by Affinity Purification Mass Spectrometry (AP-MS)\nPost-translational modification identification (e.g. phosphorylation, ubiquitination, acetylation or glycosylation). Low stoichiometry modifications can be brought into view by enrichment (e.g. Fe-IMAC for phosphorylation)\nCrosslinking-MS (XL-MS) to extract protein structure distance information\nIntact mass of proteins and other biomolecules as well as small molecules\nLipidomics / Metabolomics.\n\nIf you have any further questions regarding this repository, please do not hesitate to contact us @ omicsdesk!\n\n1 Chapters\n\nQuick Start\nSetup & Infrastructure\nLDAP Authentication\nTroubleshooting\nGit & GitHub\nVM installation\nDeploy & Operations\nDropdown Terms & Costs\nChange Log",
     "crumbs": [
       "<span class='chapter-number'>1</span>  <span class='chapter-title'>Documentation</span>"
     ]
@@ -124,7 +124,7 @@
     "href": "chapters/setup-infrastructure.html#deploy-vm",
     "title": "3  Setup & Infrastructure",
     "section": "3.5 Deploy (VM)",
-    "text": "3.5 Deploy (VM)\nAfter the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run deploy.sh so /srv/shiny-server/ms-app/app.R gets the latest LDAP fixes and updates.\nOn the VM:\ncd /home/yeroslaviz/BCFMS-project-management\ngit pull\n./scripts/deploy.sh\nBefore running it, we need to make sure /srv/shiny-server/ms-app/.Renviron has the full block, because deploy.sh preserves .Renviron and does not overwrite it:\nAfter deploy, confirm the deployed app contains the new LDAP code:\nsudo grep -n \"client_url_search\\|auth-status-box\\|is_ldap_mode\" /srv/shiny-server/ms-app/app.R\ndeploy.sh runs LDAP smoke tests and asks for an LDAP username/password unless we set SKIP_SMOKE_TEST=1. For a quick deploy without that prompt:\nSKIP_SMOKE_TEST=1 ./scripts/deploy.sh",
+    "text": "3.5 Deploy (VM)\nAfter the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run deploy.sh so /srv/shiny-server/ms-app/app.R gets the latest LDAP fixes and updates.\nOn the VM:\ncd /home/yeroslaviz/BCFMS-project-management\ngit pull\n./scripts/deploy.sh\nBefore running it, we need to make sure /srv/shiny-server/ms-app/.Renviron has the full block, because deploy.sh preserves .Renviron and does not overwrite it:\nAfter deploy, confirm the deployed app contains the new LDAP code:\nsudo grep -n \"client_url_search\\|auth-status-box\\|is_ldap_mode\" /srv/shiny-server/ms-app/app.R\ndeploy.sh runs LDAP smoke tests and asks for an LDAP username/password unless we set SKIP_SMOKE_TEST=1. For a quick deploy without that prompt:\nSKIP_SMOKE_TEST=1 ./scripts/deploy.sh\nCode-based text such as MS_SUBMISSION_WARNING is loaded by the Shiny restart performed during deployment. If ms_landing_text_defaults was changed, synchronize those defaults to the existing database after deployment:\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript apply_content_defaults.R\nsudo systemctl restart shiny-server\nThis updates only the standard landing blocks; it does not reset the database or delete custom landing blocks.",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -184,7 +184,17 @@
     "href": "chapters/ldap-authentication.html",
     "title": "4  LDAP Authentication",
     "section": "",
-    "text": "4.1 App Runtime\nLDAP authentication is handled by Apache in front of Shiny. The app trusts the authenticated user only when AUTH_MODE=ldap and Apache has canonicalized the request to /ms-app/?auth_user=&lt;user&gt;.\nAfter authentication, the app reads the user’s LDAP ou and departmentNumber attributes. LDAP group IDs are matched to the corresponding PI / Group, and the department number is matched to that group’s cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. The MS- and the NGS-Facilities have their default values set. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.\nSet this in /srv/shiny-server/ms-app/.Renviron:\nSet LDAP_ATTR_COST_CENTER to the attribute used by the local directory if it is not departmentNumber. The attribute value must match the corresponding cost_center entry in budget_holders.csv (comparison ignores punctuation and letter case).\nLDAP_FACILITY_GROUPS lists service memberships that are considered only after research-group matching.\nRestart Shiny:",
+    "text": "4.1 LDAP Name Handling\nLDAP authentication is handled by Apache in front of Shiny. The app trusts the authenticated user only when AUTH_MODE=ldap and Apache has canonicalized the request to /ms-app/?auth_user=&lt;user&gt;.\nAfter authentication, the app reads the user’s LDAP ou and departmentNumber attributes. LDAP group IDs are matched to the corresponding PI / Group, and the department number is matched to that group’s cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. The MS- and the NGS-Facilities have their default values set. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.\nThe directory may return cn in the form Surname, First name (username). The app removes the username suffix and comma, then stores and displays the name in First name Surname order. For example:\nThe normalized values are used to prefill the contact fields on the new-project form. Users already stored with the old comma-formatted name are updated automatically on their next LDAP login.",
+    "crumbs": [
+      "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/ldap-authentication.html#ldap-name-handling",
+    "href": "chapters/ldap-authentication.html#ldap-name-handling",
+    "title": "4  LDAP Authentication",
+    "section": "",
+    "text": "LDAP:        SURNAME, FIRSTNAME (username)\nFirst name:  FIRSTNAME\nLast name:   SURNAME\nFull name:   FIRSTNAME SURNAME",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
     ]
@@ -193,8 +203,8 @@
     "objectID": "chapters/ldap-authentication.html#app-runtime",
     "href": "chapters/ldap-authentication.html#app-runtime",
     "title": "4  LDAP Authentication",
-    "section": "",
-    "text": "AUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\n\n\n\nsudo systemctl restart shiny-server",
+    "section": "4.2 App Runtime",
+    "text": "4.2 App Runtime\nSet this in /srv/shiny-server/ms-app/.Renviron:\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nSet LDAP_ATTR_COST_CENTER to the attribute used by the local directory if it is not departmentNumber. The attribute value must match the corresponding cost_center entry in budget_holders.csv (comparison ignores punctuation and letter case).\nLDAP_FACILITY_GROUPS lists service memberships that are considered only after research-group matching.\nRestart Shiny:\nsudo systemctl restart shiny-server",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
     ]
@@ -203,8 +213,8 @@
     "objectID": "chapters/ldap-authentication.html#apache-template",
     "href": "chapters/ldap-authentication.html#apache-template",
     "title": "4  LDAP Authentication",
-    "section": "4.2 Apache Template",
-    "text": "4.2 Apache Template\nUse:\nscripts/ms-vm-shiny-443.conf\nThe template:\n\nprotects /ms-app/ with LDAP\nremoves user-controlled auth headers\nsets X-Remote-User and X-Forwarded-User\nrewrites authenticated requests to /ms-app/?auth_user=&lt;REMOTE_USER&gt;\nproxies websocket traffic to Shiny Server",
+    "section": "4.3 Apache Template",
+    "text": "4.3 Apache Template\nUse:\nscripts/ms-vm-shiny-443.conf\nThe template:\n\nprotects /ms-app/ with LDAP\nremoves user-controlled auth headers\nsets X-Remote-User and X-Forwarded-User\nrewrites authenticated requests to /ms-app/?auth_user=&lt;REMOTE_USER&gt;\nproxies websocket traffic to Shiny Server",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
     ]
@@ -213,8 +223,8 @@
     "objectID": "chapters/ldap-authentication.html#smoke-test",
     "href": "chapters/ldap-authentication.html#smoke-test",
     "title": "4  LDAP Authentication",
-    "section": "4.3 Smoke Test",
-    "text": "4.3 Smoke Test\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/\nExpected result: 302 to /ms-app/?auth_user=USER, followed by 200 after redirects.",
+    "section": "4.4 Smoke Test",
+    "text": "4.4 Smoke Test\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/\nExpected result: 302 to /ms-app/?auth_user=USER, followed by 200 after redirects.",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
     ]
@@ -223,8 +233,8 @@
     "objectID": "chapters/ldap-authentication.html#local-simulation",
     "href": "chapters/ldap-authentication.html#local-simulation",
     "title": "4  LDAP Authentication",
-    "section": "4.4 Local Simulation",
-    "text": "4.4 Local Simulation\nSys.setenv(AUTH_MODE = \"ldap\", TRUST_PROXY_AUTH_USER_QUERY = \"1\")\nshiny::runApp(\"ms-app\")\nOpen:\nhttp://127.0.0.1:3838/?auth_user=USER",
+    "section": "4.5 Local Simulation",
+    "text": "4.5 Local Simulation\nSys.setenv(AUTH_MODE = \"ldap\", TRUST_PROXY_AUTH_USER_QUERY = \"1\")\nshiny::runApp(\"ms-app\")\nOpen:\nhttp://127.0.0.1:3838/?auth_user=USER",
     "crumbs": [
       "<span class='chapter-number'>4</span>  <span class='chapter-title'>LDAP Authentication</span>"
     ]
@@ -280,11 +290,21 @@
     ]
   },
   {
+    "objectID": "chapters/troubleshooting.html#landing-text-still-shows-old-defaults",
+    "href": "chapters/troubleshooting.html#landing-text-still-shows-old-defaults",
+    "title": "5  Troubleshooting",
+    "section": "5.5 Landing Text Still Shows Old Defaults",
+    "text": "5.5 Landing Text Still Shows Old Defaults\nRoutine deployment preserves ms_projects.db. Existing landing_text_blocks rows are therefore not replaced merely by changing ms_landing_text_defaults or running setup_database.R.\nAfter deploying the updated db_schema.R, apply the standard defaults explicitly:\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript apply_content_defaults.R\nsudo systemctl restart shiny-server\nThe synchronization preserves custom landing blocks and the active/inactive state of existing standard blocks.",
+    "crumbs": [
+      "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
+    ]
+  },
+  {
     "objectID": "chapters/troubleshooting.html#upload-pool-missing",
     "href": "chapters/troubleshooting.html#upload-pool-missing",
     "title": "5  Troubleshooting",
-    "section": "5.5 Upload Pool Missing",
-    "text": "5.5 Upload Pool Missing\nConfigured root:\n/fs/pool/pool-ms-user\nIf this path does not exist, the app stores uploads in /srv/ms-app-data/uploads_pending_pool/ outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID.\nCheck fallback files:\nsudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f",
+    "section": "5.6 Upload Pool Missing",
+    "text": "5.6 Upload Pool Missing\nConfigured root:\n/fs/pool/pool-ms-user\nIf this path does not exist, the app stores uploads in /srv/ms-app-data/uploads_pending_pool/ outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID.\nCheck fallback files:\nsudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f",
     "crumbs": [
       "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
     ]
@@ -293,8 +313,8 @@
     "objectID": "chapters/troubleshooting.html#logs",
     "href": "chapters/troubleshooting.html#logs",
     "title": "5  Troubleshooting",
-    "section": "5.6 Logs",
-    "text": "5.6 Logs\nsudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log\nTo take a look only at the latest one:\nLATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)\nsudo tail -n 120 \"$LATEST\"",
+    "section": "5.7 Logs",
+    "text": "5.7 Logs\nsudo tail -n 120 /var/log/shiny-server/ms-app-shiny-*.log\nTo take a look only at the latest one:\nLATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)\nsudo tail -n 120 \"$LATEST\"",
     "crumbs": [
       "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
     ]
@@ -303,8 +323,8 @@
     "objectID": "chapters/troubleshooting.html#local-maintenance-mode",
     "href": "chapters/troubleshooting.html#local-maintenance-mode",
     "title": "5  Troubleshooting",
-    "section": "5.7 Local Maintenance Mode",
-    "text": "5.7 Local Maintenance Mode\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nReturn to LDAP:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server",
+    "section": "5.8 Local Maintenance Mode",
+    "text": "5.8 Local Maintenance Mode\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=local/' /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nReturn to LDAP:\nsudo sed -i 's/^AUTH_MODE=.*/AUTH_MODE=ldap/' /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server",
     "crumbs": [
       "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
     ]
@@ -544,7 +564,7 @@
     "href": "chapters/deploy-operations.html#database-behavior",
     "title": "8  Deploy & Operations",
     "section": "8.5 Database Behavior",
-    "text": "8.5 Database Behavior\nDeploy is code-only. It does not rebuild or overwrite ms_projects.db.\nTo initialize a missing database or apply migrations and seed checks to an existing database:\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript setup_database.R\nExisting rows are preserved by default. Never set MS_RESET_DB=1 during a routine deployment. That setting deliberately deletes and rebuilds the target database.",
+    "text": "8.5 Database Behavior\nDeploy is code-only. It does not rebuild or overwrite ms_projects.db.\nTo initialize a missing database or apply migrations and seed checks to an existing database:\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript setup_database.R\nExisting rows are preserved by default. Never set MS_RESET_DB=1 during a routine deployment. That setting deliberately deletes and rebuilds the target database.\nDropdown terms and their costs are runtime database content. Administrators can add, rename, deactivate, delete, and reinstate them without rebuilding the database. See Dropdown Terms & Costs for the interface workflow and the direct-database recovery procedure.\nChanges to code constants such as MS_SUBMISSION_WARNING take effect after deployment restarts Shiny. The current warning is:\nSamples are stored for a maximum of 2 months after analysis is completed, then discarded without further notice.\nChanges to ms_landing_text_defaults require an explicit one-time synchronization because existing landing-page rows are preserved during normal startup. Confirm that the desired defaults are present in the deployed db_schema.R, then run:\ncd /srv/shiny-server/ms-app\nsudo -u shiny Rscript apply_content_defaults.R\nsudo systemctl restart shiny-server\nThis updates the title, body, and display order of the standard landing blocks to match db_schema.R; it preserves other landing blocks and each block’s active/inactive state. Running setup_database.R alone does not replace existing landing text because routine seed checks use INSERT OR IGNORE.",
     "crumbs": [
       "<span class='chapter-number'>8</span>  <span class='chapter-title'>Deploy & Operations</span>"
     ]
@@ -580,123 +600,173 @@
     ]
   },
   {
+    "objectID": "chapters/dropdown-options.html",
+    "href": "chapters/dropdown-options.html",
+    "title": "9  Dropdown Terms & Costs",
+    "section": "",
+    "text": "9.1 How Dropdown Terms Are Stored\nDropdown terms are stored in the controlled_options table. Costs for project and sample types are stored separately in option_costs and linked to the corresponding dropdown row by its ID.\nThe values in ms-app/db_schema.R are installation defaults only. They are inserted when a new database has no controlled options. Normal application startup, setup_database.R, and routine deployment do not restore deleted terms or overwrite terms and costs changed by an administrator.\nThe original Excel workbook was used to define the initial defaults; it is not a live data source and is not needed for ongoing administration.",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Dropdown Terms & Costs</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/dropdown-options.html#recommended-administration-workflow",
+    "href": "chapters/dropdown-options.html#recommended-administration-workflow",
+    "title": "9  Dropdown Terms & Costs",
+    "section": "9.2 Recommended Administration Workflow",
+    "text": "9.2 Recommended Administration Workflow\nUse the application interface whenever possible:\n\nSign in as an administrator.\nOpen Admin → Dropdown Options Management.\nSelect the option group that supplies the relevant dropdown.\nAdd a new term, or select an existing row and use Edit Selected or Delete Selected Option.\n\nEditing supports:\n\nrenaming a term;\nmoving it to another option group;\nchanging its display order;\nactivating or deactivating it.\n\nLeading and trailing whitespace is removed automatically. Values that differ only by letter case or surrounding whitespace cannot be duplicated in the same group.\n\n9.2.1 Project and Sample Type Costs\nThe following option groups have costs:\n\n\n\n\n\n\n\n\nProject family\nProject-type group\nSample-type group\n\n\n\n\nProteomics\nproteomics_project_type\nproteomics_sample_type\n\n\nMetabolomics\nmetabolomics_analysis_type\nmetabolomics_sample_type\n\n\nIntact / Native / QC\nintact_project_type\nintact_sample_type\n\n\n\nWhen a term is added to one of these groups, the application creates its cost with a default value of €0. Set the required amount under Admin → Project and Sample Type Costs. The Costs view can edit amounts but cannot create or delete terms.\nRenaming a project or sample type preserves its existing cost because the same database row is retained. Moving an unpriced term into a priced group creates a €0 cost. Moving a term out of a priced group removes its cost.",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Dropdown Terms & Costs</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/dropdown-options.html#remove-deactivate-or-reinstate-a-term",
+    "href": "chapters/dropdown-options.html#remove-deactivate-or-reinstate-a-term",
+    "title": "9  Dropdown Terms & Costs",
+    "section": "9.3 Remove, Deactivate, or Reinstate a Term",
+    "text": "9.3 Remove, Deactivate, or Reinstate a Term\nPrefer deactivation when a term has been used by previous projects but should no longer be offered. A deactivated term disappears from new-project dropdowns, remains available in Dropdown Options Management, and can be reinstated by editing it and selecting Active. Its linked cost is retained.\nDeleting a term permanently removes its controlled-option row. For a project or sample type, the linked cost row is deleted automatically. Existing project records retain their previously saved text and cost information, but the deleted term is no longer offered for new projects.\nTo reinstate a deleted term without recreating the database:\n\nOpen Admin → Dropdown Options Management.\nSelect the original option group.\nAdd the term again, using the required spelling and capitalization.\nIf it is a project or sample type, open Project and Sample Type Costs and replace the initial €0 with the required cost.\n\nNo database reset, database recreation, deployment, or service restart is required for changes made through the interface.",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Dropdown Terms & Costs</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/dropdown-options.html#direct-database-recovery",
+    "href": "chapters/dropdown-options.html#direct-database-recovery",
+    "title": "9  Dropdown Terms & Costs",
+    "section": "9.4 Direct Database Recovery",
+    "text": "9.4 Direct Database Recovery\nDirect SQLite changes should be reserved for recovery when the administration interface is unavailable. Create a verified database backup first, stop Shiny so no application session can write concurrently, and run SQLite as the shiny user.\nInspect the existing rows before changing anything:\nsudo systemctl stop shiny-server\nsudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db \\\n  \"SELECT id, option_group, value, display_order, is_active FROM controlled_options ORDER BY option_group, display_order, value;\"\n\n9.4.1 Reactivate an Existing Term\nsudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db \\\n  \"UPDATE controlled_options SET is_active = 1 WHERE option_group = 'proteomics_sample_type' AND value = 'TERM TO RESTORE';\"\n\n\n9.4.2 Reinstate a Deleted Term\nThis example recreates a deleted Proteomics sample type. The database trigger creates its cost at €0:\nsudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db &lt;&lt;'SQL'\nPRAGMA foreign_keys = ON;\nBEGIN IMMEDIATE;\nINSERT INTO controlled_options (option_group, value, display_order, is_active)\nSELECT 'proteomics_sample_type',\n       'TERM TO RESTORE',\n       COALESCE(MAX(display_order), 0) + 1,\n       1\nFROM controlled_options\nWHERE option_group = 'proteomics_sample_type';\nCOMMIT;\nPRAGMA integrity_check;\nSQL\nSet its cost if it should not remain at €0:\nsudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db &lt;&lt;'SQL'\nPRAGMA foreign_keys = ON;\nBEGIN IMMEDIATE;\nUPDATE option_costs\nSET cost = 10, is_custom = 1, updated_at = CURRENT_TIMESTAMP\nWHERE controlled_option_id = (\n  SELECT id\n  FROM controlled_options\n  WHERE option_group = 'proteomics_sample_type'\n    AND value = 'TERM TO RESTORE'\n);\nCOMMIT;\nPRAGMA integrity_check;\nSQL\nReplace the example group, value, and cost with the intended values. PRAGMA integrity_check; must return ok. Restart the service afterward:\nsudo systemctl start shiny-server\nDo not use MS_RESET_DB=1 to restore dropdown terms. It deletes and rebuilds the complete target database. Do not edit db_schema.R for a one-off production change: its option values are defaults for new databases, not a synchronization mechanism for an existing database.",
+    "crumbs": [
+      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Dropdown Terms & Costs</span>"
+    ]
+  },
+  {
     "objectID": "chapters/change-log.html",
     "href": "chapters/change-log.html",
-    "title": "9  Change Log",
+    "title": "10  Change Log",
     "section": "",
-    "text": "9.1 Change Log",
+    "text": "10.1 Change Log",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#change-log",
     "href": "chapters/change-log.html#change-log",
-    "title": "9  Change Log",
+    "title": "10  Change Log",
     "section": "",
-    "text": "9.1.1 Contents\n\nChanges on 27.07.2026\nChanges on 24.07.2026\nChanges on 23.07.2026\nChanges on 22.07.2026\nChanges on 23.06.2026\nChanges on 22.06.2026\nChanges on 19.06.2026\nChanges on 18.06.2026\nChanges on 17.06.2026\nChanges on 16.06.2026",
+    "text": "10.1.1 Contents\n\nChanges on 31.07.2026\nChanges on 27.07.2026\nChanges on 24.07.2026\nChanges on 23.07.2026\nChanges on 22.07.2026\nChanges on 23.06.2026\nChanges on 22.06.2026\nChanges on 19.06.2026\nChanges on 18.06.2026\nChanges on 17.06.2026\nChanges on 16.06.2026",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/change-log.html#changes-on-31.07.2026",
+    "href": "chapters/change-log.html#changes-on-31.07.2026",
+    "title": "10  Change Log",
+    "section": "10.2 Changes on 31.07.2026",
+    "text": "10.2 Changes on 31.07.2026\n\nReplaced the Metabolomics and Proteomics sample-overview templates.\nCorrected interface text and removed the obsolete box at the top of the landing page.\nUpdated the default landing-page text, including PTM enrichment support, accepted FASTA formats, opening hours, and the project-acceptance reminder.\nUpdated the sample-retention warning to state that samples are discarded “without further notice.”\nAdded apply_content_defaults.R so changed ms_landing_text_defaults values can be synchronized explicitly to an existing production database without resetting it.\nRemoved Project Name from the project overview table and added Sample Type immediately after Project Type.\nAdded LDAP name normalization for directory names formatted as Surname, First name (username). New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.\nSimplified Intact project creation with optional sample details and sample-type-dependent fields.\nDropdown terms can now be added, renamed, deactivated, deleted, and reinstated by administrators. New priced terms start at €0, renamed terms retain their costs, and the documentation now includes non-destructive recovery instructions.\nReorganized the Proteomics creation form and added optional supporting-file uploads.\nAdded sample-type-dependent preparation fields for Proteomics and Metabolomics projects.\nUpdated the Proteomics and Metabolomics data-analysis sections and made selected fields optional.\nAdded submission-time fields to Proteomics and Metabolomics projects.\nCorrected Supernatant and added Blood, Serum, and CSF sample types.\nAdded an admin-managed Metabolomics acquisition mode.\nReplaced the project workflow with seven dated, color-coded status stages.",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-27.07.2026",
     "href": "chapters/change-log.html#changes-on-27.07.2026",
-    "title": "9  Change Log",
-    "section": "9.2 Changes on 27.07.2026",
-    "text": "9.2 Changes on 27.07.2026\n\nAdmin project-cost management now has Proteomics, Metabolomics, and Intact tabs with filtered costs.\nminor changes were made to project- and sample types. Duplicated entries were removed.\nintaact template was modified\nProteomics and metabolomics sample names are optional and default to the generated project ID.\nSubmission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.\nDocumentation has been reorganized and synchronized.",
+    "title": "10  Change Log",
+    "section": "10.3 Changes on 27.07.2026",
+    "text": "10.3 Changes on 27.07.2026\n\nAdmin project-cost management now has Proteomics, Metabolomics, and Intact tabs with filtered costs.\nminor changes were made to project- and sample types. Duplicated entries were removed.\nintaact template was modified\nProteomics and metabolomics sample names are optional and default to the generated project ID.\nSubmission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.\nDocumentation has been reorganized and synchronized.",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-24.07.2026",
     "href": "chapters/change-log.html#changes-on-24.07.2026",
-    "title": "9  Change Log",
-    "section": "9.3 Changes on 24.07.2026",
-    "text": "9.3 Changes on 24.07.2026\n\nCreate similar structure for all three types, move project type and sample type into section 5\nCreate a combined columns in the project table.\n“Biological Samples” is now read-only and tkaes it value from the Excel sheet.\nFor Intact projects:\n\n\nRemoved Biological Samples and Technical Replicates from the creation and edit forms.\nSample overview upload is optional.\nmodified intact template for upload\n\n\nUpdated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.\ncost estimation was added to the system including in the mail and admin panels.\nproject folder (name and storage place) for data realease was changes.\ncontent of mails to user/core facility were modified to add costs and new path of data release.",
+    "title": "10  Change Log",
+    "section": "10.4 Changes on 24.07.2026",
+    "text": "10.4 Changes on 24.07.2026\n\nCreate similar structure for all three types, move project type and sample type into section 5\nCreate a combined columns in the project table.\n“Biological Samples” is now read-only and tkaes it value from the Excel sheet.\nFor Intact projects:\n\n\nRemoved Biological Samples and Technical Replicates from the creation and edit forms.\nSample overview upload is optional.\nmodified intact template for upload\n\n\nUpdated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.\ncost estimation was added to the system including in the mail and admin panels.\nproject folder (name and storage place) for data realease was changes.\ncontent of mails to user/core facility were modified to add costs and new path of data release.",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-23.07.2026",
     "href": "chapters/change-log.html#changes-on-23.07.2026",
-    "title": "9  Change Log",
-    "section": "9.4 Changes on 23.07.2026",
-    "text": "9.4 Changes on 23.07.2026\n\nmoved the “Sample Overview Table” in the New Project Creation Window to be directly after “Contact and Billing”.\nChange project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three\nrenamed “Number of Samples” to “Biological Samples”, added another field with “Technical Replicates” next to it.\nUpdated the project tables to include project name again and remove responsible user.\nColumns Status and Last Update were combined into one A atble of past status updates was added in the project edit page.\n“What do you want to know?” and “Special requirements” now appear side by side with equal-height text areas.",
+    "title": "10  Change Log",
+    "section": "10.5 Changes on 23.07.2026",
+    "text": "10.5 Changes on 23.07.2026\n\nmoved the “Sample Overview Table” in the New Project Creation Window to be directly after “Contact and Billing”.\nChange project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three\nrenamed “Number of Samples” to “Biological Samples”, added another field with “Technical Replicates” next to it.\nUpdated the project tables to include project name again and remove responsible user.\nColumns Status and Last Update were combined into one A atble of past status updates was added in the project edit page.\n“What do you want to know?” and “Special requirements” now appear side by side with equal-height text areas.",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-22.07.2026",
     "href": "chapters/change-log.html#changes-on-22.07.2026",
-    "title": "9  Change Log",
-    "section": "9.5 Changes on 22.07.2026",
-    "text": "9.5 Changes on 22.07.2026\n\nCorrected the OmicsDesk helpdesk address from omics@bochem.mpg.de to omicsdesk@biochem.mpg.de for upload-pool fallback notifications.\nUpdated the application fallback in ms-app/db_schema.R and the documented MS_POOL_FALLBACK_EMAIL VM configuration.\nThe address can be set explicitly in /srv/shiny-server/ms-app/.Renviron; restart shiny-server after changing it. No database recreation is required.\nChanged all downloadable sample-overview templates from comma-separated .csv files to tab-delimited .txt files.\nSample-overview uploads accept .txt, .csv, and .tsv files and automatically detect tab, comma, or semicolon separators.\nadd help function via question marks on the GUI",
+    "title": "10  Change Log",
+    "section": "10.6 Changes on 22.07.2026",
+    "text": "10.6 Changes on 22.07.2026\n\nCorrected the OmicsDesk helpdesk address from omics@bochem.mpg.de to omicsdesk@biochem.mpg.de for upload-pool fallback notifications.\nUpdated the application fallback in ms-app/db_schema.R and the documented MS_POOL_FALLBACK_EMAIL VM configuration.\nThe address can be set explicitly in /srv/shiny-server/ms-app/.Renviron; restart shiny-server after changing it. No database recreation is required.\nChanged all downloadable sample-overview templates from comma-separated .csv files to tab-delimited .txt files.\nSample-overview uploads accept .txt, .csv, and .tsv files and automatically detect tab, comma, or semicolon separators.\nadd help function via question marks on the GUI",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-23.06.2026",
     "href": "chapters/change-log.html#changes-on-23.06.2026",
-    "title": "9  Change Log",
-    "section": "9.6 Changes on 23.06.2026",
-    "text": "9.6 Changes on 23.06.2026\n\nLDAP configuration was fixed. App on the VM now starts using LDAP.\ndeploy.sh section was added to Setup page",
+    "title": "10  Change Log",
+    "section": "10.7 Changes on 23.06.2026",
+    "text": "10.7 Changes on 23.06.2026\n\nLDAP configuration was fixed. App on the VM now starts using LDAP.\ndeploy.sh section was added to Setup page",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-22.06.2026",
     "href": "chapters/change-log.html#changes-on-22.06.2026",
-    "title": "9  Change Log",
-    "section": "9.7 Changes on 22.06.2026",
-    "text": "9.7 Changes on 22.06.2026\n\nApp was set locally. database was modified to include the appropriate fields\nchanges were done to the documentation to make them cleaner and more ms-core facility related.\nApp now include landing pages as well.\nmultiple fields were changes and modified after discussion with MSCF-admins\nmail communication needs to be adjusted.",
+    "title": "10  Change Log",
+    "section": "10.8 Changes on 22.06.2026",
+    "text": "10.8 Changes on 22.06.2026\n\nApp was set locally. database was modified to include the appropriate fields\nchanges were done to the documentation to make them cleaner and more ms-core facility related.\nApp now include landing pages as well.\nmultiple fields were changes and modified after discussion with MSCF-admins\nmail communication needs to be adjusted.",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-19.06.2026",
     "href": "chapters/change-log.html#changes-on-19.06.2026",
-    "title": "9  Change Log",
-    "section": "9.8 Changes on 19.06.2026",
-    "text": "9.8 Changes on 19.06.2026\n\nclean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.",
+    "title": "10  Change Log",
+    "section": "10.9 Changes on 19.06.2026",
+    "text": "10.9 Changes on 19.06.2026\n\nclean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-18.06.2026",
     "href": "chapters/change-log.html#changes-on-18.06.2026",
-    "title": "9  Change Log",
-    "section": "9.9 Changes on 18.06.2026",
-    "text": "9.9 Changes on 18.06.2026\n\nCleaning the documentation further.\nInstall https certificate from HARICA and successfully test https connection\nconfigure .Renviron and LDAP on the VM to work with the shiny server",
+    "title": "10  Change Log",
+    "section": "10.10 Changes on 18.06.2026",
+    "text": "10.10 Changes on 18.06.2026\n\nCleaning the documentation further.\nInstall https certificate from HARICA and successfully test https connection\nconfigure .Renviron and LDAP on the VM to work with the shiny server",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-17.06.2026",
     "href": "chapters/change-log.html#changes-on-17.06.2026",
-    "title": "9  Change Log",
-    "section": "9.10 Changes on 17.06.2026",
-    "text": "9.10 Changes on 17.06.2026\n\ncleaning and shrinking documentation\nfinish installing all packages on the VM; upgrading R version to 4.6",
+    "title": "10  Change Log",
+    "section": "10.11 Changes on 17.06.2026",
+    "text": "10.11 Changes on 17.06.2026\n\ncleaning and shrinking documentation\nfinish installing all packages on the VM; upgrading R version to 4.6",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   },
   {
     "objectID": "chapters/change-log.html#changes-on-16.06.2026",
     "href": "chapters/change-log.html#changes-on-16.06.2026",
-    "title": "9  Change Log",
-    "section": "9.11 Changes on 16.06.2026",
-    "text": "9.11 Changes on 16.06.2026\n\ngithub repository was set up\nmscf-vm was set-up for and a https certificate was applied for.\nconnect VM to github\nrun bash scripts/check_requirements.sh to install requirements, both R packages and ubuntu packages\nmodify script deploy.sh to fit the new VM specifications\nsetting up the shiny-server, connect to ldap server",
+    "title": "10  Change Log",
+    "section": "10.12 Changes on 16.06.2026",
+    "text": "10.12 Changes on 16.06.2026\n\ngithub repository was set up\nmscf-vm was set-up for and a https certificate was applied for.\nconnect VM to github\nrun bash scripts/check_requirements.sh to install requirements, both R packages and ubuntu packages\nmodify script deploy.sh to fit the new VM specifications\nsetting up the shiny-server, connect to ldap server",
     "crumbs": [
-      "<span class='chapter-number'>9</span>  <span class='chapter-title'>Change Log</span>"
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
   }
 ]
