@@ -595,6 +595,54 @@ priced_option_groups_by_project_type <- list(
   intact_mass = c("intact_project_type", "intact_sample_type")
 )
 
+dropdown_option_group_labels <- c(
+  intact_project_type = "Project Type",
+  intact_sample_type = "Sample Type",
+  proteomics_project_type = "Project Type",
+  proteomics_sample_type = "Sample Type",
+  proteomics_acquisition_mode = "Acquisition Mode",
+  proteomics_quantification_strategy = "Quantification Strategy",
+  silac_amino_acids = "SILAC Amino Acids",
+  digestion_enzyme = "Digestion Enzyme",
+  ptm_variable_modifications = "PTMs / Variable Modifications",
+  crosslinker = "Crosslinker",
+  metabolomics_analysis_type = "Project Type",
+  metabolomics_sample_type = "Sample Type",
+  metabolomics_approach = "Approach",
+  concentration_determination = "Concentration Determination",
+  concentration_method = "Concentration Method",
+  volume_unit = "Volume Unit"
+)
+
+dropdown_option_groups_by_project_type <- list(
+  proteomics = c(
+    "proteomics_project_type", "proteomics_sample_type",
+    "proteomics_acquisition_mode", "proteomics_quantification_strategy",
+    "silac_amino_acids", "digestion_enzyme", "ptm_variable_modifications",
+    "crosslinker", "concentration_determination", "concentration_method",
+    "volume_unit"
+  ),
+  metabolomics = c(
+    "metabolomics_analysis_type", "metabolomics_sample_type",
+    "metabolomics_approach", "concentration_determination",
+    "concentration_method", "volume_unit"
+  ),
+  intact_mass = c(
+    "intact_project_type", "intact_sample_type",
+    "concentration_determination", "concentration_method", "volume_unit"
+  )
+)
+
+dropdown_option_group_choices <- function(project_type, current = "") {
+  groups <- dropdown_option_groups_by_project_type[[trim_scalar(project_type)]]
+  if (is.null(groups)) groups <- character()
+  current <- trim_scalar(current)
+  if (nzchar(current) && !(current %in% groups)) groups <- c(groups, current)
+  labels <- unname(dropdown_option_group_labels[groups])
+  labels[is.na(labels) | !nzchar(labels)] <- groups[is.na(labels) | !nzchar(labels)]
+  stats::setNames(groups, labels)
+}
+
 load_admin_option_costs <- function(con, project_type = "") {
   groups <- priced_option_groups_by_project_type[[trim_scalar(project_type)]]
   if (is.null(groups)) groups <- ms_priced_option_groups
@@ -3000,7 +3048,7 @@ server <- function(input, output, session) {
       div(
         id = "sample_overview_section",
         class = "form-section",
-        h4("3. Sample Overview Table"),
+        h4(if (identical(input$project_type, "proteomics")) "3. Sample Overview" else "3. Sample Overview Table"),
         div(
           class = "info-note",
           if (identical(input$project_type, "intact_mass")) {
@@ -3022,6 +3070,17 @@ server <- function(input, output, session) {
           ),
           downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
         ),
+        if (identical(input$project_type, "proteomics")) {
+          fileInput(
+            "proteomics_additional_sample_files",
+            field_label(
+              "Additional sample information (optional) (.jpg / .png / .pdf / .docx)",
+              "For in-gel samples, please provide an image of the entire gel indicating which bands to analyze. Label each band with a sample number matching with the sample overview table."
+            ),
+            multiple = TRUE,
+            accept = c(".jpg", ".png", ".pdf", ".docx")
+          )
+        },
         uiOutput("sample_table_validation_preview"),
         div(
           class = "info-note",
@@ -3032,27 +3091,36 @@ server <- function(input, output, session) {
           }
         )
       ),
+      if (!identical(input$project_type, "proteomics")) {
+        div(
+          class = "form-section",
+          h4(if (identical(input$project_type, "intact_mass")) "4. Sample Information" else "4. Sample Identity"),
+          if (identical(input$project_type, "intact_mass")) {
+            fluidRow(
+              column(8, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
+              column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
+            )
+          } else {
+            fluidRow(
+              column(4, textInput("project_name", field_label("Sample name", "Optional. If left empty, the generated project ID will be used; max 80 characters.", "AB-001_proteinA"))),
+              column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+              column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
+              column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
+            )
+          }
+        )
+      },
       div(
         class = "form-section",
-        h4(if (identical(input$project_type, "intact_mass")) "4. Sample Information" else "4. Sample Identity"),
-        if (identical(input$project_type, "intact_mass")) {
-          fluidRow(
-            column(8, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
-            column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
-          )
-        } else {
-          fluidRow(
-            column(4, textInput("project_name", field_label("Sample name", "Optional. If left empty, the generated project ID will be used; max 80 characters.", "AB-001_proteinA"))),
-            column(2, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-            column(3, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
-            column(3, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
-          )
-        }
-      ),
-      div(
-        class = "form-section",
-        h4("5. Sample"),
+        h4(if (identical(input$project_type, "proteomics")) "5. Sample Information" else "5. Sample"),
         project_and_sample_type_ui(input$project_type, con),
+        if (identical(input$project_type, "proteomics")) {
+          fluidRow(
+            column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+            column(4, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
+            column(4, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
+          )
+        },
         if (input$project_type == "metabolomics") {
           tagList(
             uiOutput("metabolomics_sample_type_details"),
@@ -3098,7 +3166,7 @@ server <- function(input, output, session) {
               )
             ),
             conditionalPanel(
-              condition = "input.intact_sample_type == 'powder'",
+              condition = "input.intact_sample_type == 'Powder'",
               fluidRow(
                 column(6),
                 column(
@@ -3106,6 +3174,50 @@ server <- function(input, output, session) {
                   textInput(
                     "sample_amount",
                     field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein")
+                  )
+                )
+              )
+            )
+          )
+        } else if (input$project_type == "proteomics") {
+          tagList(
+            conditionalPanel(
+              condition = "['In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatent', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
+              fluidRow(
+                column(
+                  6,
+                  textAreaInput(
+                    "sample_buffer",
+                    field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."),
+                    rows = 3
+                  ),
+                  radioButtons(
+                    "concentration_determination",
+                    field_label("Concentration determination", "Indicate whether concentration was determined."),
+                    choices = load_choice_values(con, "concentration_determination"),
+                    selected = character(0),
+                    inline = TRUE
+                  )
+                ),
+                column(
+                  6,
+                  selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))),
+                  fluidRow(
+                    column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
+                    column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
+                  )
+                )
+              )
+            ),
+            conditionalPanel(
+              condition = "['Cell Pellet', 'Protein Pellet', 'Tissue'].indexOf(input.proteomics_sample_type) >= 0",
+              fluidRow(
+                column(6),
+                column(
+                  6,
+                  textInput(
+                    "sample_amount",
+                    field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein, 1e6 cells, 5 mg tissue")
                   )
                 )
               )
@@ -3122,15 +3234,7 @@ server <- function(input, output, session) {
               column(4, textInput("sample_volume", field_label("Volume submitted *", "Numeric volume submitted.", "50"))),
               column(2, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL")),
               column(6, textInput("sample_amount", field_label("Sample amount *", "Describe the total submitted material.", "1e6 cells, 50 uL plasma, or 5 mg tissue")))
-            ),
-            if (input$project_type == "proteomics") {
-              selectizeInput(
-                "proteomics_species",
-                field_label("Species *", "Default search database is UniProt reference proteome for selected species. Multiple species are allowed."),
-                choices = refs,
-                multiple = TRUE
-              )
-            }
+            )
           )
         }
       ),
@@ -3280,18 +3384,21 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-proteomics",
       h4("7. Proteomics"),
-        conditionalPanel(
-          "input.proteomics_sample_type == 'Gel Band /Gel Lane'",
-          fileInput("proteomics_gel_images", "Gel image upload (.jpg / .png / .tif)", multiple = TRUE, accept = c(".jpg", ".jpeg", ".png", ".tif", ".tiff")),
-          checkboxInput("gel_image_confirmation", "I have labelled all bands with numbers and all marker bands with sizes.", value = FALSE)
-        ),
         radioButtons("proteomics_acquisition_mode", field_label("Acquisition mode *", "Choose DDA, DIA, no preference, or discuss with facility."), choices = load_choice_values(con, "proteomics_acquisition_mode"), inline = TRUE),
         selectInput("proteomics_quantification_strategy", field_label("Quantification strategy *", "Label-free, SILAC, no quantification, or other."), choices = load_choice_values(con, "proteomics_quantification_strategy")),
         conditionalPanel(
           "input.proteomics_quantification_strategy == 'SILAC'",
           selectizeInput("proteomics_silac_amino_acids", "SILAC amino acids", choices = load_choice_values(con, "silac_amino_acids"), multiple = TRUE)
         ),
-        textInput("proteomics_expression_host", field_label("Expression host", "If recombinant, specify expression system. Write NA if not applicable.", "E. coli BL21, Sf21, HEK293T")),
+        selectizeInput(
+          "proteomics_species",
+          field_label(
+            "Species *",
+            "Default search database is the UniProt reference proteome for the selected species. For recombinant samples, select the expression host; choose Other when it is not listed. Multiple species or hosts are allowed."
+          ),
+          choices = refs,
+          multiple = TRUE
+        ),
         fileInput("proteomics_fasta", field_label("FASTA file upload", "Always visible; critical for non-standard constructs. Standard proteins can leave it blank."), accept = c(".fasta", ".fa", ".faa", ".fna"), multiple = TRUE),
         div(class = "info-note", "FASTA upload is critical for correct database searching of non-standard constructs. Users with standard proteins leave it blank."),
         selectInput("proteomics_digestion_enzyme", field_label("Digestion enzyme", "Default is Trypsin, which cleaves C-terminally of K and R."), choices = load_choice_values(con, "digestion_enzyme"), selected = "Trypsin"),
@@ -3335,16 +3442,11 @@ server <- function(input, output, session) {
     if (!identical(selected_type, "intact_mass")) {
       required <- c(
         required,
-        concentration_determination = "Concentration determination",
         sample_notes = "Biological question"
       )
     }
-    if (identical(selected_type, "proteomics")) {
-      required <- c(required,
-        sample_buffer = "Buffer / Solvent",
-        sample_volume = "Volume submitted",
-        sample_amount = "Sample amount"
-      )
+    if (identical(selected_type, "metabolomics")) {
+      required <- c(required, concentration_determination = "Concentration determination")
     }
     for (id in names(required)) {
       if (!non_empty(input[[id]])) errors <- c(errors, paste(required[[id]], "is required."))
@@ -3399,13 +3501,12 @@ server <- function(input, output, session) {
       if (is.null(input$proteomics_species) || length(input$proteomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$proteomics_sample_type, "Gel Band /Gel Lane") &&
-          !is.null(input$proteomics_gel_images) && nrow(input$proteomics_gel_images) > 0 &&
-          !isTRUE(input$gel_image_confirmation)) {
-        errors <- c(errors, "Gel image confirmation is required when gel images are uploaded.")
-      }
       errors <- c(errors, validate_uploads(input$proteomics_fasta, c("fasta", "fa", "faa", "fna"), as.numeric(Sys.getenv("MS_MAX_FASTA_MB", "25")), fasta = TRUE))
-      errors <- c(errors, validate_uploads(input$proteomics_gel_images, c("jpg", "jpeg", "png", "tif", "tiff"), as.numeric(Sys.getenv("MS_MAX_IMAGE_MB", "30"))))
+      errors <- c(errors, validate_uploads(
+        input$proteomics_additional_sample_files,
+        c("jpg", "png", "pdf", "docx"),
+        as.numeric(Sys.getenv("MS_MAX_IMAGE_MB", "30"))
+      ))
     }
 
     if (selected_type == "metabolomics") {
@@ -3530,17 +3631,35 @@ server <- function(input, output, session) {
     }
 
     if (input$project_type == "proteomics") {
+      solution_sample_types <- c(
+        "In-solution Digest",
+        "Gel Band /Gel Lane",
+        "On-beads",
+        "Supernatent",
+        "ready-to-load (digested)",
+        "ready-to-load (digested+desalted)",
+        "Enrichement (PTM)"
+      )
+      if (trim_scalar(input$proteomics_sample_type) %in% solution_sample_types) {
+        project_values$sample_amount <- ""
+      } else {
+        project_values$sample_buffer <- ""
+        project_values$concentration_determination <- ""
+        project_values$concentration_method <- ""
+        project_values$sample_volume <- ""
+        project_values$sample_volume_unit <- ""
+      }
       project_values <- c(project_values, list(
         proteomics_project_type = trim_scalar(input$proteomics_project_type),
         proteomics_project_type_other = trim_scalar(input$proteomics_project_type_other),
         proteomics_sample_type = trim_scalar(input$proteomics_sample_type),
         proteomics_sample_type_other = trim_scalar(input$proteomics_sample_type_other),
-        gel_image_confirmation = as.integer(isTRUE(input$gel_image_confirmation)),
+        gel_image_confirmation = 0L,
         proteomics_acquisition_mode = trim_scalar(input$proteomics_acquisition_mode),
         proteomics_quantification_strategy = trim_scalar(input$proteomics_quantification_strategy),
         proteomics_silac_amino_acids = join_values(input$proteomics_silac_amino_acids),
         proteomics_species = join_values(input$proteomics_species),
-        proteomics_expression_host = trim_scalar(input$proteomics_expression_host),
+        proteomics_expression_host = "",
         proteomics_digestion_enzyme = trim_scalar(input$proteomics_digestion_enzyme),
         proteomics_ptms = join_values(input$proteomics_ptms),
         proteomics_crosslinker = trim_scalar(input$proteomics_crosslinker)
@@ -3621,7 +3740,15 @@ server <- function(input, output, session) {
       }
       if (input$project_type == "proteomics") {
         stored_paths$proteomics_fasta_path <- store_upload_set(con, project_id, input$proteomics_fasta, "proteomics_fasta", storage$folder, user$username, compress = TRUE)
-        stored_paths$gel_images <- store_upload_set(con, project_id, input$proteomics_gel_images, "gel_image", storage$folder, user$username, compress = FALSE)
+        stored_paths$proteomics_sample_information <- store_upload_set(
+          con,
+          project_id,
+          input$proteomics_additional_sample_files,
+          "proteomics_sample_information",
+          storage$folder,
+          user$username,
+          compress = FALSE
+        )
       }
       if (input$project_type == "metabolomics") {
         stored_paths$metabolomics_library_path <- store_upload_set(con, project_id, input$metabolomics_library, "metabolomics_target_list", storage$folder, user$username, compress = TRUE)
@@ -4342,6 +4469,17 @@ server <- function(input, output, session) {
   admin_options_management_ui <- function() {
     div(
       class = "admin-management-modal",
+      radioButtons(
+        "admin_option_project_type",
+        "Project type",
+        choices = c(
+          "Proteomics" = "proteomics",
+          "Metabolomics" = "metabolomics",
+          "Intact / Native / QC" = "intact_mass"
+        ),
+        selected = "proteomics",
+        inline = TRUE
+      ),
       div(
         class = "info-note",
         paste(
@@ -4352,7 +4490,7 @@ server <- function(input, output, session) {
       ),
       h3("Add New Dropdown Option"),
       div(class = "admin-form-row",
-        selectInput("admin_option_group", "Option group", choices = sort(unique(c(names(ms_controlled_options), "status")))),
+        uiOutput("admin_option_group_ui"),
         textInput("admin_option_value", "Value", placeholder = "Enter option value"),
         actionButton("admin_add_option_btn", "Add Option", class = "btn btn-primary")
       ),
@@ -4590,6 +4728,12 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     datatable(dbGetQuery(con, "SELECT id, name, is_active FROM reference_organisms ORDER BY name"), rownames = FALSE, selection = "single")
+  })
+
+  output$admin_option_group_ui <- renderUI({
+    req(input$admin_option_project_type)
+    choices <- dropdown_option_group_choices(input$admin_option_project_type)
+    selectInput("admin_option_group", "Option group", choices = choices)
   })
 
   output$admin_options_table <- renderDT({
@@ -4921,7 +5065,12 @@ server <- function(input, output, session) {
         actionButton("admin_save_option_btn", "Save Option", class = "btn btn-primary")
       ),
       div(class = "admin-form-row",
-        selectInput("admin_edit_option_group", "Option group", choices = sort(unique(c(names(ms_controlled_options), "status"))), selected = row$option_group[[1]]),
+        selectInput(
+          "admin_edit_option_group",
+          "Option group",
+          choices = dropdown_option_group_choices(input$admin_option_project_type, row$option_group[[1]]),
+          selected = row$option_group[[1]]
+        ),
         textInput("admin_edit_option_value", "Value", value = row$value[[1]]),
         numericInput("admin_edit_option_order", "Display order", value = as.integer(row$display_order[[1]] %||% 1), min = 1, step = 1),
         checkboxInput("admin_edit_option_active", "Active", value = as.integer(row$is_active[[1]] %||% 1) == 1)
