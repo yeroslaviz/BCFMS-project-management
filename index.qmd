@@ -26,4 +26,5 @@ If you have any further questions regarding this repository, please do not hesit
 - [Git & GitHub](chapters/git-github.qmd)
 - [VM installation](chapters/vm-installation.qmd)
 - [Deploy & Operations](chapters/deploy-operations.qmd)
+- [Dropdown Terms & Costs](chapters/dropdown-options.qmd)
 - [Change Log](chapters/change-log.qmd)

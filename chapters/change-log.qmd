@@ -32,6 +32,7 @@ execute:
 6. Removed **Project Name** from the project overview table and added **Sample Type** immediately after **Project Type**.
 7. Added LDAP name normalization for directory names formatted as `Surname, First name (username)`. New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.
 8. modify intact project creation page
+9. Dropdown terms can now be added, renamed, deactivated, deleted, and reinstated by administrators. New priced terms start at €0, renamed terms retain their costs, and the documentation now includes non-destructive recovery instructions.
 
 ## Changes on 27.07.2026 
 

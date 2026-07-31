@@ -217,19 +217,6 @@ ms_priced_option_groups <- c(
   "metabolomics_sample_type"
 )
 
-# These seven groups are governed by Sample_project_type.xlsx. During database
-# initialization, rows outside these approved lists are removed so migrated and
-# newly-created installations expose the same project/sample terminology.
-ms_authoritative_project_option_groups <- c(
-  "proteomics_project_type",
-  "proteomics_sample_type",
-  "metabolomics_analysis_type",
-  "metabolomics_approach",
-  "metabolomics_sample_type",
-  "intact_project_type",
-  "intact_sample_type"
-)
-
 ms_default_option_costs <- list(
   proteomics_project_type = c(
     "Protein ID" = 25,
@@ -610,7 +597,7 @@ ms_create_schema <- function(con) {
     "
     CREATE TABLE IF NOT EXISTS option_costs (
       controlled_option_id INTEGER PRIMARY KEY,
-      cost REAL NOT NULL DEFAULT 1
+      cost REAL NOT NULL DEFAULT 0
         CHECK (cost >= 0 AND typeof(cost) IN ('integer', 'real')),
       is_custom INTEGER NOT NULL DEFAULT 0,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -623,6 +610,8 @@ ms_create_schema <- function(con) {
     paste0("'", gsub("'", "''", ms_priced_option_groups), "'"),
     collapse = ", "
   )
+  dbExecute(con, "DROP TRIGGER IF EXISTS trg_controlled_option_cost_insert")
+  dbExecute(con, "DROP TRIGGER IF EXISTS trg_controlled_option_cost_group_update")
   dbExecute(
     con,
     paste0(
@@ -634,7 +623,7 @@ ms_create_schema <- function(con) {
       ")
     BEGIN
       INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
-      VALUES (NEW.id, 1);
+      VALUES (NEW.id, 0);
     END
   "
     )
@@ -650,7 +639,7 @@ ms_create_schema <- function(con) {
       ")
     BEGIN
       INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
-      VALUES (NEW.id, 1);
+      VALUES (NEW.id, 0);
     END
   "
     )
@@ -1159,135 +1148,10 @@ ms_migrate_schema <- function(con) {
   )
 }
 
-ms_sync_authoritative_project_options <- function(con, reset_costs = FALSE) {
-  dbWithTransaction(con, {
-    for (group_name in ms_authoritative_project_option_groups) {
-      approved_values <- unique(trimws(as.character(
-        ms_controlled_options[[group_name]]
-      )))
-      if (length(approved_values) == 0 || any(!nzchar(approved_values))) {
-        stop("Authoritative option group contains an empty value: ", group_name)
-      }
-
-      if (group_name %in% ms_priced_option_groups) {
-        configured_costs <- ms_default_option_costs[[group_name]]
-        if (
-          is.null(configured_costs) ||
-            !setequal(names(configured_costs), approved_values)
-        ) {
-          stop("Option and cost definitions do not match for: ", group_name)
-        }
-      }
-
-      placeholders <- paste(rep("?", length(approved_values)), collapse = ", ")
-      dbExecute(
-        con,
-        paste0(
-          "DELETE FROM controlled_options ",
-          "WHERE option_group = ? AND value NOT IN (", placeholders, ")"
-        ),
-        params = c(list(group_name), as.list(approved_values))
-      )
-
-      for (i in seq_along(approved_values)) {
-        option_value <- approved_values[[i]]
-        dbExecute(
-          con,
-          paste(
-            "INSERT OR IGNORE INTO controlled_options",
-            "(option_group, value, display_order, is_active)",
-            "VALUES (?, ?, ?, 1)"
-          ),
-          params = list(group_name, option_value, i)
-        )
-        dbExecute(
-          con,
-          paste(
-            "UPDATE controlled_options",
-            "SET display_order = ?, is_active = 1",
-            "WHERE option_group = ? AND value = ?"
-          ),
-          params = list(i, group_name, option_value)
-        )
-      }
-    }
-
-    for (group_name in ms_priced_option_groups) {
-      dbExecute(
-        con,
-        paste(
-          "INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)",
-          "SELECT id, 1 FROM controlled_options WHERE option_group = ?"
-        ),
-        params = list(group_name)
-      )
-
-      configured_costs <- ms_default_option_costs[[group_name]]
-      for (option_value in names(configured_costs)) {
-        if (isTRUE(reset_costs)) {
-          dbExecute(
-            con,
-            paste(
-              "UPDATE option_costs",
-              "SET cost = ?, is_custom = 0, updated_at = CURRENT_TIMESTAMP",
-              "WHERE controlled_option_id = (",
-              "SELECT id FROM controlled_options",
-              "WHERE option_group = ? AND value = ?",
-              ")"
-            ),
-            params = list(
-              as.numeric(configured_costs[[option_value]]),
-              group_name,
-              option_value
-            )
-          )
-        } else {
-          dbExecute(
-            con,
-            paste(
-              "UPDATE option_costs",
-              "SET cost = ?, updated_at = CURRENT_TIMESTAMP",
-              "WHERE controlled_option_id = (",
-              "SELECT id FROM controlled_options",
-              "WHERE option_group = ? AND value = ?",
-              ") AND is_custom = 0"
-            ),
-            params = list(
-              as.numeric(configured_costs[[option_value]]),
-              group_name,
-              option_value
-            )
-          )
-        }
-      }
-    }
-
-    duplicates <- dbGetQuery(
-      con,
-      paste(
-        "SELECT option_group, lower(trim(value)) AS normalized_value,",
-        "COUNT(*) AS n FROM controlled_options",
-        "GROUP BY option_group, lower(trim(value)) HAVING COUNT(*) > 1"
-      )
-    )
-    if (nrow(duplicates) > 0) {
-      stop("Normalized duplicate controlled options remain after synchronization.")
-    }
-
-    dbExecute(
-      con,
-      paste(
-        "CREATE UNIQUE INDEX IF NOT EXISTS",
-        "idx_controlled_options_group_value_normalized",
-        "ON controlled_options (option_group, lower(trim(value)))"
-      )
-    )
-  })
-
-  invisible(TRUE)
-}
-
 ms_seed_defaults <- function(con) {
+  seed_controlled_option_defaults <-
+    dbGetQuery(con, "SELECT COUNT(*) AS n FROM controlled_options")$n[[1]] == 0
+
   for (i in seq_len(nrow(ms_project_types))) {
     dbExecute(
       con,
@@ -1320,15 +1184,17 @@ ms_seed_defaults <- function(con) {
     )
   }
 
-  for (i in seq_along(ms_status_options)) {
-    dbExecute(
-      con,
-      "
-      INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
-      VALUES ('status', ?, ?)
-    ",
-      params = list(ms_status_options[i], i)
-    )
+  if (seed_controlled_option_defaults) {
+    for (i in seq_along(ms_status_options)) {
+      dbExecute(
+        con,
+        "
+        INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+        VALUES ('status', ?, ?)
+      ",
+        params = list(ms_status_options[i], i)
+      )
+    }
   }
 
   for (organism in ms_reference_organisms) {
@@ -1358,80 +1224,75 @@ ms_seed_defaults <- function(con) {
     )
   }
 
-  ms_sync_authoritative_project_options(con, reset_costs = FALSE)
-
-  for (
-    group_name in
-      setdiff(names(ms_controlled_options), ms_authoritative_project_option_groups)
-  ) {
-    values <- ms_controlled_options[[group_name]]
-    for (i in seq_along(values)) {
-      dbExecute(
-        con,
-        "
-        INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
-        VALUES (?, ?, ?)
-      ",
-        params = list(group_name, values[i], i)
-      )
-      if (group_name %in% ms_priced_option_groups) {
+  if (seed_controlled_option_defaults) {
+    for (group_name in names(ms_controlled_options)) {
+      values <- ms_controlled_options[[group_name]]
+      for (i in seq_along(values)) {
         dbExecute(
           con,
           "
-          UPDATE controlled_options
-          SET display_order = ?, is_active = 1
-          WHERE option_group = ? AND value = ?
+          INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+          VALUES (?, ?, ?)
         ",
-          params = list(i, group_name, values[i])
+          params = list(group_name, trimws(values[i]), i)
+        )
+      }
+    }
+
+    for (group_name in ms_priced_option_groups) {
+      dbExecute(
+        con,
+        "
+        INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
+        SELECT id, 0
+        FROM controlled_options
+        WHERE option_group = ?
+      ",
+        params = list(group_name)
+      )
+    }
+
+    for (group_name in names(ms_default_option_costs)) {
+      group_costs <- ms_default_option_costs[[group_name]]
+      for (option_value in names(group_costs)) {
+        dbExecute(
+          con,
+          "
+          UPDATE option_costs
+          SET cost = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE controlled_option_id = (
+            SELECT id
+            FROM controlled_options
+            WHERE option_group = ? AND value = ?
+          )
+        ",
+          params = list(
+            as.numeric(group_costs[[option_value]]),
+            group_name,
+            option_value
+          )
         )
       }
     }
   }
 
-  for (
-    group_name in
-      setdiff(ms_priced_option_groups, ms_authoritative_project_option_groups)
-  ) {
+  normalized_duplicates <- dbGetQuery(
+    con,
+    paste(
+      "SELECT option_group, lower(trim(value)) AS normalized_value,",
+      "COUNT(*) AS n FROM controlled_options",
+      "GROUP BY option_group, lower(trim(value)) HAVING COUNT(*) > 1"
+    )
+  )
+  if (nrow(normalized_duplicates) == 0) {
     dbExecute(
       con,
-      "
-      INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
-      SELECT id, 1
-      FROM controlled_options
-      WHERE option_group = ?
-    ",
-      params = list(group_name)
+      paste(
+        "CREATE UNIQUE INDEX IF NOT EXISTS",
+        "idx_controlled_options_group_value_normalized",
+        "ON controlled_options (option_group, lower(trim(value)))"
+      )
     )
-  }
-
-  for (
-    group_name in
-      setdiff(
-        names(ms_default_option_costs),
-        ms_authoritative_project_option_groups
-      )
-  ) {
-    group_costs <- ms_default_option_costs[[group_name]]
-    for (option_value in names(group_costs)) {
-      dbExecute(
-        con,
-        "
-        UPDATE option_costs
-        SET cost = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE controlled_option_id = (
-          SELECT id
-          FROM controlled_options
-          WHERE option_group = ? AND value = ?
-        )
-          AND is_custom = 0
-      ",
-        params = list(
-          as.numeric(group_costs[[option_value]]),
-          group_name,
-          option_value
-        )
-      )
-    }
   }
 
   default_password <- ms_hash_password(Sys.getenv(

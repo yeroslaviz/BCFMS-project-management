@@ -75,6 +75,8 @@ sudo -u shiny Rscript setup_database.R
 
 Existing rows are preserved by default. Never set `MS_RESET_DB=1` during a routine deployment. That setting deliberately deletes and rebuilds the target database.
 
+Dropdown terms and their costs are runtime database content. Administrators can add, rename, deactivate, delete, and reinstate them without rebuilding the database. See [Dropdown Terms & Costs](dropdown-options.qmd) for the interface workflow and the direct-database recovery procedure.
+
 Changes to code constants such as `MS_SUBMISSION_WARNING` take effect after deployment restarts Shiny. The current warning is:
 
 ```text

@@ -14,6 +14,7 @@ book:
     - chapters/git-github.qmd
     - chapters/vm-installation.qmd
     - chapters/deploy-operations.qmd
+    - chapters/dropdown-options.qmd
     - chapters/change-log.qmd
 
 

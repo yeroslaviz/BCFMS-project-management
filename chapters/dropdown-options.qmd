@@ -1,0 +1,128 @@
+---
+title: "Dropdown Terms & Costs"
+execute:
+  eval: false
+  echo: true
+  warning: false
+---
+
+## How Dropdown Terms Are Stored
+
+Dropdown terms are stored in the `controlled_options` table. Costs for project and sample types are stored separately in `option_costs` and linked to the corresponding dropdown row by its ID.
+
+The values in `ms-app/db_schema.R` are installation defaults only. They are inserted when a new database has no controlled options. Normal application startup, `setup_database.R`, and routine deployment do not restore deleted terms or overwrite terms and costs changed by an administrator.
+
+The original Excel workbook was used to define the initial defaults; it is not a live data source and is not needed for ongoing administration.
+
+## Recommended Administration Workflow
+
+Use the application interface whenever possible:
+
+1. Sign in as an administrator.
+2. Open **Admin → Dropdown Options Management**.
+3. Select the option group that supplies the relevant dropdown.
+4. Add a new term, or select an existing row and use **Edit Selected** or **Delete Selected Option**.
+
+Editing supports:
+
+- renaming a term;
+- moving it to another option group;
+- changing its display order;
+- activating or deactivating it.
+
+Leading and trailing whitespace is removed automatically. Values that differ only by letter case or surrounding whitespace cannot be duplicated in the same group.
+
+### Project and Sample Type Costs
+
+The following option groups have costs:
+
+| Project family | Project-type group | Sample-type group |
+|---|---|---|
+| Proteomics | `proteomics_project_type` | `proteomics_sample_type` |
+| Metabolomics | `metabolomics_analysis_type` | `metabolomics_sample_type` |
+| Intact / Native / QC | `intact_project_type` | `intact_sample_type` |
+
+When a term is added to one of these groups, the application creates its cost with a default value of €0. Set the required amount under **Admin → Project and Sample Type Costs**. The Costs view can edit amounts but cannot create or delete terms.
+
+Renaming a project or sample type preserves its existing cost because the same database row is retained. Moving an unpriced term into a priced group creates a €0 cost. Moving a term out of a priced group removes its cost.
+
+## Remove, Deactivate, or Reinstate a Term
+
+Prefer **deactivation** when a term has been used by previous projects but should no longer be offered. A deactivated term disappears from new-project dropdowns, remains available in Dropdown Options Management, and can be reinstated by editing it and selecting **Active**. Its linked cost is retained.
+
+Deleting a term permanently removes its controlled-option row. For a project or sample type, the linked cost row is deleted automatically. Existing project records retain their previously saved text and cost information, but the deleted term is no longer offered for new projects.
+
+To reinstate a deleted term without recreating the database:
+
+1. Open **Admin → Dropdown Options Management**.
+2. Select the original option group.
+3. Add the term again, using the required spelling and capitalization.
+4. If it is a project or sample type, open **Project and Sample Type Costs** and replace the initial €0 with the required cost.
+
+No database reset, database recreation, deployment, or service restart is required for changes made through the interface.
+
+## Direct Database Recovery
+
+Direct SQLite changes should be reserved for recovery when the administration interface is unavailable. Create a [verified database backup](deploy-operations.qmd#database-backup-and-exact-recovery) first, stop Shiny so no application session can write concurrently, and run SQLite as the `shiny` user.
+
+Inspect the existing rows before changing anything:
+
+```bash
+sudo systemctl stop shiny-server
+sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db \
+  "SELECT id, option_group, value, display_order, is_active FROM controlled_options ORDER BY option_group, display_order, value;"
+```
+
+### Reactivate an Existing Term
+
+```bash
+sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db \
+  "UPDATE controlled_options SET is_active = 1 WHERE option_group = 'proteomics_sample_type' AND value = 'TERM TO RESTORE';"
+```
+
+### Reinstate a Deleted Term
+
+This example recreates a deleted Proteomics sample type. The database trigger creates its cost at €0:
+
+```bash
+sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db <<'SQL'
+PRAGMA foreign_keys = ON;
+BEGIN IMMEDIATE;
+INSERT INTO controlled_options (option_group, value, display_order, is_active)
+SELECT 'proteomics_sample_type',
+       'TERM TO RESTORE',
+       COALESCE(MAX(display_order), 0) + 1,
+       1
+FROM controlled_options
+WHERE option_group = 'proteomics_sample_type';
+COMMIT;
+PRAGMA integrity_check;
+SQL
+```
+
+Set its cost if it should not remain at €0:
+
+```bash
+sudo -u shiny sqlite3 /srv/shiny-server/ms-app/ms_projects.db <<'SQL'
+PRAGMA foreign_keys = ON;
+BEGIN IMMEDIATE;
+UPDATE option_costs
+SET cost = 10, is_custom = 1, updated_at = CURRENT_TIMESTAMP
+WHERE controlled_option_id = (
+  SELECT id
+  FROM controlled_options
+  WHERE option_group = 'proteomics_sample_type'
+    AND value = 'TERM TO RESTORE'
+);
+COMMIT;
+PRAGMA integrity_check;
+SQL
+```
+
+Replace the example group, value, and cost with the intended values. `PRAGMA integrity_check;` must return `ok`. Restart the service afterward:
+
+```bash
+sudo systemctl start shiny-server
+```
+
+Do not use `MS_RESET_DB=1` to restore dropdown terms. It deletes and rebuilds the complete target database. Do not edit `db_schema.R` for a one-off production change: its option values are defaults for new databases, not a synchronization mechanism for an existing database.

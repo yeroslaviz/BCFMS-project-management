@@ -11,6 +11,7 @@ The complete setup and maintenance manual starts at <a href="https://yeroslaviz.
 - <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/ldap-authentication.html" target="_blank" rel="noopener noreferrer">LDAP Authentication</a>
 - <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/troubleshooting.html" target="_blank" rel="noopener noreferrer">Troubleshooting</a>
 - <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/deploy-operations.html" target="_blank" rel="noopener noreferrer">Deploy and Operations</a>
+- <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/dropdown-options.html" target="_blank" rel="noopener noreferrer">Dropdown Terms and Costs</a>
 - <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/deploy-operations.html#database-backup-and-exact-recovery" target="_blank" rel="noopener noreferrer">Database backup and exact recovery</a>
 - <a href="https://yeroslaviz.github.io/BCFMS-project-management/chapters/change-log.html" target="_blank" rel="noopener noreferrer">Change Log</a>
 

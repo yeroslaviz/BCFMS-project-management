@@ -4345,9 +4345,9 @@ server <- function(input, output, session) {
       div(
         class = "info-note",
         paste(
-          "Project types, sample types, and metabolomics approaches are",
-          "synchronized from Sample_project_type.xlsx and cannot be changed here.",
-          "Their costs remain editable under Project and Sample Type Costs."
+          "Dropdown terms can be added, edited, deactivated, or deleted here.",
+          "New project and sample type terms receive an initial cost of €0;",
+          "renaming a term keeps its existing cost."
         )
       ),
       h3("Add New Dropdown Option"),
@@ -4383,7 +4383,7 @@ server <- function(input, output, session) {
       ),
       div(
         class = "info-note",
-        "Costs can be edited here, but rows are created from active Project Type and Sample Type dropdown options. Add a new option under Dropdown Options first; its initial cost will be €1."
+        "Costs can be edited here, but rows are created from active Project Type and Sample Type dropdown options. Add a new option under Dropdown Options first; its initial cost will be €0."
       ),
       DTOutput("admin_costs_table"),
       div(
@@ -4863,49 +4863,49 @@ server <- function(input, output, session) {
 
   observeEvent(input$admin_add_option_btn, {
     req(input$admin_option_group, input$admin_option_value)
-    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
-      showNotification(
-        "This option group is controlled by Sample_project_type.xlsx.",
-        type = "warning"
-      )
+    option_group <- trim_scalar(input$admin_option_group)
+    option_value <- trim_scalar(input$admin_option_value)
+    if (!nzchar(option_value)) {
+      showNotification("Please enter a dropdown value.", type = "warning")
       return()
     }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    next_order <- dbGetQuery(con, "SELECT COALESCE(MAX(display_order), 0) + 1 AS n FROM controlled_options WHERE option_group = ?", params = list(input$admin_option_group))$n[1]
-    dbExecute(con, "INSERT OR IGNORE INTO controlled_options (option_group, value, display_order) VALUES (?, ?, ?)", params = list(input$admin_option_group, trim_scalar(input$admin_option_value), next_order))
+    duplicate_count <- dbGetQuery(con, "
+      SELECT COUNT(*) AS n
+      FROM controlled_options
+      WHERE option_group = ? AND lower(trim(value)) = lower(trim(?))
+    ", params = list(option_group, option_value))$n[[1]]
+    if (duplicate_count > 0) {
+      showNotification("That dropdown option already exists.", type = "warning")
+      return()
+    }
+    next_order <- dbGetQuery(con, "SELECT COALESCE(MAX(display_order), 0) + 1 AS n FROM controlled_options WHERE option_group = ?", params = list(option_group))$n[1]
+    inserted <- dbExecute(con, "INSERT OR IGNORE INTO controlled_options (option_group, value, display_order) VALUES (?, ?, ?)", params = list(option_group, option_value, next_order))
+    if (inserted == 0) {
+      showNotification("That dropdown option already exists.", type = "warning")
+      return()
+    }
     admin_refresh(admin_refresh() + 1)
+    showNotification("Dropdown option added.", type = "message")
   })
 
   observeEvent(input$admin_delete_option_btn, {
     selected <- input$admin_options_table_rows_selected
     req(selected, input$admin_option_group)
-    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
-      showNotification(
-        "Workbook-controlled project and sample terms cannot be deleted here.",
-        type = "warning"
-      )
-      return()
-    }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     rows <- dbGetQuery(con, "SELECT id FROM controlled_options WHERE option_group = ? ORDER BY display_order, value", params = list(input$admin_option_group))
     if (nrow(rows) >= selected[1]) {
       dbExecute(con, "DELETE FROM controlled_options WHERE id = ?", params = list(rows$id[selected[1]]))
       admin_refresh(admin_refresh() + 1)
+      showNotification("Dropdown option and its linked cost were deleted.", type = "message")
     }
   })
 
   observeEvent(input$admin_edit_option_btn, {
     selected <- input$admin_options_table_rows_selected
     req(selected, input$admin_option_group)
-    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
-      showNotification(
-        "Workbook-controlled project and sample terms cannot be edited here.",
-        type = "warning"
-      )
-      return()
-    }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     rows <- dbGetQuery(con, "SELECT id, option_group, value, display_order, is_active FROM controlled_options WHERE option_group = ? ORDER BY display_order, value", params = list(input$admin_option_group))
@@ -4939,29 +4939,65 @@ server <- function(input, output, session) {
       params = list(admin_edit_option_id())
     )
     requested_group <- trim_scalar(input$admin_edit_option_group)
-    if (
-      requested_group %in% ms_authoritative_project_option_groups ||
-        (nrow(current_group) > 0 &&
-          current_group$option_group[[1]] %in%
-            ms_authoritative_project_option_groups)
-    ) {
+    requested_value <- trim_scalar(input$admin_edit_option_value)
+    if (nrow(current_group) == 0 || !nzchar(requested_value)) {
+      showNotification("Please enter a valid dropdown value.", type = "warning")
+      return()
+    }
+    duplicate_count <- dbGetQuery(con, "
+      SELECT COUNT(*) AS n
+      FROM controlled_options
+      WHERE option_group = ?
+        AND lower(trim(value)) = lower(trim(?))
+        AND id <> ?
+    ", params = list(
+      requested_group,
+      requested_value,
+      admin_edit_option_id()
+    ))$n[[1]]
+    if (duplicate_count > 0) {
       showNotification(
-        "Workbook-controlled project and sample terms cannot be edited here.",
+        "That dropdown option already exists in the selected group.",
         type = "warning"
       )
       return()
     }
-    dbExecute(con, "
-      UPDATE controlled_options
-      SET option_group = ?, value = ?, display_order = ?, is_active = ?
-      WHERE id = ?
-    ", params = list(
-      requested_group,
-      trim_scalar(input$admin_edit_option_value),
-      as.integer(input$admin_edit_option_order %||% 1),
-      as.integer(isTRUE(input$admin_edit_option_active)),
-      admin_edit_option_id()
-    ))
+    update_succeeded <- tryCatch({
+      dbWithTransaction(con, {
+        dbExecute(con, "
+          UPDATE controlled_options
+          SET option_group = ?, value = ?, display_order = ?, is_active = ?
+          WHERE id = ?
+        ", params = list(
+          requested_group,
+          requested_value,
+          as.integer(input$admin_edit_option_order %||% 1),
+          as.integer(isTRUE(input$admin_edit_option_active)),
+          admin_edit_option_id()
+        ))
+
+        if (requested_group %in% ms_priced_option_groups) {
+          dbExecute(con, "
+            INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
+            VALUES (?, 0)
+          ", params = list(admin_edit_option_id()))
+        } else if (current_group$option_group[[1]] %in% ms_priced_option_groups) {
+          dbExecute(con, "
+            DELETE FROM option_costs WHERE controlled_option_id = ?
+          ", params = list(admin_edit_option_id()))
+        }
+      })
+      TRUE
+    }, error = function(e) {
+      showNotification(
+        paste("The dropdown option could not be updated:", conditionMessage(e)),
+        type = "error"
+      )
+      FALSE
+    })
+    if (!update_succeeded) {
+      return()
+    }
     removeModal()
     admin_refresh(admin_refresh() + 1)
     showNotification("Dropdown option updated.", type = "message")
