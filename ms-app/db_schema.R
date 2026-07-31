@@ -7,21 +7,36 @@ library(digest)
 }
 
 MS_DB_FILE <- Sys.getenv("MS_DB_FILE", "ms_projects.db")
-MS_FACILITY_EMAIL <- Sys.getenv("MS_FACILITY_EMAIL", "ms-service@biochem.mpg.de")
+MS_FACILITY_EMAIL <- Sys.getenv(
+  "MS_FACILITY_EMAIL",
+  "ms-service@biochem.mpg.de"
+)
 MS_MAIL_FROM <- Sys.getenv("MS_MAIL_FROM", MS_FACILITY_EMAIL)
-MS_POOL_FALLBACK_EMAIL <- Sys.getenv("MS_POOL_FALLBACK_EMAIL", "omicsdesk@biochem.mpg.de")
+MS_POOL_FALLBACK_EMAIL <- Sys.getenv(
+  "MS_POOL_FALLBACK_EMAIL",
+  "omicsdesk@biochem.mpg.de"
+)
 MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-ms-user")
-MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv("MS_LOCAL_UPLOAD_FALLBACK", "/srv/ms-app-data/uploads_pending_pool")
-if (MS_UPLOAD_ROOT %in% c(
-  "/fs/pool/pool-bcfngs-ms-projects",
-  "/fs/pool/pool-ms-projects"
-)) {
+MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv(
+  "MS_LOCAL_UPLOAD_FALLBACK",
+  "/srv/ms-app-data/uploads_pending_pool"
+)
+if (
+  MS_UPLOAD_ROOT %in%
+    c(
+      "/fs/pool/pool-bcfngs-ms-projects",
+      "/fs/pool/pool-ms-projects"
+    )
+) {
   MS_UPLOAD_ROOT <- "/fs/pool/pool-ms-user"
 }
-if (MS_LOCAL_UPLOAD_FALLBACK %in% c(
-  "uploads_pending_pool",
-  "/srv/shiny-server/ms-app/uploads_pending_pool"
-)) {
+if (
+  MS_LOCAL_UPLOAD_FALLBACK %in%
+    c(
+      "uploads_pending_pool",
+      "/srv/shiny-server/ms-app/uploads_pending_pool"
+    )
+) {
   MS_LOCAL_UPLOAD_FALLBACK <- "/srv/ms-app-data/uploads_pending_pool"
 }
 MS_INSTITUTE_ADDRESS <- paste(
@@ -34,7 +49,7 @@ MS_INSTITUTE_ADDRESS <- paste(
 
 MS_SUBMISSION_WARNING <- paste(
   "Samples are stored for a maximum of 2 months after analysis is completed,",
-  "then discarded without notice."
+  "then discarded without further notice."
 )
 
 MS_SAMPLE_TABLE_STATEMENT <- paste(
@@ -71,26 +86,125 @@ ms_status_options <- c(
 )
 
 ms_controlled_options <- list(
-  intact_project_type = c("Protein (QC)", "Small molecule (QC)", "Peptide (QC)", "Oligonucleotide (QC)", "Protein (high resolution)", "Native protein complex"),
-  intact_sample_type = c("in-solution, Flow injection", "in-solution", "powder"),
-  proteomics_project_type = c("Protein ID", "Protein coverage /PTM", "Interaction Proteomics", "Total proteome", "PTMomics (global, enrichment)", "Crosslinking"),
-  proteomics_sample_type = c("in-solution digest", "Gel band /gel lane", "On-beads", "Cell pellet", "Protein pellet", "Supernatent", "Tissue", "ready-to-load (digested)", "ready-to-load (digested+desalted)", "Enrichement (PTM)"),
-  proteomics_acquisition_mode = c("DDA (Data-Dependent)", "DIA (Data-Independent)", "No preference", "Discuss with facility"),
-  proteomics_quantification_strategy = c("Label-free (LFQ)", "SILAC", "No quantification", "Other"),
+  intact_project_type = c(
+    "Protein (QC)",
+    "Small molecule (QC)",
+    "Peptide (QC)",
+    "Oligonucleotide (QC)",
+    "Protein (high resolution)",
+    "Native protein complex"
+  ),
+  intact_sample_type = c(
+    "in-solution, Flow injection",
+    "in-solution",
+    "powder"
+  ),
+  proteomics_project_type = c(
+    "Protein ID",
+    "Protein coverage /PTM",
+    "Interaction Proteomics",
+    "Total proteome",
+    "PTMomics (global, enrichment)",
+    "Crosslinking"
+  ),
+  proteomics_sample_type = c(
+    "in-solution digest",
+    "Gel band /gel lane",
+    "On-beads",
+    "Cell pellet",
+    "Protein pellet",
+    "Supernatent",
+    "Tissue",
+    "ready-to-load (digested)",
+    "ready-to-load (digested+desalted)",
+    "Enrichement (PTM)"
+  ),
+  proteomics_acquisition_mode = c(
+    "DDA (Data-Dependent)",
+    "DIA (Data-Independent)",
+    "No preference",
+    "Discuss with facility"
+  ),
+  proteomics_quantification_strategy = c(
+    "Label-free (LFQ)",
+    "SILAC",
+    "No quantification",
+    "Other"
+  ),
   silac_amino_acids = c("Arg6", "Arg10", "Lys4", "Lys6", "Lys8", "Other"),
-  digestion_enzyme = c("Trypsin", "LysC", "GluC", "AspN", "Chymotrypsin", "Trypsin+LysC", "Other", "Performed by user"),
-  ptm_variable_modifications = c("Phospho (Ser/Thr/Tyr)", "Acetylation (Lys/N-term)", "GlyGly (Lys, ubiquitin)", "Methylation", "Other"),
+  digestion_enzyme = c(
+    "Trypsin",
+    "LysC",
+    "GluC",
+    "AspN",
+    "Chymotrypsin",
+    "Trypsin+LysC",
+    "Other",
+    "Performed by user"
+  ),
+  ptm_variable_modifications = c(
+    "Phospho (Ser/Thr/Tyr)",
+    "Acetylation (Lys/N-term)",
+    "GlyGly (Lys, ubiquitin)",
+    "Methylation",
+    "Other"
+  ),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
   metabolomics_approach = c("Targeted", "Untargeted", "Both", "Other"),
   metabolomics_analysis_type = c("Metabolomics", "Lipidomics"),
   metabolomics_sample_type = c("cell pellet", "supernatent", "protein pellet"),
   concentration_determination = c("Yes", "No", "Not applicable"),
-  concentration_method = c("UV A280", "BCA", "Bradford", "NanoDrop", "Estimated", "Other"),
-  sample_amount_unit = c("ug", "mg", "pmol", "nmol", "cells", "uL", "mL", "other"),
-  concentration_unit = c("ng/uL", "ug/uL", "mg/mL", "uM", "mM", "cells/mL", "other"),
+  concentration_method = c(
+    "UV A280",
+    "BCA",
+    "Bradford",
+    "NanoDrop",
+    "Estimated",
+    "Other"
+  ),
+  sample_amount_unit = c(
+    "ug",
+    "mg",
+    "pmol",
+    "nmol",
+    "cells",
+    "uL",
+    "mL",
+    "other"
+  ),
+  concentration_unit = c(
+    "ng/uL",
+    "ug/uL",
+    "mg/mL",
+    "uM",
+    "mM",
+    "cells/mL",
+    "other"
+  ),
   volume_unit = c("uL", "mL", "other"),
-  column_type = c("PepSep15", "PepSep8", "Aurora15", "Aurora25", "F5", "C8", "C18 Polar", "C18", "NativePac_OBE", "MAbPac-RP", "C4", "Other"),
-  ms_machine = c("Expl01", "QHF2", "TimstofHT", "Tims2_Mann", "Tims3", "Zeno1_Mann", "Other"),
+  column_type = c(
+    "PepSep15",
+    "PepSep8",
+    "Aurora15",
+    "Aurora25",
+    "F5",
+    "C8",
+    "C18 Polar",
+    "C18",
+    "NativePac_OBE",
+    "MAbPac-RP",
+    "C4",
+    "Other"
+  ),
+  ms_machine = c(
+    "Expl01",
+    "QHF2",
+    "TimstofHT",
+    "Tims2_Mann",
+    "Tims3",
+    "Zeno1_Mann",
+    "Other"
+  ),
   data_acquisition = c("DDA", "DIA", "DIA and DDA")
 )
 
@@ -175,7 +289,9 @@ ms_facility_billing_groups <- data.frame(
 
 ms_normalize_user_role <- function(role, is_admin = 0L) {
   role <- tolower(trimws(as.character(role %||% "")))
-  if (role %in% ms_user_roles) return(role)
+  if (role %in% ms_user_roles) {
+    return(role)
+  }
   if (as.integer(is_admin %||% 0L) == 1L) "admin" else "user"
 }
 
@@ -199,11 +315,11 @@ ms_landing_text_defaults <- data.frame(
     "Contact"
   ),
   body = c(
-    "The facility supports intact/native mass, proteomics, crosslinking-MS, and metabolomics/lipidomics workflows.",
+    "The facility supports intact/native mass, proteomics, PTM enrichments, crosslinking-MS, and metabolomics/lipidomics workflows."
     "Discuss the experiment, goal, and expectations with the facility before sample submission.",
     "For in-gel samples, provide the entire gel and a gel image indicating the bands to analyze.",
-    "For recombinant, tagged, mutated, or non-standard proteins, upload a FASTA file.",
-    "For proteomics samples requiring preparation, avoid Friday submissions unless arranged with the facility.",
+    "For recombinant, tagged, mutated, or non-standard proteins, upload a FASTA file. Allowed .fasta,. fa, .faa, fna files",
+    "Our opening hours are: Monday - Thursday 9:00-17:00 and Friday 9:00-15:00. Please do not submit samples before your project was accepted by the facility.",
     "For XL-MS, amine-free buffers are important; avoid Tris and ammonium salts.",
     "ms-service@biochem.mpg.de"
   ),
@@ -230,8 +346,11 @@ ms_table_exists <- function(con, table_name) {
 }
 
 ms_column_exists <- function(con, table_name, column_name) {
-  if (!ms_table_exists(con, table_name)) return(FALSE)
-  column_name %in% dbGetQuery(con, paste0("PRAGMA table_info(", table_name, ")"))$name
+  if (!ms_table_exists(con, table_name)) {
+    return(FALSE)
+  }
+  column_name %in%
+    dbGetQuery(con, paste0("PRAGMA table_info(", table_name, ")"))$name
 }
 
 ms_add_column_if_missing <- function(con, table_name, column_sql) {
@@ -242,50 +361,89 @@ ms_add_column_if_missing <- function(con, table_name, column_sql) {
 }
 
 ms_budget_holder_exists <- function(con, name, surname, cost_center, email) {
-  count <- dbGetQuery(con, "
+  count <- dbGetQuery(
+    con,
+    "
     SELECT COUNT(*) AS n
     FROM budget_holders
     WHERE lower(name) = lower(?)
       AND lower(surname) = lower(?)
       AND lower(cost_center) = lower(?)
       AND lower(email) = lower(?)
-  ", params = list(name, surname, cost_center, email))$n[1]
+  ",
+    params = list(name, surname, cost_center, email)
+  )$n[1]
   isTRUE(count > 0)
 }
 
-ms_insert_budget_holder_if_missing <- function(con, name, surname, cost_center, email) {
+ms_insert_budget_holder_if_missing <- function(
+  con,
+  name,
+  surname,
+  cost_center,
+  email
+) {
   if (!ms_budget_holder_exists(con, name, surname, cost_center, email)) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT INTO budget_holders (name, surname, cost_center, email)
       VALUES (?, ?, ?, ?)
-    ", params = list(name, surname, cost_center, email))
+    ",
+      params = list(name, surname, cost_center, email)
+    )
   }
 }
 
-ms_upsert_facility_billing_holder <- function(con, name, surname, cost_center, email) {
-  existing <- dbGetQuery(con, "
+ms_upsert_facility_billing_holder <- function(
+  con,
+  name,
+  surname,
+  cost_center,
+  email
+) {
+  existing <- dbGetQuery(
+    con,
+    "
     SELECT id, cost_center
     FROM budget_holders
     WHERE lower(name) = lower(?) AND lower(surname) = lower(?)
     ORDER BY id
-  ", params = list(name, surname))
+  ",
+    params = list(name, surname)
+  )
 
   desired_key <- toupper(gsub("[^A-Z0-9]", "", cost_center))
-  existing_keys <- toupper(gsub("[^A-Z0-9]", "", existing$cost_center %||% character()))
+  existing_keys <- toupper(gsub(
+    "[^A-Z0-9]",
+    "",
+    existing$cost_center %||% character()
+  ))
   if (desired_key %in% existing_keys) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       UPDATE budget_holders SET email = ?
       WHERE id = ?
-    ", params = list(email, existing$id[[which(existing_keys == desired_key)[1]]]))
+    ",
+      params = list(
+        email,
+        existing$id[[which(existing_keys == desired_key)[1]]]
+      )
+    )
     return(invisible(TRUE))
   }
 
   placeholder <- which(existing_keys %in% c("", "NA"))
   if (length(placeholder) > 0) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       UPDATE budget_holders SET cost_center = ?, email = ?
       WHERE id = ?
-    ", params = list(cost_center, email, existing$id[[placeholder[1]]]))
+    ",
+      params = list(cost_center, email, existing$id[[placeholder[1]]])
+    )
   } else {
     ms_insert_budget_holder_if_missing(con, name, surname, cost_center, email)
   }
@@ -293,28 +451,38 @@ ms_upsert_facility_billing_holder <- function(con, name, surname, cost_center, e
 }
 
 ms_cleanup_budget_holders <- function(con) {
-  if (!ms_table_exists(con, "budget_holders")) return(invisible(FALSE))
+  if (!ms_table_exists(con, "budget_holders")) {
+    return(invisible(FALSE))
+  }
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     DELETE FROM budget_holders
     WHERE lower(name) IN ('administrator', 'unknown')
        OR lower(surname) IN ('surname', 'user')
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     DELETE FROM budget_holders
     WHERE id NOT IN (
       SELECT MIN(id)
       FROM budget_holders
       GROUP BY lower(name), lower(surname), lower(cost_center), lower(email)
     )
-  ")
+  "
+  )
 
   invisible(TRUE)
 }
 
 ms_create_schema <- function(con) {
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT UNIQUE NOT NULL,
@@ -329,9 +497,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS budget_holders (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
@@ -340,9 +511,12 @@ ms_create_schema <- function(con) {
       email TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS project_types (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       slug TEXT UNIQUE NOT NULL,
@@ -353,18 +527,24 @@ ms_create_schema <- function(con) {
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS reference_organisms (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS controlled_options (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       option_group TEXT NOT NULL,
@@ -374,9 +554,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       UNIQUE(option_group, value)
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS option_costs (
       controlled_option_id INTEGER PRIMARY KEY,
       cost REAL NOT NULL DEFAULT 1
@@ -385,32 +568,49 @@ ms_create_schema <- function(con) {
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (controlled_option_id) REFERENCES controlled_options (id) ON DELETE CASCADE
     )
-  ")
+  "
+  )
 
   priced_groups_sql <- paste(
     paste0("'", gsub("'", "''", ms_priced_option_groups), "'"),
     collapse = ", "
   )
-  dbExecute(con, paste0("
+  dbExecute(
+    con,
+    paste0(
+      "
     CREATE TRIGGER IF NOT EXISTS trg_controlled_option_cost_insert
     AFTER INSERT ON controlled_options
-    WHEN NEW.option_group IN (", priced_groups_sql, ")
+    WHEN NEW.option_group IN (",
+      priced_groups_sql,
+      ")
     BEGIN
       INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
       VALUES (NEW.id, 1);
     END
-  "))
-  dbExecute(con, paste0("
+  "
+    )
+  )
+  dbExecute(
+    con,
+    paste0(
+      "
     CREATE TRIGGER IF NOT EXISTS trg_controlled_option_cost_group_update
     AFTER UPDATE OF option_group ON controlled_options
-    WHEN NEW.option_group IN (", priced_groups_sql, ")
+    WHEN NEW.option_group IN (",
+      priced_groups_sql,
+      ")
     BEGIN
       INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
       VALUES (NEW.id, 1);
     END
-  "))
+  "
+    )
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS landing_text_blocks (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       block_key TEXT UNIQUE NOT NULL,
@@ -421,9 +621,13 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, paste0("
+  dbExecute(
+    con,
+    paste0(
+      "
     CREATE TABLE IF NOT EXISTS projects (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_code TEXT UNIQUE,
@@ -518,7 +722,9 @@ ms_create_schema <- function(con) {
       project_folder TEXT,
       upload_storage_status TEXT DEFAULT 'not_checked',
       invoice_recipient_address TEXT,
-      invoice_institute_address TEXT DEFAULT '", gsub("'", "''", MS_INSTITUTE_ADDRESS), "',
+      invoice_institute_address TEXT DEFAULT '",
+      gsub("'", "''", MS_INSTITUTE_ADDRESS),
+      "',
       report_notes TEXT,
       additional_cost REAL,
       additional_cost_comment TEXT,
@@ -535,9 +741,13 @@ ms_create_schema <- function(con) {
       FOREIGN KEY (budget_id) REFERENCES budget_holders (id),
       FOREIGN KEY (technician_user_id) REFERENCES users (id)
     )
-  "))
+  "
+    )
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS project_samples (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
@@ -550,9 +760,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS project_files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
@@ -567,9 +780,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS project_status_history (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
@@ -578,14 +794,20 @@ ms_create_schema <- function(con) {
       changed_by TEXT,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE INDEX IF NOT EXISTS idx_project_status_history_project_id
     ON project_status_history (project_id, changed_at, id)
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS email_templates (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       template_name TEXT UNIQUE NOT NULL,
@@ -594,9 +816,12 @@ ms_create_schema <- function(con) {
       is_active INTEGER DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS email_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER,
@@ -608,9 +833,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects (id)
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS project_documents (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
@@ -620,9 +848,12 @@ ms_create_schema <- function(con) {
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     CREATE TABLE IF NOT EXISTS backup_logs (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       backup_timestamp TEXT NOT NULL,
@@ -630,35 +861,49 @@ ms_create_schema <- function(con) {
       backed_up_by TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
-  ")
+  "
+  )
 }
 
 ms_migrate_schema <- function(con) {
   if (ms_table_exists(con, "option_costs")) {
-    ms_add_column_if_missing(con, "option_costs", "is_custom INTEGER NOT NULL DEFAULT 0")
+    ms_add_column_if_missing(
+      con,
+      "option_costs",
+      "is_custom INTEGER NOT NULL DEFAULT 0"
+    )
   }
 
   if (ms_table_exists(con, "users")) {
     ms_add_column_if_missing(con, "users", "role TEXT NOT NULL DEFAULT 'user'")
     ms_add_column_if_missing(con, "users", "cost_center TEXT")
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       UPDATE users
       SET role = CASE
         WHEN lower(COALESCE(role, '')) IN ('admin', 'technician') THEN lower(role)
         WHEN COALESCE(is_admin, 0) = 1 THEN 'admin'
         ELSE 'user'
       END
-    ")
-    dbExecute(con, "
+    "
+    )
+    dbExecute(
+      con,
+      "
       UPDATE users
       SET is_admin = CASE WHEN role = 'admin' THEN 1 ELSE 0 END
-    ")
+    "
+    )
   }
 
-  if (!ms_table_exists(con, "projects")) return(invisible(TRUE))
+  if (!ms_table_exists(con, "projects")) {
+    return(invisible(TRUE))
+  }
 
   project_fields_before_migration <- dbListFields(con, "projects")
-  migrate_metabolomics_semantics <- !("metabolomics_approach" %in% project_fields_before_migration)
+  migrate_metabolomics_semantics <- !("metabolomics_approach" %in%
+    project_fields_before_migration)
 
   project_columns <- c(
     "project_code TEXT",
@@ -747,7 +992,11 @@ ms_migrate_schema <- function(con) {
     "project_folder TEXT",
     "upload_storage_status TEXT DEFAULT 'not_checked'",
     "invoice_recipient_address TEXT",
-    paste0("invoice_institute_address TEXT DEFAULT '", gsub("'", "''", MS_INSTITUTE_ADDRESS), "'"),
+    paste0(
+      "invoice_institute_address TEXT DEFAULT '",
+      gsub("'", "''", MS_INSTITUTE_ADDRESS),
+      "'"
+    ),
     "report_notes TEXT",
     "additional_cost REAL",
     "additional_cost_comment TEXT",
@@ -764,7 +1013,9 @@ ms_migrate_schema <- function(con) {
   }
 
   if (isTRUE(migrate_metabolomics_semantics)) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       UPDATE projects
       SET metabolomics_approach = metabolomics_analysis_type,
           metabolomics_approach_other = metabolomics_analysis_type_other,
@@ -773,31 +1024,46 @@ ms_migrate_schema <- function(con) {
             metabolomics_analysis_type
           )
       WHERE project_type = 'metabolomics'
-    ")
+    "
+    )
   }
 
-  legacy_family_count <- dbGetQuery(con, "
+  legacy_family_count <- dbGetQuery(
+    con,
+    "
     SELECT COUNT(*) AS n
     FROM controlled_options
     WHERE option_group = 'metabolomics_analysis_family'
-  ")$n[[1]]
-  new_approach_count <- dbGetQuery(con, "
+  "
+  )$n[[1]]
+  new_approach_count <- dbGetQuery(
+    con,
+    "
     SELECT COUNT(*) AS n
     FROM controlled_options
     WHERE option_group = 'metabolomics_approach'
-  ")$n[[1]]
+  "
+  )$n[[1]]
   if (legacy_family_count > 0 && new_approach_count == 0) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       UPDATE controlled_options
       SET option_group = 'metabolomics_approach'
       WHERE option_group = 'metabolomics_analysis_type'
-    ")
-    dbExecute(con, "
+    "
+    )
+    dbExecute(
+      con,
+      "
       UPDATE controlled_options
       SET option_group = 'metabolomics_analysis_type'
       WHERE option_group = 'metabolomics_analysis_family'
-    ")
-    dbExecute(con, "
+    "
+    )
+    dbExecute(
+      con,
+      "
       UPDATE controlled_options
       SET value = CASE value
         WHEN 'Targeted (specific panel)' THEN 'Targeted'
@@ -805,22 +1071,31 @@ ms_migrate_schema <- function(con) {
         ELSE value
       END
       WHERE option_group = 'metabolomics_approach'
-    ")
-    dbExecute(con, "
+    "
+    )
+    dbExecute(
+      con,
+      "
       UPDATE controlled_options
       SET is_active = 0
       WHERE option_group = 'metabolomics_approach'
         AND value = 'Lipidomics'
-    ")
+    "
+    )
   }
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     UPDATE projects
     SET last_status_update_at = COALESCE(last_status_update_at, created_at, updated_at, CURRENT_TIMESTAMP)
     WHERE last_status_update_at IS NULL OR last_status_update_at = ''
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     INSERT INTO project_status_history (project_id, status, changed_at, changed_by)
     SELECT p.id,
            COALESCE(NULLIF(trim(p.status), ''), 'Submitted'),
@@ -832,90 +1107,125 @@ ms_migrate_schema <- function(con) {
       FROM project_status_history h
       WHERE h.project_id = p.id
     )
-  ")
+  "
+  )
 }
 
 ms_seed_defaults <- function(con) {
   for (i in seq_len(nrow(ms_project_types))) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT OR IGNORE INTO project_types (slug, name, color, description, display_order)
       VALUES (?, ?, ?, ?, ?)
-    ", params = list(
-      ms_project_types$slug[i],
-      ms_project_types$name[i],
-      ms_project_types$color[i],
-      ms_project_types$description[i],
-      ms_project_types$display_order[i]
-    ))
-    dbExecute(con, "
+    ",
+      params = list(
+        ms_project_types$slug[i],
+        ms_project_types$name[i],
+        ms_project_types$color[i],
+        ms_project_types$description[i],
+        ms_project_types$display_order[i]
+      )
+    )
+    dbExecute(
+      con,
+      "
       UPDATE project_types
       SET name = ?, color = ?, description = ?, display_order = ?
       WHERE slug = ?
-    ", params = list(
-      ms_project_types$name[i],
-      ms_project_types$color[i],
-      ms_project_types$description[i],
-      ms_project_types$display_order[i],
-      ms_project_types$slug[i]
-    ))
+    ",
+      params = list(
+        ms_project_types$name[i],
+        ms_project_types$color[i],
+        ms_project_types$description[i],
+        ms_project_types$display_order[i],
+        ms_project_types$slug[i]
+      )
+    )
   }
 
   for (i in seq_along(ms_status_options)) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
       VALUES ('status', ?, ?)
-    ", params = list(ms_status_options[i], i))
+    ",
+      params = list(ms_status_options[i], i)
+    )
   }
 
   for (organism in ms_reference_organisms) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT OR IGNORE INTO reference_organisms (name)
       VALUES (?)
-    ", params = list(organism))
+    ",
+      params = list(organism)
+    )
   }
 
   for (i in seq_len(nrow(ms_landing_text_defaults))) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT OR IGNORE INTO landing_text_blocks (block_key, title, body, display_order)
       VALUES (?, ?, ?, ?)
-    ", params = list(
-      ms_landing_text_defaults$block_key[i],
-      ms_landing_text_defaults$title[i],
-      ms_landing_text_defaults$body[i],
-      ms_landing_text_defaults$display_order[i]
-    ))
+    ",
+      params = list(
+        ms_landing_text_defaults$block_key[i],
+        ms_landing_text_defaults$title[i],
+        ms_landing_text_defaults$body[i],
+        ms_landing_text_defaults$display_order[i]
+      )
+    )
   }
 
   for (group_name in names(ms_controlled_options)) {
     values <- ms_controlled_options[[group_name]]
     for (i in seq_along(values)) {
-      dbExecute(con, "
+      dbExecute(
+        con,
+        "
         INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
         VALUES (?, ?, ?)
-      ", params = list(group_name, values[i], i))
+      ",
+        params = list(group_name, values[i], i)
+      )
       if (group_name %in% ms_priced_option_groups) {
-        dbExecute(con, "
+        dbExecute(
+          con,
+          "
           UPDATE controlled_options
           SET display_order = ?, is_active = 1
           WHERE option_group = ? AND value = ?
-        ", params = list(i, group_name, values[i]))
+        ",
+          params = list(i, group_name, values[i])
+        )
       }
     }
   }
 
   for (group_name in ms_priced_option_groups) {
-    dbExecute(con, "
+    dbExecute(
+      con,
+      "
       INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)
       SELECT id, 1
       FROM controlled_options
       WHERE option_group = ?
-    ", params = list(group_name))
+    ",
+      params = list(group_name)
+    )
   }
 
   for (group_name in names(ms_default_option_costs)) {
     group_costs <- ms_default_option_costs[[group_name]]
     for (option_value in names(group_costs)) {
-      dbExecute(con, "
+      dbExecute(
+        con,
+        "
         UPDATE option_costs
         SET cost = ?, updated_at = CURRENT_TIMESTAMP
         WHERE controlled_option_id = (
@@ -924,24 +1234,37 @@ ms_seed_defaults <- function(con) {
           WHERE option_group = ? AND value = ?
         )
           AND is_custom = 0
-      ", params = list(
-        as.numeric(group_costs[[option_value]]),
-        group_name,
-        option_value
-      ))
+      ",
+        params = list(
+          as.numeric(group_costs[[option_value]]),
+          group_name,
+          option_value
+        )
+      )
     }
   }
 
-  default_password <- ms_hash_password(Sys.getenv("MS_LOCAL_ADMIN_PASSWORD", "admin123"))
-  dbExecute(con, "
+  default_password <- ms_hash_password(Sys.getenv(
+    "MS_LOCAL_ADMIN_PASSWORD",
+    "admin123"
+  ))
+  dbExecute(
+    con,
+    "
     INSERT OR IGNORE INTO users (username, full_name, password, email, role, is_admin, research_group)
     VALUES ('admin', 'Local MS Admin', ?, ?, 'admin', 1, 'Mass Spectrometry Core Facility')
-  ", params = list(default_password, MS_FACILITY_EMAIL))
+  ",
+    params = list(default_password, MS_FACILITY_EMAIL)
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     INSERT OR IGNORE INTO users (username, full_name, password, email, role, is_admin, research_group)
     VALUES ('yeroslaviz', 'Yeroslaviz', ?, 'yeroslaviz@biochem.mpg.de', 'admin', 1, 'Cox')
-  ", params = list(ms_hash_password("ldap-only")))
+  ",
+    params = list(ms_hash_password("ldap-only"))
+  )
 
   ms_cleanup_budget_holders(con)
   for (i in seq_len(nrow(ms_facility_billing_groups))) {
@@ -960,10 +1283,17 @@ ms_seed_defaults <- function(con) {
     required_cols <- c("name", "surname", "email", "cost_center")
     if (all(required_cols %in% names(budget_holders_df))) {
       for (col in required_cols) {
-        budget_holders_df[[col]] <- trimws(as.character(budget_holders_df[[col]]))
+        budget_holders_df[[col]] <- trimws(as.character(budget_holders_df[[
+          col
+        ]]))
       }
       for (i in seq_len(nrow(budget_holders_df))) {
-        if (!nzchar(budget_holders_df$name[i]) || !nzchar(budget_holders_df$surname[i])) next
+        if (
+          !nzchar(budget_holders_df$name[i]) ||
+            !nzchar(budget_holders_df$surname[i])
+        ) {
+          next
+        }
         ms_insert_budget_holder_if_missing(
           con,
           budget_holders_df$name[i],
@@ -1002,10 +1332,14 @@ ms_seed_defaults <- function(con) {
     sep = "\n"
   )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     INSERT OR IGNORE INTO email_templates (template_name, subject, body_template)
     VALUES ('project_creation', 'New MS project submitted', ?)
-  ", params = list(project_creation_body))
+  ",
+    params = list(project_creation_body)
+  )
 
   data_release_body <- paste(
     "Dear {responsible_user},",
@@ -1022,10 +1356,14 @@ ms_seed_defaults <- function(con) {
     sep = "\n"
   )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     INSERT OR IGNORE INTO email_templates (template_name, subject, body_template)
     VALUES ('data_release', 'MS project data released', ?)
-  ", params = list(data_release_body))
+  ",
+    params = list(data_release_body)
+  )
 
   cost_body <- paste(
     "Dear {budget_holder},",
@@ -1041,18 +1379,26 @@ ms_seed_defaults <- function(con) {
     sep = "\n"
   )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     INSERT OR IGNORE INTO email_templates (template_name, subject, body_template)
     VALUES ('cost_estimation', 'MS project cost estimation', ?)
-  ", params = list(cost_body))
+  ",
+    params = list(cost_body)
+  )
 }
 
 ms_backfill_project_costs <- function(con) {
-  if (!ms_table_exists(con, "projects") || !ms_table_exists(con, "option_costs")) {
+  if (
+    !ms_table_exists(con, "projects") || !ms_table_exists(con, "option_costs")
+  ) {
     return(invisible(TRUE))
   }
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     UPDATE projects
     SET project_type_unit_cost = COALESCE(
       project_type_unit_cost,
@@ -1094,9 +1440,12 @@ ms_backfill_project_costs <- function(con) {
       ),
       1
     )
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     UPDATE projects
     SET base_cost =
       COALESCE(num_samples, 1) *
@@ -1105,12 +1454,16 @@ ms_backfill_project_costs <- function(con) {
         ELSE 1
       END *
       (COALESCE(project_type_unit_cost, 0) + COALESCE(sample_type_unit_cost, 0))
-  ")
+  "
+  )
 
-  dbExecute(con, "
+  dbExecute(
+    con,
+    "
     UPDATE projects
     SET total_cost = COALESCE(base_cost, 0) + COALESCE(additional_cost, 0)
-  ")
+  "
+  )
 
   invisible(TRUE)
 }
