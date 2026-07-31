@@ -2749,7 +2749,8 @@ server <- function(input, output, session) {
       projects$project_type,
       USE.NAMES = FALSE
     )
-    projects$sample_type_display <- trimws(as.character(projects$selected_sample_type %||% ""))
+    selected_sample_types <- projects$selected_sample_type %||% character(nrow(projects))
+    projects$sample_type_display <- trimws(as.character(selected_sample_types))
     projects$sample_type_display[is.na(projects$sample_type_display)] <- ""
     projects_data(projects)
   }
