@@ -135,6 +135,20 @@ If `scripts/test.mailR.R` can send mail from the VM but the app logs `550 5.7.54
 
 The app sends one SMTP message per recipient and logs each result separately. This means one rejected address should no longer prevent the other recipients from receiving the message. If the relay should only receive internal recipients while testing, set `MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de` in `.Renviron`; otherwise leave it unset.
 
+## Landing Text Still Shows Old Defaults
+
+Routine deployment preserves `ms_projects.db`. Existing `landing_text_blocks` rows are therefore not replaced merely by changing `ms_landing_text_defaults` or running `setup_database.R`.
+
+After deploying the updated `db_schema.R`, apply the standard defaults explicitly:
+
+```bash
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript apply_content_defaults.R
+sudo systemctl restart shiny-server
+```
+
+The synchronization preserves custom landing blocks and the active/inactive state of existing standard blocks.
+
 ## Upload Pool Missing
 
 Configured root:

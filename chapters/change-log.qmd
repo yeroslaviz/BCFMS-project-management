@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 31.07.2026](#changes-on-31.07.2026)
 - [Changes on 27.07.2026](#changes-on-27.07.2026)
 - [Changes on 24.07.2026](#changes-on-24.07.2026)
 - [Changes on 23.07.2026](#changes-on-23.07.2026)
@@ -20,6 +21,17 @@ execute:
 - [Changes on 18.06.2026](#changes-on-18.06.2026)
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
+
+## Changes on 31.07.2026
+
+1. Replaced the Metabolomics and Proteomics sample-overview templates.
+2. Corrected interface text and removed the obsolete box at the top of the landing page.
+3. Updated the default landing-page text, including PTM enrichment support, accepted FASTA formats, opening hours, and the project-acceptance reminder.
+4. Updated the sample-retention warning to state that samples are discarded “without further notice.”
+5. Added `apply_content_defaults.R` so changed `ms_landing_text_defaults` values can be synchronized explicitly to an existing production database without resetting it.
+6. Removed **Project Name** from the project overview table and added **Sample Type** immediately after **Project Type**.
+7. Added LDAP name normalization for directory names formatted as `Surname, First name (username)`. New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.
+
 
 ## Changes on 27.07.2026 
 

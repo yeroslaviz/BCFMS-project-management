@@ -94,6 +94,16 @@ sudo grep -n "client_url_search\|auth-status-box\|is_ldap_mode" /srv/shiny-serve
 SKIP_SMOKE_TEST=1 ./scripts/deploy.sh
 ```
 
+Code-based text such as `MS_SUBMISSION_WARNING` is loaded by the Shiny restart performed during deployment. If `ms_landing_text_defaults` was changed, synchronize those defaults to the existing database after deployment:
+
+```bash
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript apply_content_defaults.R
+sudo systemctl restart shiny-server
+```
+
+This updates only the standard landing blocks; it does not reset the database or delete custom landing blocks.
+
 ## Runtime Environment
 
 Create `/srv/shiny-server/ms-app/.Renviron`:

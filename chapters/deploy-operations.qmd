@@ -75,6 +75,22 @@ sudo -u shiny Rscript setup_database.R
 
 Existing rows are preserved by default. Never set `MS_RESET_DB=1` during a routine deployment. That setting deliberately deletes and rebuilds the target database.
 
+Changes to code constants such as `MS_SUBMISSION_WARNING` take effect after deployment restarts Shiny. The current warning is:
+
+```text
+Samples are stored for a maximum of 2 months after analysis is completed, then discarded without further notice.
+```
+
+Changes to `ms_landing_text_defaults` require an explicit one-time synchronization because existing landing-page rows are preserved during normal startup. Confirm that the desired defaults are present in the deployed `db_schema.R`, then run:
+
+```bash
+cd /srv/shiny-server/ms-app
+sudo -u shiny Rscript apply_content_defaults.R
+sudo systemctl restart shiny-server
+```
+
+This updates the title, body, and display order of the standard landing blocks to match `db_schema.R`; it preserves other landing blocks and each block's active/inactive state. Running `setup_database.R` alone does not replace existing landing text because routine seed checks use `INSERT OR IGNORE`.
+
 ## Database backup and exact recovery
 
 The database seed definitions reproduce application defaults, not the current production state. To retain every current project, sample, dropdown option, custom cost, user, and status-history row, preserve a transactionally consistent SQLite snapshot.

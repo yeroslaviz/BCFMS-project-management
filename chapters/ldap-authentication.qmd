@@ -10,6 +10,19 @@ LDAP authentication is handled by Apache in front of Shiny. The app trusts the a
 
 After authentication, the app reads the user's LDAP `ou` and `departmentNumber` attributes. LDAP group IDs are matched to the corresponding PI / Group, and the department number is matched to that group's cost centre. All returned OU values are evaluated, so a research group takes priority over a core-facility membership. The MS- and the NGS-Facilities have their default values set. A unique match is selected automatically on the new-project form. If the LDAP group is unknown, a user belongs to both facility groups without a research group, or a group has several cost centres and LDAP does not identify one, the form requires an explicit selection instead of silently choosing billing details.
 
+## LDAP Name Handling
+
+The directory may return `cn` in the form `Surname, First name (username)`. The app removes the username suffix and comma, then stores and displays the name in `First name Surname` order. For example:
+
+```text
+LDAP:        SURNAME, FIRSTNAME (username)
+First name:  FIRSTNAME
+Last name:   SURNAME
+Full name:   FIRSTNAME SURNAME
+```
+
+The normalized values are used to prefill the contact fields on the new-project form. Users already stored with the old comma-formatted name are updated automatically on their next LDAP login.
+
 ## App Runtime
 
 Set this in `/srv/shiny-server/ms-app/.Renviron`:

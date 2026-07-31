@@ -315,10 +315,10 @@ ms_landing_text_defaults <- data.frame(
     "Contact"
   ),
   body = c(
-    "The facility supports intact/native mass, proteomics, PTM enrichments, crosslinking-MS, and metabolomics/lipidomics workflows."
+    "The facility supports intact/native mass, proteomics, PTM enrichments, crosslinking-MS, and metabolomics/lipidomics workflows.",
     "Discuss the experiment, goal, and expectations with the facility before sample submission.",
     "For in-gel samples, provide the entire gel and a gel image indicating the bands to analyze.",
-    "For recombinant, tagged, mutated, or non-standard proteins, upload a FASTA file. Allowed .fasta,. fa, .faa, fna files",
+    "For recombinant, tagged, mutated, or non-standard proteins, upload a FASTA file. Allowed .fasta, .fa, .faa, fna files",
     "Our opening hours are: Monday - Thursday 9:00-17:00 and Friday 9:00-15:00. Please do not submit samples before your project was accepted by the facility.",
     "For XL-MS, amine-free buffers are important; avoid Tris and ammonium salts.",
     "ms-service@biochem.mpg.de"
@@ -326,6 +326,41 @@ ms_landing_text_defaults <- data.frame(
   display_order = seq_len(7),
   stringsAsFactors = FALSE
 )
+
+ms_sync_landing_text_defaults <- function(con) {
+  if (!dbExistsTable(con, "landing_text_blocks")) {
+    stop("The landing_text_blocks table does not exist. Initialize the database first.")
+  }
+
+  dbWithTransaction(con, {
+    for (i in seq_len(nrow(ms_landing_text_defaults))) {
+      affected <- dbExecute(con, "
+        UPDATE landing_text_blocks
+        SET title = ?, body = ?, display_order = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE block_key = ?
+      ", params = list(
+        ms_landing_text_defaults$title[i],
+        ms_landing_text_defaults$body[i],
+        ms_landing_text_defaults$display_order[i],
+        ms_landing_text_defaults$block_key[i]
+      ))
+
+      if (affected == 0) {
+        dbExecute(con, "
+          INSERT INTO landing_text_blocks (block_key, title, body, display_order)
+          VALUES (?, ?, ?, ?)
+        ", params = list(
+          ms_landing_text_defaults$block_key[i],
+          ms_landing_text_defaults$title[i],
+          ms_landing_text_defaults$body[i],
+          ms_landing_text_defaults$display_order[i]
+        ))
+      }
+    }
+  })
+
+  invisible(nrow(ms_landing_text_defaults))
+}
 
 ms_db_path <- function() {
   MS_DB_FILE

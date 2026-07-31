@@ -93,12 +93,36 @@ join_values <- function(x) {
 split_full_name <- function(full_name, fallback_username = "") {
   full_name <- trimws(full_name %||% "")
   if (!nzchar(full_name)) full_name <- fallback_username
+
+  username_match <- regexec("\\s*\\(([^()]*)\\)\\s*$", full_name, perl = TRUE)
+  username_parts <- regmatches(full_name, username_match)[[1]]
+  if (length(username_parts) == 2 &&
+      nzchar(trimws(fallback_username)) &&
+      identical(tolower(trimws(username_parts[[2]])), tolower(trimws(fallback_username)))) {
+    full_name <- trimws(sub("\\s*\\([^()]*\\)\\s*$", "", full_name, perl = TRUE))
+  }
+
+  comma_parts <- trimws(strsplit(full_name, ",", fixed = TRUE)[[1]])
+  comma_parts <- comma_parts[nzchar(comma_parts)]
+  if (length(comma_parts) >= 2) {
+    return(list(
+      first = paste(comma_parts[-1], collapse = " "),
+      last = comma_parts[[1]]
+    ))
+  }
+
+  full_name <- trimws(gsub(",", " ", full_name, fixed = TRUE))
   parts <- strsplit(full_name, "\\s+")[[1]]
   if (length(parts) <= 1) {
     list(first = full_name, last = "")
   } else {
     list(first = parts[1], last = paste(parts[-1], collapse = " "))
   }
+}
+
+normalize_person_full_name <- function(full_name, fallback_username = "") {
+  parts <- split_full_name(full_name, fallback_username)
+  trimws(paste(parts$first, parts$last))
 }
 
 customer_labels <- function(full_names, usernames, fallback_names = "") {
@@ -958,6 +982,9 @@ ldap_lookup_user <- function(username) {
       attrs$full_name <- trimws(paste(given %||% "", sn %||% ""))
       if (!nzchar(attrs$full_name)) attrs$full_name <- NULL
     }
+    if (nzchar(trim_scalar(attrs$full_name))) {
+      attrs$full_name <- normalize_person_full_name(attrs$full_name, username)
+    }
 
     if (any(vapply(attrs, function(x) nzchar(trim_scalar(x)), logical(1)))) {
       break
@@ -1053,7 +1080,11 @@ ensure_ldap_user <- function(con, username) {
   if (should_fill_profile_value(row$phone[[1]], attrs$phone)) {
     updates$phone <- attrs$phone
   }
-  if (should_fill_profile_value(row$full_name[[1]], attrs$full_name, username)) {
+  current_full_name <- trim_scalar(row$full_name[[1]])
+  current_full_name_is_legacy_ldap <- grepl(",", current_full_name, fixed = TRUE) ||
+    grepl("\\([^()]+\\)\\s*$", current_full_name, perl = TRUE)
+  if (should_fill_profile_value(current_full_name, attrs$full_name, username) ||
+      (nzchar(attrs$full_name) && current_full_name_is_legacy_ldap)) {
     updates$full_name <- attrs$full_name
   }
 
@@ -2713,11 +2744,13 @@ server <- function(input, output, session) {
     projects$project_type_display <- mapply(
       project_type_table_label,
       projects$selected_project_type,
-      projects$selected_sample_type,
+      rep("", nrow(projects)),
       projects$selected_approach,
       projects$project_type,
       USE.NAMES = FALSE
     )
+    projects$sample_type_display <- trimws(as.character(projects$selected_sample_type %||% ""))
+    projects$sample_type_display[is.na(projects$sample_type_display)] <- ""
     projects_data(projects)
   }
 
@@ -2758,8 +2791,8 @@ server <- function(input, output, session) {
     display_columns <- c(
       project_code = "Project ID",
       customer = "Customer",
-      project_name = "Project Name",
       project_type_display = "Project Type",
+      sample_type_display = "Sample Type",
       num_samples = "Biological Samples",
       technical_replicates = "Technical Replicates"
     )
