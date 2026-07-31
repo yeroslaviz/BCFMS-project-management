@@ -3114,13 +3114,6 @@ server <- function(input, output, session) {
         class = "form-section",
         h4(if (identical(input$project_type, "proteomics")) "5. Sample Information" else "5. Sample"),
         project_and_sample_type_ui(input$project_type, con),
-        if (identical(input$project_type, "proteomics")) {
-          fluidRow(
-            column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-            column(4, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
-            column(4, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
-          )
-        },
         if (input$project_type == "metabolomics") {
           tagList(
             uiOutput("metabolomics_sample_type_details"),
@@ -3180,45 +3173,48 @@ server <- function(input, output, session) {
             )
           )
         } else if (input$project_type == "proteomics") {
-          tagList(
-            conditionalPanel(
-              condition = "['In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatent', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
+          fluidRow(
+            column(
+              6,
+              textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())),
               fluidRow(
-                column(
-                  6,
+                column(6, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
+                column(6, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
+              )
+            ),
+            column(
+              6,
+              conditionalPanel(
+                condition = "['In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatent', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
+                conditionalPanel(
+                  condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf(input.proteomics_sample_type) < 0",
                   textAreaInput(
                     "sample_buffer",
                     field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."),
                     rows = 3
-                  ),
-                  radioButtons(
-                    "concentration_determination",
-                    field_label("Concentration determination", "Indicate whether concentration was determined."),
-                    choices = load_choice_values(con, "concentration_determination"),
-                    selected = character(0),
-                    inline = TRUE
                   )
                 ),
-                column(
-                  6,
+                radioButtons(
+                  "concentration_determination",
+                  field_label("Concentration determination", "Indicate whether concentration was determined."),
+                  choices = load_choice_values(con, "concentration_determination"),
+                  selected = character(0),
+                  inline = TRUE
+                ),
+                conditionalPanel(
+                  condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf(input.proteomics_sample_type) < 0",
                   selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))),
                   fluidRow(
                     column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
                     column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
                   )
                 )
-              )
-            ),
-            conditionalPanel(
-              condition = "['Cell Pellet', 'Protein Pellet', 'Tissue'].indexOf(input.proteomics_sample_type) >= 0",
-              fluidRow(
-                column(6),
-                column(
-                  6,
-                  textInput(
-                    "sample_amount",
-                    field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein, 1e6 cells, 5 mg tissue")
-                  )
+              ),
+              conditionalPanel(
+                condition = "['Cell Pellet', 'Protein Pellet', 'Tissue'].indexOf(input.proteomics_sample_type) >= 0",
+                textInput(
+                  "sample_amount",
+                  field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein, 1e6 cells, 5 mg tissue")
                 )
               )
             )
@@ -3631,16 +3627,25 @@ server <- function(input, output, session) {
     }
 
     if (input$project_type == "proteomics") {
-      solution_sample_types <- c(
+      full_preparation_sample_types <- c(
         "In-solution Digest",
         "Gel Band /Gel Lane",
         "On-beads",
         "Supernatent",
-        "ready-to-load (digested)",
-        "ready-to-load (digested+desalted)",
         "Enrichement (PTM)"
       )
-      if (trim_scalar(input$proteomics_sample_type) %in% solution_sample_types) {
+      ready_to_load_sample_types <- c(
+        "ready-to-load (digested)",
+        "ready-to-load (digested+desalted)"
+      )
+      selected_proteomics_sample_type <- trim_scalar(input$proteomics_sample_type)
+      if (selected_proteomics_sample_type %in% full_preparation_sample_types) {
+        project_values$sample_amount <- ""
+      } else if (selected_proteomics_sample_type %in% ready_to_load_sample_types) {
+        project_values$sample_buffer <- ""
+        project_values$concentration_method <- ""
+        project_values$sample_volume <- ""
+        project_values$sample_volume_unit <- ""
         project_values$sample_amount <- ""
       } else {
         project_values$sample_buffer <- ""
