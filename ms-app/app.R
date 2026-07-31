@@ -3071,14 +3071,14 @@ server <- function(input, output, session) {
           tagList(
             conditionalPanel(
               condition = "input.intact_sample_type == 'in-solution, Flow injection' || input.intact_sample_type == 'in-solution'",
-              textAreaInput(
-                "sample_buffer",
-                field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."),
-                rows = 3
-              ),
               fluidRow(
                 column(
                   6,
+                  textAreaInput(
+                    "sample_buffer",
+                    field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."),
+                    rows = 3
+                  ),
                   radioButtons(
                     "concentration_determination",
                     field_label("Concentration determination", "Indicate whether concentration was determined."),
@@ -3087,18 +3087,27 @@ server <- function(input, output, session) {
                     inline = TRUE
                   )
                 ),
-                column(6, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
-              ),
-              fluidRow(
-                column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
-                column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
+                column(
+                  6,
+                  selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))),
+                  fluidRow(
+                    column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
+                    column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
+                  )
+                )
               )
             ),
             conditionalPanel(
               condition = "input.intact_sample_type == 'powder'",
-              textInput(
-                "sample_amount",
-                field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein")
+              fluidRow(
+                column(6),
+                column(
+                  6,
+                  textInput(
+                    "sample_amount",
+                    field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein")
+                  )
+                )
               )
             )
           )
