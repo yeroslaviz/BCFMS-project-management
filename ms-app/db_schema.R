@@ -73,16 +73,12 @@ ms_project_types <- data.frame(
 
 ms_status_options <- c(
   "Submitted",
-  "Under review",
-  "Awaiting samples",
-  "Samples received",
-  "Measurement in progress",
-  "Data analysis",
-  "Data released",
-  "Completed",
-  "On hold",
-  "Cancelled",
-  "Legacy project"
+  "Accepted",
+  "Sample arrival",
+  "Sample prep",
+  "MS-Measurement",
+  "Data Analysis",
+  "Results sent"
 )
 
 ms_controlled_options <- list(
@@ -113,7 +109,7 @@ ms_controlled_options <- list(
     "On-beads",
     "Cell Pellet",
     "Protein Pellet",
-    "Supernatent",
+    "Supernatant",
     "Tissue",
     "ready-to-load (digested)",
     "ready-to-load (digested+desalted)",
@@ -122,6 +118,7 @@ ms_controlled_options <- list(
   proteomics_acquisition_mode = c(
     "DDA (Data-Dependent)",
     "DIA (Data-Independent)",
+    "Targeted",
     "No preference",
     "Discuss with facility"
   ),
@@ -139,8 +136,7 @@ ms_controlled_options <- list(
     "AspN",
     "Chymotrypsin",
     "Trypsin+LysC",
-    "Other",
-    "Performed by user"
+    "Other"
   ),
   ptm_variable_modifications = c(
     "Phospho (Ser/Thr/Tyr)",
@@ -151,8 +147,11 @@ ms_controlled_options <- list(
   ),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
   metabolomics_approach = c("Targeted", "Untargeted", "both"),
+  metabolomics_acquisition_mode = c("DDA", "Targeted"),
   metabolomics_analysis_type = c("Metabolomics", "Lipidomics"),
-  metabolomics_sample_type = c("Cell Pellet", "Supernatent", "Protein Pellet"),
+  metabolomics_sample_type = c(
+    "Cell Pellet", "Supernatant", "Protein Pellet", "Blood", "Serum", "CSF"
+  ),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c(
     "UV A280",
@@ -232,7 +231,7 @@ ms_default_option_costs <- list(
     "On-beads" = 10,
     "Cell Pellet" = 10,
     "Protein Pellet" = 10,
-    "Supernatent" = 10,
+    "Supernatant" = 10,
     "Tissue" = 10,
     "ready-to-load (digested)" = 0,
     "ready-to-load (digested+desalted)" = 0,
@@ -244,8 +243,11 @@ ms_default_option_costs <- list(
   ),
   metabolomics_sample_type = c(
     "Cell Pellet" = 5,
-    "Supernatent" = 5,
-    "Protein Pellet" = 5
+    "Supernatant" = 5,
+    "Protein Pellet" = 5,
+    "Blood" = 1,
+    "Serum" = 1,
+    "CSF" = 1
   ),
   intact_project_type = c(
     "Protein (QC)" = 2,
@@ -678,6 +680,7 @@ ms_create_schema <- function(con) {
       submitter_group TEXT,
       budget_id INTEGER NOT NULL,
       submission_date TEXT NOT NULL,
+      submission_time TEXT,
       num_samples INTEGER NOT NULL,
       technical_replicates INTEGER NOT NULL DEFAULT 0
         CHECK (technical_replicates >= 0 AND typeof(technical_replicates) = 'integer'),
@@ -723,6 +726,7 @@ ms_create_schema <- function(con) {
       proteomics_species TEXT,
       proteomics_expression_host TEXT,
       proteomics_digestion_enzyme TEXT,
+      proteomics_digestion_enzyme_other TEXT,
       proteomics_ptms TEXT,
       proteomics_crosslinker TEXT,
       proteomics_strategy TEXT,
@@ -743,6 +747,7 @@ ms_create_schema <- function(con) {
       metabolomics_analysis_family TEXT,
       metabolomics_approach TEXT,
       metabolomics_approach_other TEXT,
+      metabolomics_acquisition_mode TEXT,
       metabolomics_sample_type TEXT,
       metabolomics_sample_type_other TEXT,
       metabolomics_cell_number TEXT,
@@ -934,6 +939,97 @@ ms_migrate_schema <- function(con) {
     )
   }
 
+  if (ms_table_exists(con, "controlled_options")) {
+    controlled_option_count <- dbGetQuery(
+      con,
+      "SELECT COUNT(*) AS n FROM controlled_options"
+    )$n[[1]]
+    if (controlled_option_count > 0) {
+      dbExecute(
+        con,
+        "
+        INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+        SELECT 'proteomics_acquisition_mode', 'Targeted',
+               COALESCE(MAX(display_order), 0) + 1
+        FROM controlled_options
+        WHERE option_group = 'proteomics_acquisition_mode'
+      "
+      )
+      for (group_name in c("proteomics_sample_type", "metabolomics_sample_type")) {
+        dbExecute(
+          con,
+          "
+          UPDATE controlled_options
+          SET value = 'Supernatant'
+          WHERE option_group = ?
+            AND value = 'Supernatent'
+            AND NOT EXISTS (
+              SELECT 1 FROM controlled_options existing
+              WHERE existing.option_group = ?
+                AND existing.value = 'Supernatant'
+            )
+        ",
+          params = list(group_name, group_name)
+        )
+        dbExecute(
+          con,
+          "
+          UPDATE controlled_options
+          SET is_active = 0
+          WHERE option_group = ? AND value = 'Supernatent'
+        ",
+          params = list(group_name)
+        )
+      }
+      for (option_value in c("Blood", "Serum", "CSF")) {
+        dbExecute(
+          con,
+          "
+          INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+          SELECT 'metabolomics_sample_type', ?, COALESCE(MAX(display_order), 0) + 1
+          FROM controlled_options
+          WHERE option_group = 'metabolomics_sample_type'
+        ",
+          params = list(option_value)
+        )
+      }
+      for (option_value in c("DDA", "Targeted")) {
+        dbExecute(
+          con,
+          "
+          INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+          SELECT 'metabolomics_acquisition_mode', ?, COALESCE(MAX(display_order), 0) + 1
+          FROM controlled_options
+          WHERE option_group = 'metabolomics_acquisition_mode'
+        ",
+          params = list(option_value)
+        )
+      }
+      dbExecute(
+        con,
+        "
+        UPDATE option_costs
+        SET cost = 1, updated_at = CURRENT_TIMESTAMP
+        WHERE COALESCE(is_custom, 0) = 0
+          AND controlled_option_id IN (
+            SELECT id FROM controlled_options
+            WHERE option_group = 'metabolomics_sample_type'
+              AND value IN ('Blood', 'Serum', 'CSF')
+          )
+      "
+      )
+      dbExecute(
+        con,
+        "
+        UPDATE controlled_options
+        SET is_active = 0
+        WHERE option_group = 'digestion_enzyme'
+          AND value = 'Performed by user'
+      "
+      )
+    }
+  }
+
   if (!ms_table_exists(con, "projects")) {
     return(invisible(TRUE))
   }
@@ -951,6 +1047,7 @@ ms_migrate_schema <- function(con) {
     "submitter_phone TEXT",
     "submitter_group TEXT",
     "submission_date TEXT",
+    "submission_time TEXT",
     "sample_material TEXT",
     "sample_buffer TEXT",
     "sample_amount TEXT",
@@ -993,6 +1090,7 @@ ms_migrate_schema <- function(con) {
     "proteomics_species TEXT",
     "proteomics_expression_host TEXT",
     "proteomics_digestion_enzyme TEXT",
+    "proteomics_digestion_enzyme_other TEXT",
     "proteomics_ptms TEXT",
     "proteomics_crosslinker TEXT",
     "proteomics_strategy TEXT",
@@ -1013,6 +1111,7 @@ ms_migrate_schema <- function(con) {
     "metabolomics_analysis_family TEXT",
     "metabolomics_approach TEXT",
     "metabolomics_approach_other TEXT",
+    "metabolomics_acquisition_mode TEXT",
     "metabolomics_sample_type TEXT",
     "metabolomics_sample_type_other TEXT",
     "metabolomics_cell_number TEXT",
@@ -1048,6 +1147,23 @@ ms_migrate_schema <- function(con) {
   for (column_sql in project_columns) {
     ms_add_column_if_missing(con, "projects", column_sql)
   }
+
+  dbExecute(
+    con,
+    "
+    UPDATE projects
+    SET proteomics_sample_type = 'Supernatant'
+    WHERE proteomics_sample_type = 'Supernatent'
+  "
+  )
+  dbExecute(
+    con,
+    "
+    UPDATE projects
+    SET metabolomics_sample_type = 'Supernatant'
+    WHERE metabolomics_sample_type = 'Supernatent'
+  "
+  )
 
   if (isTRUE(migrate_metabolomics_semantics)) {
     dbExecute(
