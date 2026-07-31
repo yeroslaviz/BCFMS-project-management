@@ -2951,7 +2951,7 @@ server <- function(input, output, session) {
     if (identical(project_type, "proteomics")) {
       return(fluidRow(
         column(6, selectInput("proteomics_project_type", "Project Type *", choices = load_choice_values(con, "proteomics_project_type"))),
-        column(6, selectInput("proteomics_sample_type", field_label("Sample Type *", "Selecting Gel band /gel lane shows the gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")))
+        column(6, selectInput("proteomics_sample_type", field_label("Sample Type *", "Selecting Gel Band /Gel Lane shows the gel image upload and confirmation."), choices = load_choice_values(con, "proteomics_sample_type")))
       ))
     }
     fluidRow(
@@ -3070,7 +3070,7 @@ server <- function(input, output, session) {
         } else if (input$project_type == "intact_mass") {
           tagList(
             conditionalPanel(
-              condition = "input.intact_sample_type == 'in-solution, Flow injection' || input.intact_sample_type == 'in-solution'",
+              condition = "input.intact_sample_type == 'In-solution, Flow injection' || input.intact_sample_type == 'In-solution'",
               fluidRow(
                 column(
                   6,
@@ -3211,13 +3211,13 @@ server <- function(input, output, session) {
     div(
       class = "sample-type-details",
       lapply(selected, function(sample_type) {
-        if (identical(sample_type, "cell pellet")) {
+        if (identical(sample_type, "Cell Pellet")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_cell_number", field_label("Cell Number *", "Number of cells in the pellet."))),
             column(6, selectInput("metabolomics_cell_number_unit", "Unit", choices = c("cells", "million cells", "other")))
           )
-        } else if (identical(sample_type, "supernatent")) {
+        } else if (identical(sample_type, "Supernatent")) {
           fluidRow(
             class = "sample-type-detail-row",
             column(6, textInput("metabolomics_supernatant_volume", field_label("Volumes *", "Submitted volume for supernatant samples."))),
@@ -3267,7 +3267,7 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-intact",
       h4("7. Intact / Native / QC"),
-        conditionalPanel("input.intact_project_type == 'Native protein complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
+        conditionalPanel("input.intact_project_type == 'Native Protein Complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
         textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
         textInput("intact_expected_mass_da", field_label("Expected mass (Da) *", "Monoisotopic or average mass from sequence or formula.")),
         textAreaInput("intact_tags_modifications", field_label("Tags / Modifications", "Purification tags, fusion partners, known PTMs, disulfide bonds; write NA if not applicable.", "His6-SUMO, TEV site"), rows = 2),
@@ -3281,7 +3281,7 @@ server <- function(input, output, session) {
       class = "form-section type-proteomics",
       h4("7. Proteomics"),
         conditionalPanel(
-          "input.proteomics_sample_type == 'Gel band /gel lane'",
+          "input.proteomics_sample_type == 'Gel Band /Gel Lane'",
           fileInput("proteomics_gel_images", "Gel image upload (.jpg / .png / .tif)", multiple = TRUE, accept = c(".jpg", ".jpeg", ".png", ".tif", ".tiff")),
           checkboxInput("gel_image_confirmation", "I have labelled all bands with numbers and all marker bands with sizes.", value = FALSE)
         ),
@@ -3308,13 +3308,12 @@ server <- function(input, output, session) {
       h4("7. Metabolomics"),
       selectInput(
         "metabolomics_approach",
-        field_label("Approach *", "Targeted, untargeted, both, or other."),
-        choices = load_choice_values(con, "metabolomics_approach", c("Targeted", "Untargeted", "Both", "Other")),
+        field_label("Approach *", "Targeted, untargeted, or both."),
+        choices = load_choice_values(con, "metabolomics_approach", c("Targeted", "Untargeted", "both")),
         selected = "Targeted"
       ),
-      conditionalPanel("input.metabolomics_approach == 'Other'", textInput("metabolomics_approach_other", "Other analysis information")),
       conditionalPanel(
-        "input.metabolomics_approach == 'Targeted' || input.metabolomics_approach == 'Both'",
+        "input.metabolomics_approach == 'Targeted' || input.metabolomics_approach == 'both'",
         textAreaInput("metabolomics_targeted_analyte_text", field_label("Targeted analyte list", "List compound names, CAS numbers, or HMDB IDs."), rows = 3),
         fileInput("metabolomics_library", "Targeted analyte file (.xlsx / .csv / .txt / .tsv)", accept = c(".xlsx", ".csv", ".txt", ".tsv"))
       ),
@@ -3400,7 +3399,7 @@ server <- function(input, output, session) {
       if (is.null(input$proteomics_species) || length(input$proteomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$proteomics_sample_type, "Gel band /gel lane") &&
+      if (identical(input$proteomics_sample_type, "Gel Band /Gel Lane") &&
           !is.null(input$proteomics_gel_images) && nrow(input$proteomics_gel_images) > 0 &&
           !isTRUE(input$gel_image_confirmation)) {
         errors <- c(errors, "Gel image confirmation is required when gel images are uploaded.")
@@ -3422,10 +3421,10 @@ server <- function(input, output, session) {
       if (length(selected_sample_types) == 0) {
         errors <- c(errors, "Sample Type is required.")
       }
-      if ("cell pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
+      if ("Cell Pellet" %in% selected_sample_types && !non_empty(input$metabolomics_cell_number)) {
         errors <- c(errors, "Cell Number is required for pellet samples.")
       }
-      if ("supernatent" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
+      if ("Supernatent" %in% selected_sample_types && !non_empty(input$metabolomics_supernatant_volume)) {
         errors <- c(errors, "Volumes is required for supernatant samples.")
       }
       if ("Tissue" %in% selected_sample_types && !non_empty(input$metabolomics_tissue_weight)) {
@@ -3434,10 +3433,7 @@ server <- function(input, output, session) {
       if (is.null(input$metabolomics_species) || length(input$metabolomics_species) == 0) {
         errors <- c(errors, "Species is required.")
       }
-      if (identical(input$metabolomics_approach, "Other") && !non_empty(input$metabolomics_approach_other)) {
-        errors <- c(errors, "Other analysis information is required when Approach is Other.")
-      }
-      if (input$metabolomics_approach %in% c("Targeted", "Both")) {
+      if (input$metabolomics_approach %in% c("Targeted", "both")) {
         errors <- c(errors, validate_uploads(input$metabolomics_library, c("xlsx", "csv", "txt", "tsv"), as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20")), text_only = TRUE))
       }
     }
@@ -3510,8 +3506,8 @@ server <- function(input, output, session) {
 
     if (input$project_type == "intact_mass") {
       is_solution_sample <- trim_scalar(input$intact_sample_type) %in% c(
-        "in-solution, Flow injection",
-        "in-solution"
+        "In-solution, Flow injection",
+        "In-solution"
       )
       if (is_solution_sample) {
         project_values$sample_amount <- ""
@@ -4346,6 +4342,14 @@ server <- function(input, output, session) {
   admin_options_management_ui <- function() {
     div(
       class = "admin-management-modal",
+      div(
+        class = "info-note",
+        paste(
+          "Project types, sample types, and metabolomics approaches are",
+          "synchronized from Sample_project_type.xlsx and cannot be changed here.",
+          "Their costs remain editable under Project and Sample Type Costs."
+        )
+      ),
       h3("Add New Dropdown Option"),
       div(class = "admin-form-row",
         selectInput("admin_option_group", "Option group", choices = sort(unique(c(names(ms_controlled_options), "status")))),
@@ -4859,6 +4863,13 @@ server <- function(input, output, session) {
 
   observeEvent(input$admin_add_option_btn, {
     req(input$admin_option_group, input$admin_option_value)
+    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
+      showNotification(
+        "This option group is controlled by Sample_project_type.xlsx.",
+        type = "warning"
+      )
+      return()
+    }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     next_order <- dbGetQuery(con, "SELECT COALESCE(MAX(display_order), 0) + 1 AS n FROM controlled_options WHERE option_group = ?", params = list(input$admin_option_group))$n[1]
@@ -4869,6 +4880,13 @@ server <- function(input, output, session) {
   observeEvent(input$admin_delete_option_btn, {
     selected <- input$admin_options_table_rows_selected
     req(selected, input$admin_option_group)
+    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
+      showNotification(
+        "Workbook-controlled project and sample terms cannot be deleted here.",
+        type = "warning"
+      )
+      return()
+    }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     rows <- dbGetQuery(con, "SELECT id FROM controlled_options WHERE option_group = ? ORDER BY display_order, value", params = list(input$admin_option_group))
@@ -4881,6 +4899,13 @@ server <- function(input, output, session) {
   observeEvent(input$admin_edit_option_btn, {
     selected <- input$admin_options_table_rows_selected
     req(selected, input$admin_option_group)
+    if (trim_scalar(input$admin_option_group) %in% ms_authoritative_project_option_groups) {
+      showNotification(
+        "Workbook-controlled project and sample terms cannot be edited here.",
+        type = "warning"
+      )
+      return()
+    }
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     rows <- dbGetQuery(con, "SELECT id, option_group, value, display_order, is_active FROM controlled_options WHERE option_group = ? ORDER BY display_order, value", params = list(input$admin_option_group))
@@ -4908,12 +4933,30 @@ server <- function(input, output, session) {
     req(admin_edit_option_id(), input$admin_edit_option_group, input$admin_edit_option_value)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
+    current_group <- dbGetQuery(
+      con,
+      "SELECT option_group FROM controlled_options WHERE id = ?",
+      params = list(admin_edit_option_id())
+    )
+    requested_group <- trim_scalar(input$admin_edit_option_group)
+    if (
+      requested_group %in% ms_authoritative_project_option_groups ||
+        (nrow(current_group) > 0 &&
+          current_group$option_group[[1]] %in%
+            ms_authoritative_project_option_groups)
+    ) {
+      showNotification(
+        "Workbook-controlled project and sample terms cannot be edited here.",
+        type = "warning"
+      )
+      return()
+    }
     dbExecute(con, "
       UPDATE controlled_options
       SET option_group = ?, value = ?, display_order = ?, is_active = ?
       WHERE id = ?
     ", params = list(
-      trim_scalar(input$admin_edit_option_group),
+      requested_group,
       trim_scalar(input$admin_edit_option_value),
       as.integer(input$admin_edit_option_order %||% 1),
       as.integer(isTRUE(input$admin_edit_option_active)),

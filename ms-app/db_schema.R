@@ -88,31 +88,31 @@ ms_status_options <- c(
 ms_controlled_options <- list(
   intact_project_type = c(
     "Protein (QC)",
-    "Small molecule (QC)",
+    "Small Molecule (QC)",
     "Peptide (QC)",
     "Oligonucleotide (QC)",
     "Protein (high resolution)",
-    "Native protein complex"
+    "Native Protein Complex"
   ),
   intact_sample_type = c(
-    "in-solution, Flow injection",
-    "in-solution",
-    "powder"
+    "In-solution, Flow injection",
+    "In-solution",
+    "Powder"
   ),
   proteomics_project_type = c(
     "Protein ID",
-    "Protein coverage /PTM",
+    "Protein Coverage / PTM",
     "Interaction Proteomics",
-    "Total proteome",
+    "Total Proteome",
     "PTMomics (global, enrichment)",
     "Crosslinking"
   ),
   proteomics_sample_type = c(
-    "in-solution digest",
-    "Gel band /gel lane",
+    "In-solution Digest",
+    "Gel Band /Gel Lane",
     "On-beads",
-    "Cell pellet",
-    "Protein pellet",
+    "Cell Pellet",
+    "Protein Pellet",
     "Supernatent",
     "Tissue",
     "ready-to-load (digested)",
@@ -150,9 +150,9 @@ ms_controlled_options <- list(
     "Other"
   ),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
-  metabolomics_approach = c("Targeted", "Untargeted", "Both", "Other"),
+  metabolomics_approach = c("Targeted", "Untargeted", "both"),
   metabolomics_analysis_type = c("Metabolomics", "Lipidomics"),
-  metabolomics_sample_type = c("cell pellet", "supernatent", "protein pellet"),
+  metabolomics_sample_type = c("Cell Pellet", "Supernatent", "Protein Pellet"),
   concentration_determination = c("Yes", "No", "Not applicable"),
   concentration_method = c(
     "UV A280",
@@ -217,21 +217,34 @@ ms_priced_option_groups <- c(
   "metabolomics_sample_type"
 )
 
+# These seven groups are governed by Sample_project_type.xlsx. During database
+# initialization, rows outside these approved lists are removed so migrated and
+# newly-created installations expose the same project/sample terminology.
+ms_authoritative_project_option_groups <- c(
+  "proteomics_project_type",
+  "proteomics_sample_type",
+  "metabolomics_analysis_type",
+  "metabolomics_approach",
+  "metabolomics_sample_type",
+  "intact_project_type",
+  "intact_sample_type"
+)
+
 ms_default_option_costs <- list(
   proteomics_project_type = c(
     "Protein ID" = 25,
-    "Protein coverage /PTM" = 25,
+    "Protein Coverage / PTM" = 25,
     "Interaction Proteomics" = 25,
-    "Total proteome" = 40,
+    "Total Proteome" = 40,
     "PTMomics (global, enrichment)" = 40,
     "Crosslinking" = 25
   ),
   proteomics_sample_type = c(
-    "in-solution digest" = 10,
-    "Gel band /gel lane" = 10,
+    "In-solution Digest" = 10,
+    "Gel Band /Gel Lane" = 10,
     "On-beads" = 10,
-    "Cell pellet" = 10,
-    "Protein pellet" = 10,
+    "Cell Pellet" = 10,
+    "Protein Pellet" = 10,
     "Supernatent" = 10,
     "Tissue" = 10,
     "ready-to-load (digested)" = 0,
@@ -243,22 +256,22 @@ ms_default_option_costs <- list(
     "Lipidomics" = 20
   ),
   metabolomics_sample_type = c(
-    "cell pellet" = 5,
-    "supernatent" = 5,
-    "protein pellet" = 5
+    "Cell Pellet" = 5,
+    "Supernatent" = 5,
+    "Protein Pellet" = 5
   ),
   intact_project_type = c(
     "Protein (QC)" = 2,
-    "Small molecule (QC)" = 3,
+    "Small Molecule (QC)" = 3,
     "Peptide (QC)" = 2,
     "Oligonucleotide (QC)" = 2,
     "Protein (high resolution)" = 10,
-    "Native protein complex" = 18
+    "Native Protein Complex" = 18
   ),
   intact_sample_type = c(
-    "in-solution, Flow injection" = 1,
-    "in-solution" = 2,
-    "powder" = 2
+    "In-solution, Flow injection" = 1,
+    "In-solution" = 2,
+    "Powder" = 2
   )
 )
 
@@ -1146,6 +1159,134 @@ ms_migrate_schema <- function(con) {
   )
 }
 
+ms_sync_authoritative_project_options <- function(con, reset_costs = FALSE) {
+  dbWithTransaction(con, {
+    for (group_name in ms_authoritative_project_option_groups) {
+      approved_values <- unique(trimws(as.character(
+        ms_controlled_options[[group_name]]
+      )))
+      if (length(approved_values) == 0 || any(!nzchar(approved_values))) {
+        stop("Authoritative option group contains an empty value: ", group_name)
+      }
+
+      if (group_name %in% ms_priced_option_groups) {
+        configured_costs <- ms_default_option_costs[[group_name]]
+        if (
+          is.null(configured_costs) ||
+            !setequal(names(configured_costs), approved_values)
+        ) {
+          stop("Option and cost definitions do not match for: ", group_name)
+        }
+      }
+
+      placeholders <- paste(rep("?", length(approved_values)), collapse = ", ")
+      dbExecute(
+        con,
+        paste0(
+          "DELETE FROM controlled_options ",
+          "WHERE option_group = ? AND value NOT IN (", placeholders, ")"
+        ),
+        params = c(list(group_name), as.list(approved_values))
+      )
+
+      for (i in seq_along(approved_values)) {
+        option_value <- approved_values[[i]]
+        dbExecute(
+          con,
+          paste(
+            "INSERT OR IGNORE INTO controlled_options",
+            "(option_group, value, display_order, is_active)",
+            "VALUES (?, ?, ?, 1)"
+          ),
+          params = list(group_name, option_value, i)
+        )
+        dbExecute(
+          con,
+          paste(
+            "UPDATE controlled_options",
+            "SET display_order = ?, is_active = 1",
+            "WHERE option_group = ? AND value = ?"
+          ),
+          params = list(i, group_name, option_value)
+        )
+      }
+    }
+
+    for (group_name in ms_priced_option_groups) {
+      dbExecute(
+        con,
+        paste(
+          "INSERT OR IGNORE INTO option_costs (controlled_option_id, cost)",
+          "SELECT id, 1 FROM controlled_options WHERE option_group = ?"
+        ),
+        params = list(group_name)
+      )
+
+      configured_costs <- ms_default_option_costs[[group_name]]
+      for (option_value in names(configured_costs)) {
+        if (isTRUE(reset_costs)) {
+          dbExecute(
+            con,
+            paste(
+              "UPDATE option_costs",
+              "SET cost = ?, is_custom = 0, updated_at = CURRENT_TIMESTAMP",
+              "WHERE controlled_option_id = (",
+              "SELECT id FROM controlled_options",
+              "WHERE option_group = ? AND value = ?",
+              ")"
+            ),
+            params = list(
+              as.numeric(configured_costs[[option_value]]),
+              group_name,
+              option_value
+            )
+          )
+        } else {
+          dbExecute(
+            con,
+            paste(
+              "UPDATE option_costs",
+              "SET cost = ?, updated_at = CURRENT_TIMESTAMP",
+              "WHERE controlled_option_id = (",
+              "SELECT id FROM controlled_options",
+              "WHERE option_group = ? AND value = ?",
+              ") AND is_custom = 0"
+            ),
+            params = list(
+              as.numeric(configured_costs[[option_value]]),
+              group_name,
+              option_value
+            )
+          )
+        }
+      }
+    }
+
+    duplicates <- dbGetQuery(
+      con,
+      paste(
+        "SELECT option_group, lower(trim(value)) AS normalized_value,",
+        "COUNT(*) AS n FROM controlled_options",
+        "GROUP BY option_group, lower(trim(value)) HAVING COUNT(*) > 1"
+      )
+    )
+    if (nrow(duplicates) > 0) {
+      stop("Normalized duplicate controlled options remain after synchronization.")
+    }
+
+    dbExecute(
+      con,
+      paste(
+        "CREATE UNIQUE INDEX IF NOT EXISTS",
+        "idx_controlled_options_group_value_normalized",
+        "ON controlled_options (option_group, lower(trim(value)))"
+      )
+    )
+  })
+
+  invisible(TRUE)
+}
+
 ms_seed_defaults <- function(con) {
   for (i in seq_len(nrow(ms_project_types))) {
     dbExecute(
@@ -1217,7 +1358,12 @@ ms_seed_defaults <- function(con) {
     )
   }
 
-  for (group_name in names(ms_controlled_options)) {
+  ms_sync_authoritative_project_options(con, reset_costs = FALSE)
+
+  for (
+    group_name in
+      setdiff(names(ms_controlled_options), ms_authoritative_project_option_groups)
+  ) {
     values <- ms_controlled_options[[group_name]]
     for (i in seq_along(values)) {
       dbExecute(
@@ -1242,7 +1388,10 @@ ms_seed_defaults <- function(con) {
     }
   }
 
-  for (group_name in ms_priced_option_groups) {
+  for (
+    group_name in
+      setdiff(ms_priced_option_groups, ms_authoritative_project_option_groups)
+  ) {
     dbExecute(
       con,
       "
@@ -1255,7 +1404,13 @@ ms_seed_defaults <- function(con) {
     )
   }
 
-  for (group_name in names(ms_default_option_costs)) {
+  for (
+    group_name in
+      setdiff(
+        names(ms_default_option_costs),
+        ms_authoritative_project_option_groups
+      )
+  ) {
     group_costs <- ms_default_option_costs[[group_name]]
     for (option_value in names(group_costs)) {
       dbExecute(
