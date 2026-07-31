@@ -3034,10 +3034,10 @@ server <- function(input, output, session) {
       ),
       div(
         class = "form-section",
-        h4("4. Sample Identity"),
+        h4(if (identical(input$project_type, "intact_mass")) "4. Sample Information" else "4. Sample Identity"),
         if (identical(input$project_type, "intact_mass")) {
           fluidRow(
-            column(8, textInput("project_name", field_label("Sample name *", "Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
+            column(8, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
             column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
           )
         } else {
@@ -3067,6 +3067,41 @@ server <- function(input, output, session) {
               column(6, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
             )
           )
+        } else if (input$project_type == "intact_mass") {
+          tagList(
+            conditionalPanel(
+              condition = "input.intact_sample_type == 'in-solution, Flow injection' || input.intact_sample_type == 'in-solution'",
+              textAreaInput(
+                "sample_buffer",
+                field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."),
+                rows = 3
+              ),
+              fluidRow(
+                column(
+                  6,
+                  radioButtons(
+                    "concentration_determination",
+                    field_label("Concentration determination", "Indicate whether concentration was determined."),
+                    choices = load_choice_values(con, "concentration_determination"),
+                    selected = character(0),
+                    inline = TRUE
+                  )
+                ),
+                column(6, selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))))
+              ),
+              fluidRow(
+                column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
+                column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
+              )
+            ),
+            conditionalPanel(
+              condition = "input.intact_sample_type == 'powder'",
+              textInput(
+                "sample_amount",
+                field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein")
+              )
+            )
+          )
         } else {
           tagList(
             textAreaInput("sample_buffer", field_label("Buffer / Solvent *", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."), rows = 3),
@@ -3094,7 +3129,14 @@ server <- function(input, output, session) {
         class = "form-section",
         h4("6. Biological Question"),
         fluidRow(
-          column(6, textAreaInput("sample_notes", field_label("What do you want to know? *", "Describe the biological question, hypothesis, and expected outcome."), rows = 4)),
+          column(6, textAreaInput(
+            "sample_notes",
+            field_label(
+              if (identical(input$project_type, "intact_mass")) "What do you want to know?" else "What do you want to know? *",
+              "Describe the biological question, hypothesis, and expected outcome."
+            ),
+            rows = 4
+          )),
           column(6, textAreaInput("special_requirements", field_label("Special requirements", "Optional constraints, timing, safety notes, or facility discussion notes."), rows = 4))
         )
       ),
@@ -3280,14 +3322,16 @@ server <- function(input, output, session) {
       submitter_email = "E-mail",
       responsible_user = "Responsible user",
       budget_id = "Billing Group",
-      budget_pi = "PI / Group",
-      concentration_determination = "Concentration determination",
-      sample_notes = "Biological question"
+      budget_pi = "PI / Group"
     )
-    if (identical(selected_type, "intact_mass")) {
-      required <- c(project_name = "Sample name", required)
+    if (!identical(selected_type, "intact_mass")) {
+      required <- c(
+        required,
+        concentration_determination = "Concentration determination",
+        sample_notes = "Biological question"
+      )
     }
-    if (!identical(selected_type, "metabolomics")) {
+    if (identical(selected_type, "proteomics")) {
       required <- c(required,
         sample_buffer = "Buffer / Solvent",
         sample_volume = "Volume submitted",
@@ -3456,6 +3500,19 @@ server <- function(input, output, session) {
     )
 
     if (input$project_type == "intact_mass") {
+      is_solution_sample <- trim_scalar(input$intact_sample_type) %in% c(
+        "in-solution, Flow injection",
+        "in-solution"
+      )
+      if (is_solution_sample) {
+        project_values$sample_amount <- ""
+      } else {
+        project_values$sample_buffer <- ""
+        project_values$concentration_determination <- ""
+        project_values$concentration_method <- ""
+        project_values$sample_volume <- ""
+        project_values$sample_volume_unit <- ""
+      }
       project_values <- c(project_values, list(
         intact_project_type = trim_scalar(input$intact_project_type),
         intact_sample_type = trim_scalar(input$intact_sample_type),
