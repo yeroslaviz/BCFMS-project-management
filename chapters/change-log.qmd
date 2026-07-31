@@ -31,8 +31,15 @@ execute:
 5. Added `apply_content_defaults.R` so changed `ms_landing_text_defaults` values can be synchronized explicitly to an existing production database without resetting it.
 6. Removed **Project Name** from the project overview table and added **Sample Type** immediately after **Project Type**.
 7. Added LDAP name normalization for directory names formatted as `Surname, First name (username)`. New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.
-8. modify intact project creation page
+8. Simplified Intact project creation with optional sample details and sample-type-dependent fields.
 9. Dropdown terms can now be added, renamed, deactivated, deleted, and reinstated by administrators. New priced terms start at €0, renamed terms retain their costs, and the documentation now includes non-destructive recovery instructions.
+10. Reorganized the Proteomics creation form and added optional supporting-file uploads.
+11. Added sample-type-dependent preparation fields for Proteomics and Metabolomics projects.
+12. Updated the Proteomics and Metabolomics data-analysis sections and made selected fields optional.
+13. Added submission-time fields to Proteomics and Metabolomics projects.
+14. Corrected **Supernatant** and added Blood, Serum, and CSF sample types.
+15. Added an admin-managed Metabolomics acquisition mode.
+16. Replaced the project workflow with seven dated, color-coded status stages.
 
 ## Changes on 27.07.2026 
 
