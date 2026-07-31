@@ -3177,15 +3177,13 @@ server <- function(input, output, session) {
             column(
               6,
               textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())),
-              fluidRow(
-                column(6, readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1)),
-                column(6, numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1))
-              )
+              readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1),
+              numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1)
             ),
             column(
               6,
               conditionalPanel(
-                condition = "['In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatent', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
+                condition = "['In-solution', 'In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatent', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
                 conditionalPanel(
                   condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf(input.proteomics_sample_type) < 0",
                   textAreaInput(
@@ -3628,6 +3626,7 @@ server <- function(input, output, session) {
 
     if (input$project_type == "proteomics") {
       full_preparation_sample_types <- c(
+        "In-solution",
         "In-solution Digest",
         "Gel Band /Gel Lane",
         "On-beads",
