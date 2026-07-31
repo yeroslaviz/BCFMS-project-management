@@ -1,1 +1,1 @@
-Tube_ID	Condition	Replicate	Control?	Concentration	Unit	Description	Comments
+Sample Number (clearly indicated on tube)	Sample Name (used for data analysis)	Condition	Replicate	Sample amount [Unit] (optional)	Comments (optional)
