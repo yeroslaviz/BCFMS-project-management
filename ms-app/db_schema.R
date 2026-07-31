@@ -108,7 +108,7 @@ ms_controlled_options <- list(
     "Crosslinking"
   ),
   proteomics_sample_type = c(
-    "In-solution Digest",
+    "In-solution",
     "Gel Band /Gel Lane",
     "On-beads",
     "Cell Pellet",
@@ -227,7 +227,7 @@ ms_default_option_costs <- list(
     "Crosslinking" = 25
   ),
   proteomics_sample_type = c(
-    "In-solution Digest" = 10,
+    "In-solution" = 10,
     "Gel Band /Gel Lane" = 10,
     "On-beads" = 10,
     "Cell Pellet" = 10,
