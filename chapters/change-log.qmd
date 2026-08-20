@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 20.08.2026](#changes-on-20.08.2026)
 - [Changes on 31.07.2026](#changes-on-31.07.2026)
 - [Changes on 27.07.2026](#changes-on-27.07.2026)
 - [Changes on 24.07.2026](#changes-on-24.07.2026)
@@ -21,6 +22,13 @@ execute:
 - [Changes on 18.06.2026](#changes-on-18.06.2026)
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
+
+## Changes on 20.08.2026
+
+1. Set `/fs/pool/pool-ms-projects` as the single main pool for uploaded project tables and images.
+2. Removed obsolete project-upload pool names and their legacy remapping from the application and documentation.
+3. Kept `/srv/ms-app-data/uploads_pending_pool` as the persistent fallback when the main upload pool is unavailable.
+4. Kept the project-folder naming pattern `YYYYMMDD_USERNAME_PROJECTID`.
 
 ## Changes on 31.07.2026
 
