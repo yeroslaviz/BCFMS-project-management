@@ -49,6 +49,16 @@ git clone git@github.com:yeroslaviz/BCFMS-project-management.git
 
 ## Shiny Server
 
+The planned application service account is `mscf-shiny-user`, with runtime group `b_ms`. The account receives read/write access to `/fs/pool/pool-mscf-projects` through that group and must not receive root or sudo membership. Confirm that the centrally provisioned account and group are visible on the VM before using them:
+
+```bash
+getent passwd mscf-shiny-user
+getent group b_ms
+id mscf-shiny-user
+```
+
+The remaining examples in this guide that use the distribution-default `shiny` account describe the current installation. Replace them only during the coordinated runtime-user cutover, after pool access and Shiny Server `run_as` have been verified. The deployment script is already prepared with `APP_RUN_USER=mscf-shiny-user` and `APP_RUN_GROUP=b_ms` defaults.
+
 ```bash
 sudo apt-get install -y gdebi-core
 wget https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb

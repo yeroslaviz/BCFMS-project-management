@@ -70,6 +70,21 @@ For verified backups, transfer to another machine, and exact recovery, use the p
 
 ##  Deploy (VM)
 
+The planned application runtime identity is:
+
+```bash
+APP_RUN_USER=mscf-shiny-user
+APP_RUN_GROUP=b_ms
+```
+
+The dedicated `mscf-shiny-user` account will obtain read/write access to the NFS-mounted `/fs/pool/pool-mscf-projects` through the `b_ms` group. It must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in `.Renviron`.
+
+The deploy script now uses these values by default and stops before changing files if the account, group, or membership is missing. Do not use the new defaults on the VM until the account has been provisioned, its pool access has been verified, and the Shiny Server `run_as` cutover is ready. While production still runs as `shiny`, an essential deployment must use the explicit temporary override:
+
+```bash
+APP_RUN_USER=shiny APP_RUN_GROUP=shiny ./scripts/deploy.sh
+```
+
 After the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run `deploy.sh` so `/srv/shiny-server/ms-app/app.R` gets the latest LDAP fixes and updates.
 
 On the VM:
@@ -141,7 +156,7 @@ sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-The project-upload pool is `/fs/pool/pool-mscf-projects`. If it is unavailable, the app stores uploads under `/srv/ms-app-data/uploads_pending_pool/`, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with `shiny:shiny` ownership.
+The project-upload pool is `/fs/pool/pool-mscf-projects`. If it is unavailable, the app stores uploads under `/srv/ms-app-data/uploads_pending_pool/`, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with ownership set to `APP_RUN_USER:APP_RUN_GROUP`.
 
 New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`, for example `20260724_asmith_Pr_1234`.
 

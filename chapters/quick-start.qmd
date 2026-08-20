@@ -53,6 +53,15 @@ http://127.0.0.1:3838/?auth_user=USER
 
 ## VM LDAP mode
 
+The planned production service identity is configured through the deployment shell, not `.Renviron`:
+
+```bash
+APP_RUN_USER=mscf-shiny-user
+APP_RUN_GROUP=b_ms
+```
+
+Do not activate this identity until the account exists, belongs to `b_ms`, has verified pool access, and the Shiny Server `run_as` configuration is migrated. See [Deploy & Operations](deploy-operations.qmd#routine-deploy).
+
 Set the Shiny runtime environment either through a systemd override or `/srv/shiny-server/ms-app/.Renviron`:
 
 ```ini

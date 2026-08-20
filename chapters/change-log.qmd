@@ -29,6 +29,8 @@ execute:
 2. Removed obsolete project-upload pool names and their legacy remapping from the application and documentation.
 3. Kept `/srv/ms-app-data/uploads_pending_pool` as the persistent fallback when the main upload pool is unavailable.
 4. Kept the project-folder naming pattern `YYYYMMDD_USERNAME_PROJECTID`.
+5. Prepared deployment for the dedicated service identity by adding `APP_RUN_USER=mscf-shiny-user` and `APP_RUN_GROUP=b_ms` defaults. The deploy script now applies this identity consistently and validates that the account, group, and membership exist before changing deployed files.
+6. Documented that the new account receives pool access through `b_ms`, requires no root or sudo membership, and must not be activated until account provisioning, pool-access testing, and the Shiny Server runtime cutover are complete.
 
 ## Changes on 31.07.2026
 

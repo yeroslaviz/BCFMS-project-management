@@ -14,7 +14,7 @@ set -euo pipefail
 #
 # 2. Fixes ownership of the deployed folder:
 #
-#     - shiny:shiny on everything under /srv/shiny-server/ms-app
+#     - APP_RUN_USER:APP_RUN_GROUP on everything under /srv/shiny-server/ms-app
 #
 # 3. Makes the DB writable:
 #    - ms_projects.db
@@ -34,6 +34,8 @@ APP_SOURCE="/home/yeroslaviz/BCFMS-project-management/ms-app/"
 APP_TARGET="/srv/shiny-server/ms-app/"
 APP_DB="${APP_TARGET}ms_projects.db"
 PERSISTENT_UPLOAD_FALLBACK="/srv/ms-app-data/uploads_pending_pool"
+APP_RUN_USER="${APP_RUN_USER:-mscf-shiny-user}"
+APP_RUN_GROUP="${APP_RUN_GROUP:-b_ms}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://mscf-vm.biochem.mpg.de}"
 APP_PATH="/ms-app/"
 APP_URL="${PUBLIC_BASE_URL%/}${APP_PATH}"
@@ -48,7 +50,7 @@ smoke_fail() {
   echo "   sudo apache2ctl configtest && sudo systemctl restart apache2 && sudo systemctl restart shiny-server" >&2
   echo "2) Verify Shiny environment:" >&2
   echo "   sudo cat /srv/shiny-server/ms-app/.Renviron" >&2
-  echo "   sudo -u shiny bash -lc 'cd /srv/shiny-server/ms-app && Rscript -e \"cat(Sys.getenv(\\\"AUTH_MODE\\\"), Sys.getenv(\\\"TRUST_PROXY_AUTH_USER_QUERY\\\"), \\\"\\\\n\\\")\"'" >&2
+  echo "   sudo -u ${APP_RUN_USER} bash -lc 'cd /srv/shiny-server/ms-app && Rscript -e \"cat(Sys.getenv(\\\"AUTH_MODE\\\"), Sys.getenv(\\\"TRUST_PROXY_AUTH_USER_QUERY\\\"), \\\"\\\\n\\\")\"'" >&2
   echo "   Required in app-local .Renviron: AUTH_MODE=ldap and TRUST_PROXY_AUTH_USER_QUERY=1" >&2
   echo "3) Inspect logs for redirects/auth failures:" >&2
   echo "   sudo tail -n 120 /var/log/apache2/ms-app-ssl-access.log" >&2
@@ -88,9 +90,9 @@ run_ldap_smoke_tests() {
     smoke_fail "TRUST_PROXY_AUTH_USER_QUERY=1 is not set in ${APP_TARGET}.Renviron."
   fi
 
-  app_env_runtime="$(sudo -u shiny bash -lc "cd '${APP_TARGET}' && Rscript -e 'cat(Sys.getenv(\"AUTH_MODE\"), Sys.getenv(\"TRUST_PROXY_AUTH_USER_QUERY\"), \"\\n\")'" 2>/dev/null || true)"
+  app_env_runtime="$(sudo -u "${APP_RUN_USER}" bash -lc "cd '${APP_TARGET}' && Rscript -e 'cat(Sys.getenv(\"AUTH_MODE\"), Sys.getenv(\"TRUST_PROXY_AUTH_USER_QUERY\"), \"\\n\")'" 2>/dev/null || true)"
   if [[ "${app_env_runtime}" != "ldap 1"* ]]; then
-    smoke_fail "The shiny user does not read LDAP settings from ${APP_TARGET}.Renviron (saw: ${app_env_runtime:-<empty>})."
+    smoke_fail "The ${APP_RUN_USER} runtime user does not read LDAP settings from ${APP_TARGET}.Renviron (saw: ${app_env_runtime:-<empty>})."
   fi
 
   if ! sudo grep -q "client_url_search" "${APP_TARGET}app.R"; then
@@ -158,9 +160,23 @@ EOF
 
 echo "Deploying Shiny app..."
 
+if ! getent passwd "${APP_RUN_USER}" >/dev/null; then
+  echo "Deploy failed: runtime user ${APP_RUN_USER} does not exist." >&2
+  echo "Wait for the service account to be provisioned, or explicitly override APP_RUN_USER and APP_RUN_GROUP for the current runtime account." >&2
+  exit 1
+fi
+if ! getent group "${APP_RUN_GROUP}" >/dev/null; then
+  echo "Deploy failed: runtime group ${APP_RUN_GROUP} does not exist." >&2
+  exit 1
+fi
+if ! id -nG "${APP_RUN_USER}" | tr ' ' '\n' | grep -Fxq "${APP_RUN_GROUP}"; then
+  echo "Deploy failed: ${APP_RUN_USER} is not a member of ${APP_RUN_GROUP}." >&2
+  exit 1
+fi
+
 if sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
-  sudo install -d -o shiny -g shiny -m 0750 "${PERSISTENT_UPLOAD_FALLBACK}"
-  sudo chown -R shiny:shiny "${APP_TARGET}"
+  sudo install -d -o "${APP_RUN_USER}" -g "${APP_RUN_GROUP}" -m 0750 "${PERSISTENT_UPLOAD_FALLBACK}"
+  sudo chown -R "${APP_RUN_USER}:${APP_RUN_GROUP}" "${APP_TARGET}"
   if [ -f "${APP_DB}" ]; then
     sudo chmod 666 "${APP_DB}"
   else

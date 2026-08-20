@@ -8,6 +8,21 @@ execute:
 
 ## Routine Deploy
 
+The deployment runtime identity is configured in `scripts/deploy.sh` with these defaults:
+
+```bash
+APP_RUN_USER=mscf-shiny-user
+APP_RUN_GROUP=b_ms
+```
+
+`mscf-shiny-user` is the dedicated MS Core Facility service account. It will receive pool access through membership in `b_ms`; it does not need root or sudo membership. These are deployment-shell variables, not R settings, so do not add them to the app-local `.Renviron`.
+
+The repository is prepared for this identity, but do not perform the production cutover until the account exists, `id mscf-shiny-user` lists `b_ms`, storage administrators have confirmed access to `/fs/pool/pool-mscf-projects`, and Shiny Server has been configured to run this app as that user. Until then, a necessary deployment using the existing account must override both values explicitly:
+
+```bash
+APP_RUN_USER=shiny APP_RUN_GROUP=shiny ./scripts/deploy.sh
+```
+
 On the VM:
 
 ```bash
@@ -16,7 +31,7 @@ git pull origin main
 ./scripts/deploy.sh
 ```
 
-The deploy script syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`.
+The deploy script verifies that the configured account and group exist and that the account belongs to the group. It then syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`.
 
 ## Pre-Deploy Backups
 
