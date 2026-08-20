@@ -54,7 +54,7 @@
     "href": "chapters/quick-start.html#vm-ldap-mode",
     "title": "2  Quick Start",
     "section": "2.4 VM LDAP mode",
-    "text": "2.4 VM LDAP mode\nSet the Shiny runtime environment either through a systemd override or /srv/shiny-server/ms-app/.Renviron:\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-user\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nRestart Shiny after changing runtime settings:\nsudo systemctl restart shiny-server",
+    "text": "2.4 VM LDAP mode\nSet the Shiny runtime environment either through a systemd override or /srv/shiny-server/ms-app/.Renviron:\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-projects\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nRestart Shiny after changing runtime settings:\nsudo systemctl restart shiny-server",
     "crumbs": [
       "<span class='chapter-number'>2</span>  <span class='chapter-title'>Quick Start</span>"
     ]
@@ -134,7 +134,7 @@
     "href": "chapters/setup-infrastructure.html#runtime-environment",
     "title": "3  Setup & Infrastructure",
     "section": "3.6 Runtime Environment",
-    "text": "3.6 Runtime Environment\nCreate /srv/shiny-server/ms-app/.Renviron:\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-user\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nThe upload pool may not exist yet. If it is missing, the app stores uploads under /srv/ms-app-data/uploads_pending_pool/, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with shiny:shiny ownership.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID, for example 20260724_asmith_Pr_1234.",
+    "text": "3.6 Runtime Environment\nCreate /srv/shiny-server/ms-app/.Renviron:\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-projects\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nThe project-upload pool is /fs/pool/pool-ms-projects. If it is unavailable, the app stores uploads under /srv/ms-app-data/uploads_pending_pool/, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with shiny:shiny ownership.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID, for example 20260724_asmith_Pr_1234.",
     "crumbs": [
       "<span class='chapter-number'>3</span>  <span class='chapter-title'>Setup & Infrastructure</span>"
     ]
@@ -274,7 +274,7 @@
     "href": "chapters/troubleshooting.html#ldap-prompt-works-but-app-does-not-log-in",
     "title": "5  Troubleshooting",
     "section": "5.3 LDAP Prompt Works but App Does Not Log In",
-    "text": "5.3 LDAP Prompt Works but App Does Not Log In\nThis is the same failure mode documented for BCFNGS: Apache LDAP works, but the Shiny R worker is still running with local-mode environment settings. Do not rely only on systemctl show shiny-server --property=Environment; the working BCFNGS setup uses the app-local .Renviron.\nConfirm the app-local runtime mode:\nsudo cat /srv/shiny-server/ms-app/.Renviron\nRequired:\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nIf needed, reset it exactly:\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-user\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\n# Temporary: keep this only while debugging LDAP, then remove or set to 0.\nLDAP_DEBUG=1\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nVerify that the deployed code is current:\nsudo grep -n \"client_url_search\\\\|auth-status-box\\\\|is_ldap_mode\" /srv/shiny-server/ms-app/app.R\nExpected: all three terms should be found. If not, redeploy the latest ms-app/.\nThen inspect the latest Shiny log:\nLATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)\nsudo tail -n 120 \"$LATEST\"\nCheck the redirect:\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/\nExpected: Location: https://mscf-vm.biochem.mpg.de/ms-app/?auth_user=USER.",
+    "text": "5.3 LDAP Prompt Works but App Does Not Log In\nThis is the same failure mode documented for BCFNGS: Apache LDAP works, but the Shiny R worker is still running with local-mode environment settings. Do not rely only on systemctl show shiny-server --property=Environment; the working BCFNGS setup uses the app-local .Renviron.\nConfirm the app-local runtime mode:\nsudo cat /srv/shiny-server/ms-app/.Renviron\nRequired:\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nIf needed, reset it exactly:\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-projects\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\n# Temporary: keep this only while debugging LDAP, then remove or set to 0.\nLDAP_DEBUG=1\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server\nVerify that the deployed code is current:\nsudo grep -n \"client_url_search\\\\|auth-status-box\\\\|is_ldap_mode\" /srv/shiny-server/ms-app/app.R\nExpected: all three terms should be found. If not, redeploy the latest ms-app/.\nThen inspect the latest Shiny log:\nLATEST=$(sudo ls -1t /var/log/shiny-server/ms-app-shiny-*.log | head -n1)\nsudo tail -n 120 \"$LATEST\"\nCheck the redirect:\ncurl -Ik -u USER https://mscf-vm.biochem.mpg.de/ms-app/\nExpected: Location: https://mscf-vm.biochem.mpg.de/ms-app/?auth_user=USER.",
     "crumbs": [
       "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
     ]
@@ -304,7 +304,7 @@
     "href": "chapters/troubleshooting.html#upload-pool-missing",
     "title": "5  Troubleshooting",
     "section": "5.6 Upload Pool Missing",
-    "text": "5.6 Upload Pool Missing\nConfigured root:\n/fs/pool/pool-ms-user\nIf this path does not exist, the app stores uploads in /srv/ms-app-data/uploads_pending_pool/ outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID.\nCheck fallback files:\nsudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f",
+    "text": "5.6 Upload Pool Missing\nConfigured project-upload root:\n/fs/pool/pool-ms-projects\nIf this path does not exist, the app stores uploads in /srv/ms-app-data/uploads_pending_pool/ outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.\nNew project folders use the pattern YYYYMMDD_USERNAME_PROJECTID.\nCheck fallback files:\nsudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f",
     "crumbs": [
       "<span class='chapter-number'>5</span>  <span class='chapter-title'>Troubleshooting</span>"
     ]
@@ -474,7 +474,7 @@
     "href": "chapters/vm-installation.html#runtime-environment",
     "title": "7  VM Installation Guide",
     "section": "7.7 Runtime Environment",
-    "text": "7.7 Runtime Environment\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-user\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server",
+    "text": "7.7 Runtime Environment\nsudo tee /srv/shiny-server/ms-app/.Renviron &gt;/dev/null &lt;&lt;'EOF'\nAUTH_MODE=ldap\nTRUST_PROXY_AUTH_USER_QUERY=1\nLDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de\nLDAP_BASE_DN=dc=biochem,dc=mpg,dc=de\nLDAP_ATTR_UID=uid\nLDAP_ATTR_MAIL=mail\nLDAP_ATTR_PHONE=telephoneNumber\nLDAP_ATTR_OU=ou\nLDAP_ATTR_COST_CENTER=departmentNumber\nLDAP_FACILITY_GROUPS=b_ms,b_ngs\nLDAP_ATTR_CN=cn\nLDAP_ATTR_GIVENNAME=givenName\nLDAP_ATTR_SN=sn\nMS_FACILITY_EMAIL=ms-service@biochem.mpg.de\nMS_MAIL_FROM=ms-service@biochem.mpg.de\nMS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de\nSMTP_HOST=msx.biochem.mpg.de\nSMTP_PORT=25\nSMTP_SSL=0\nSMTP_TLS=0\n# Optional: comma-separated recipient domains, for example biochem.mpg.de.\n# MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de\nMS_UPLOAD_ROOT=/fs/pool/pool-ms-projects\nMS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool\nMS_MAX_UPLOAD_MB=75\nEOF\nsudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron\nsudo chmod 640 /srv/shiny-server/ms-app/.Renviron\nsudo systemctl restart shiny-server",
     "crumbs": [
       "<span class='chapter-number'>7</span>  <span class='chapter-title'>VM Installation Guide</span>"
     ]
@@ -654,7 +654,17 @@
     "href": "chapters/change-log.html#change-log",
     "title": "10  Change Log",
     "section": "",
-    "text": "10.1.1 Contents\n\nChanges on 31.07.2026\nChanges on 27.07.2026\nChanges on 24.07.2026\nChanges on 23.07.2026\nChanges on 22.07.2026\nChanges on 23.06.2026\nChanges on 22.06.2026\nChanges on 19.06.2026\nChanges on 18.06.2026\nChanges on 17.06.2026\nChanges on 16.06.2026",
+    "text": "10.1.1 Contents\n\nChanges on 20.08.2026\nChanges on 31.07.2026\nChanges on 27.07.2026\nChanges on 24.07.2026\nChanges on 23.07.2026\nChanges on 22.07.2026\nChanges on 23.06.2026\nChanges on 22.06.2026\nChanges on 19.06.2026\nChanges on 18.06.2026\nChanges on 17.06.2026\nChanges on 16.06.2026",
+    "crumbs": [
+      "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
+    ]
+  },
+  {
+    "objectID": "chapters/change-log.html#changes-on-20.08.2026",
+    "href": "chapters/change-log.html#changes-on-20.08.2026",
+    "title": "10  Change Log",
+    "section": "10.2 Changes on 20.08.2026",
+    "text": "10.2 Changes on 20.08.2026\n\nSet /fs/pool/pool-ms-projects as the single main pool for uploaded project tables and images.\nRemoved obsolete project-upload pool names and their legacy remapping from the application and documentation.\nKept /srv/ms-app-data/uploads_pending_pool as the persistent fallback when the main upload pool is unavailable.\nKept the project-folder naming pattern YYYYMMDD_USERNAME_PROJECTID.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -663,8 +673,8 @@
     "objectID": "chapters/change-log.html#changes-on-31.07.2026",
     "href": "chapters/change-log.html#changes-on-31.07.2026",
     "title": "10  Change Log",
-    "section": "10.2 Changes on 31.07.2026",
-    "text": "10.2 Changes on 31.07.2026\n\nReplaced the Metabolomics and Proteomics sample-overview templates.\nCorrected interface text and removed the obsolete box at the top of the landing page.\nUpdated the default landing-page text, including PTM enrichment support, accepted FASTA formats, opening hours, and the project-acceptance reminder.\nUpdated the sample-retention warning to state that samples are discarded “without further notice.”\nAdded apply_content_defaults.R so changed ms_landing_text_defaults values can be synchronized explicitly to an existing production database without resetting it.\nRemoved Project Name from the project overview table and added Sample Type immediately after Project Type.\nAdded LDAP name normalization for directory names formatted as Surname, First name (username). New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.\nSimplified Intact project creation with optional sample details and sample-type-dependent fields.\nDropdown terms can now be added, renamed, deactivated, deleted, and reinstated by administrators. New priced terms start at €0, renamed terms retain their costs, and the documentation now includes non-destructive recovery instructions.\nReorganized the Proteomics creation form and added optional supporting-file uploads.\nAdded sample-type-dependent preparation fields for Proteomics and Metabolomics projects.\nUpdated the Proteomics and Metabolomics data-analysis sections and made selected fields optional.\nAdded submission-time fields to Proteomics and Metabolomics projects.\nCorrected Supernatant and added Blood, Serum, and CSF sample types.\nAdded an admin-managed Metabolomics acquisition mode.\nReplaced the project workflow with seven dated, color-coded status stages.",
+    "section": "10.3 Changes on 31.07.2026",
+    "text": "10.3 Changes on 31.07.2026\n\nReplaced the Metabolomics and Proteomics sample-overview templates.\nCorrected interface text and removed the obsolete box at the top of the landing page.\nUpdated the default landing-page text, including PTM enrichment support, accepted FASTA formats, opening hours, and the project-acceptance reminder.\nUpdated the sample-retention warning to state that samples are discarded “without further notice.”\nAdded apply_content_defaults.R so changed ms_landing_text_defaults values can be synchronized explicitly to an existing production database without resetting it.\nRemoved Project Name from the project overview table and added Sample Type immediately after Project Type.\nAdded LDAP name normalization for directory names formatted as Surname, First name (username). New-project contact fields now receive the correct first and last names, and legacy comma-formatted user rows are corrected on the next LDAP login.\nSimplified Intact project creation with optional sample details and sample-type-dependent fields.\nDropdown terms can now be added, renamed, deactivated, deleted, and reinstated by administrators. New priced terms start at €0, renamed terms retain their costs, and the documentation now includes non-destructive recovery instructions.\nReorganized the Proteomics creation form and added optional supporting-file uploads.\nAdded sample-type-dependent preparation fields for Proteomics and Metabolomics projects.\nUpdated the Proteomics and Metabolomics data-analysis sections and made selected fields optional.\nAdded submission-time fields to Proteomics and Metabolomics projects.\nCorrected Supernatant and added Blood, Serum, and CSF sample types.\nAdded an admin-managed Metabolomics acquisition mode.\nReplaced the project workflow with seven dated, color-coded status stages.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -673,8 +683,8 @@
     "objectID": "chapters/change-log.html#changes-on-27.07.2026",
     "href": "chapters/change-log.html#changes-on-27.07.2026",
     "title": "10  Change Log",
-    "section": "10.3 Changes on 27.07.2026",
-    "text": "10.3 Changes on 27.07.2026\n\nAdmin project-cost management now has Proteomics, Metabolomics, and Intact tabs with filtered costs.\nminor changes were made to project- and sample types. Duplicated entries were removed.\nintaact template was modified\nProteomics and metabolomics sample names are optional and default to the generated project ID.\nSubmission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.\nDocumentation has been reorganized and synchronized.",
+    "section": "10.4 Changes on 27.07.2026",
+    "text": "10.4 Changes on 27.07.2026\n\nAdmin project-cost management now has Proteomics, Metabolomics, and Intact tabs with filtered costs.\nminor changes were made to project- and sample types. Duplicated entries were removed.\nintaact template was modified\nProteomics and metabolomics sample names are optional and default to the generated project ID.\nSubmission emails now attach only the sample-table TXT file. Cost-estimation emails now include a styled, project-colored PDF report with the complete cost breakdown and total.\nDocumentation has been reorganized and synchronized.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -683,8 +693,8 @@
     "objectID": "chapters/change-log.html#changes-on-24.07.2026",
     "href": "chapters/change-log.html#changes-on-24.07.2026",
     "title": "10  Change Log",
-    "section": "10.4 Changes on 24.07.2026",
-    "text": "10.4 Changes on 24.07.2026\n\nCreate similar structure for all three types, move project type and sample type into section 5\nCreate a combined columns in the project table.\n“Biological Samples” is now read-only and tkaes it value from the Excel sheet.\nFor Intact projects:\n\n\nRemoved Biological Samples and Technical Replicates from the creation and edit forms.\nSample overview upload is optional.\nmodified intact template for upload\n\n\nUpdated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.\ncost estimation was added to the system including in the mail and admin panels.\nproject folder (name and storage place) for data realease was changes.\ncontent of mails to user/core facility were modified to add costs and new path of data release.",
+    "section": "10.5 Changes on 24.07.2026",
+    "text": "10.5 Changes on 24.07.2026\n\nCreate similar structure for all three types, move project type and sample type into section 5\nCreate a combined columns in the project table.\n“Biological Samples” is now read-only and tkaes it value from the Excel sheet.\nFor Intact projects:\n\n\nRemoved Biological Samples and Technical Replicates from the creation and edit forms.\nSample overview upload is optional.\nmodified intact template for upload\n\n\nUpdated all Project Type and Sample Type dropdowns with the new entries based on the new Excel sheet.\ncost estimation was added to the system including in the mail and admin panels.\nproject folder (name and storage place) for data realease was changes.\ncontent of mails to user/core facility were modified to add costs and new path of data release.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -693,8 +703,8 @@
     "objectID": "chapters/change-log.html#changes-on-23.07.2026",
     "href": "chapters/change-log.html#changes-on-23.07.2026",
     "title": "10  Change Log",
-    "section": "10.5 Changes on 23.07.2026",
-    "text": "10.5 Changes on 23.07.2026\n\nmoved the “Sample Overview Table” in the New Project Creation Window to be directly after “Contact and Billing”.\nChange project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three\nrenamed “Number of Samples” to “Biological Samples”, added another field with “Technical Replicates” next to it.\nUpdated the project tables to include project name again and remove responsible user.\nColumns Status and Last Update were combined into one A atble of past status updates was added in the project edit page.\n“What do you want to know?” and “Special requirements” now appear side by side with equal-height text areas.",
+    "section": "10.6 Changes on 23.07.2026",
+    "text": "10.6 Changes on 23.07.2026\n\nmoved the “Sample Overview Table” in the New Project Creation Window to be directly after “Contact and Billing”.\nChange project ID to Pr_ for proteomics, Me_ for metabolomics and In_ for intact project types instead of Orbi for all three\nrenamed “Number of Samples” to “Biological Samples”, added another field with “Technical Replicates” next to it.\nUpdated the project tables to include project name again and remove responsible user.\nColumns Status and Last Update were combined into one A atble of past status updates was added in the project edit page.\n“What do you want to know?” and “Special requirements” now appear side by side with equal-height text areas.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -703,8 +713,8 @@
     "objectID": "chapters/change-log.html#changes-on-22.07.2026",
     "href": "chapters/change-log.html#changes-on-22.07.2026",
     "title": "10  Change Log",
-    "section": "10.6 Changes on 22.07.2026",
-    "text": "10.6 Changes on 22.07.2026\n\nCorrected the OmicsDesk helpdesk address from omics@bochem.mpg.de to omicsdesk@biochem.mpg.de for upload-pool fallback notifications.\nUpdated the application fallback in ms-app/db_schema.R and the documented MS_POOL_FALLBACK_EMAIL VM configuration.\nThe address can be set explicitly in /srv/shiny-server/ms-app/.Renviron; restart shiny-server after changing it. No database recreation is required.\nChanged all downloadable sample-overview templates from comma-separated .csv files to tab-delimited .txt files.\nSample-overview uploads accept .txt, .csv, and .tsv files and automatically detect tab, comma, or semicolon separators.\nadd help function via question marks on the GUI",
+    "section": "10.7 Changes on 22.07.2026",
+    "text": "10.7 Changes on 22.07.2026\n\nCorrected the OmicsDesk helpdesk address from omics@bochem.mpg.de to omicsdesk@biochem.mpg.de for upload-pool fallback notifications.\nUpdated the application fallback in ms-app/db_schema.R and the documented MS_POOL_FALLBACK_EMAIL VM configuration.\nThe address can be set explicitly in /srv/shiny-server/ms-app/.Renviron; restart shiny-server after changing it. No database recreation is required.\nChanged all downloadable sample-overview templates from comma-separated .csv files to tab-delimited .txt files.\nSample-overview uploads accept .txt, .csv, and .tsv files and automatically detect tab, comma, or semicolon separators.\nadd help function via question marks on the GUI",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -713,8 +723,8 @@
     "objectID": "chapters/change-log.html#changes-on-23.06.2026",
     "href": "chapters/change-log.html#changes-on-23.06.2026",
     "title": "10  Change Log",
-    "section": "10.7 Changes on 23.06.2026",
-    "text": "10.7 Changes on 23.06.2026\n\nLDAP configuration was fixed. App on the VM now starts using LDAP.\ndeploy.sh section was added to Setup page",
+    "section": "10.8 Changes on 23.06.2026",
+    "text": "10.8 Changes on 23.06.2026\n\nLDAP configuration was fixed. App on the VM now starts using LDAP.\ndeploy.sh section was added to Setup page",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -723,8 +733,8 @@
     "objectID": "chapters/change-log.html#changes-on-22.06.2026",
     "href": "chapters/change-log.html#changes-on-22.06.2026",
     "title": "10  Change Log",
-    "section": "10.8 Changes on 22.06.2026",
-    "text": "10.8 Changes on 22.06.2026\n\nApp was set locally. database was modified to include the appropriate fields\nchanges were done to the documentation to make them cleaner and more ms-core facility related.\nApp now include landing pages as well.\nmultiple fields were changes and modified after discussion with MSCF-admins\nmail communication needs to be adjusted.",
+    "section": "10.9 Changes on 22.06.2026",
+    "text": "10.9 Changes on 22.06.2026\n\nApp was set locally. database was modified to include the appropriate fields\nchanges were done to the documentation to make them cleaner and more ms-core facility related.\nApp now include landing pages as well.\nmultiple fields were changes and modified after discussion with MSCF-admins\nmail communication needs to be adjusted.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -733,8 +743,8 @@
     "objectID": "chapters/change-log.html#changes-on-19.06.2026",
     "href": "chapters/change-log.html#changes-on-19.06.2026",
     "title": "10  Change Log",
-    "section": "10.9 Changes on 19.06.2026",
-    "text": "10.9 Changes on 19.06.2026\n\nclean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.",
+    "section": "10.10 Changes on 19.06.2026",
+    "text": "10.10 Changes on 19.06.2026\n\nclean documents further. Remove all parts from the BCFNGS-VM or the perl branch of the VM.",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -743,8 +753,8 @@
     "objectID": "chapters/change-log.html#changes-on-18.06.2026",
     "href": "chapters/change-log.html#changes-on-18.06.2026",
     "title": "10  Change Log",
-    "section": "10.10 Changes on 18.06.2026",
-    "text": "10.10 Changes on 18.06.2026\n\nCleaning the documentation further.\nInstall https certificate from HARICA and successfully test https connection\nconfigure .Renviron and LDAP on the VM to work with the shiny server",
+    "section": "10.11 Changes on 18.06.2026",
+    "text": "10.11 Changes on 18.06.2026\n\nCleaning the documentation further.\nInstall https certificate from HARICA and successfully test https connection\nconfigure .Renviron and LDAP on the VM to work with the shiny server",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -753,8 +763,8 @@
     "objectID": "chapters/change-log.html#changes-on-17.06.2026",
     "href": "chapters/change-log.html#changes-on-17.06.2026",
     "title": "10  Change Log",
-    "section": "10.11 Changes on 17.06.2026",
-    "text": "10.11 Changes on 17.06.2026\n\ncleaning and shrinking documentation\nfinish installing all packages on the VM; upgrading R version to 4.6",
+    "section": "10.12 Changes on 17.06.2026",
+    "text": "10.12 Changes on 17.06.2026\n\ncleaning and shrinking documentation\nfinish installing all packages on the VM; upgrading R version to 4.6",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]
@@ -763,8 +773,8 @@
     "objectID": "chapters/change-log.html#changes-on-16.06.2026",
     "href": "chapters/change-log.html#changes-on-16.06.2026",
     "title": "10  Change Log",
-    "section": "10.12 Changes on 16.06.2026",
-    "text": "10.12 Changes on 16.06.2026\n\ngithub repository was set up\nmscf-vm was set-up for and a https certificate was applied for.\nconnect VM to github\nrun bash scripts/check_requirements.sh to install requirements, both R packages and ubuntu packages\nmodify script deploy.sh to fit the new VM specifications\nsetting up the shiny-server, connect to ldap server",
+    "section": "10.13 Changes on 16.06.2026",
+    "text": "10.13 Changes on 16.06.2026\n\ngithub repository was set up\nmscf-vm was set-up for and a https certificate was applied for.\nconnect VM to github\nrun bash scripts/check_requirements.sh to install requirements, both R packages and ubuntu packages\nmodify script deploy.sh to fit the new VM specifications\nsetting up the shiny-server, connect to ldap server",
     "crumbs": [
       "<span class='chapter-number'>10</span>  <span class='chapter-title'>Change Log</span>"
     ]

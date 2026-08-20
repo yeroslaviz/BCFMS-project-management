@@ -331,14 +331,14 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
 <span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
 <span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-user</span></span>
+<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-projects</span></span>
 <span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
 <span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
 <span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
 <span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
 <span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
 <span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The upload pool may not exist yet. If it is missing, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with <code>shiny:shiny</code> ownership.</p>
+<p>The project-upload pool is <code>/fs/pool/pool-ms-projects</code>. If it is unavailable, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with <code>shiny:shiny</code> ownership.</p>
 <p>New project folders use the pattern <code>YYYYMMDD_USERNAME_PROJECTID</code>, for example <code>20260724_asmith_Pr_1234</code>.</p>
 </section>
 <section id="apache-ldap-proxy" class="level2" data-number="3.7">

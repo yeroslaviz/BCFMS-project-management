@@ -301,7 +301,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <span id="cb8-21"><a href="#cb8-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
 <span id="cb8-22"><a href="#cb8-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
 <span id="cb8-23"><a href="#cb8-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
-<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-user</span></span>
+<span id="cb8-24"><a href="#cb8-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-projects</span></span>
 <span id="cb8-25"><a href="#cb8-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
 <span id="cb8-26"><a href="#cb8-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
 <span id="cb8-27"><a href="#cb8-27" aria-hidden="true" tabindex="-1"></a><span class="st"># Temporary: keep this only while debugging LDAP, then remove or set to 0.</span></span>
@@ -336,8 +336,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="upload-pool-missing" class="level2" data-number="5.6">
 <h2 data-number="5.6" class="anchored" data-anchor-id="upload-pool-missing"><span class="header-section-number">5.6</span> Upload Pool Missing</h2>
-<p>Configured root:</p>
-<pre class="text"><code>/fs/pool/pool-ms-user</code></pre>
+<p>Configured project-upload root:</p>
+<pre class="text"><code>/fs/pool/pool-ms-projects</code></pre>
 <p>If this path does not exist, the app stores uploads in <code>/srv/ms-app-data/uploads_pending_pool/</code> outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.</p>
 <p>New project folders use the pattern <code>YYYYMMDD_USERNAME_PROJECTID</code>.</p>
 <p>Check fallback files:</p>
