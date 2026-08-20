@@ -3050,7 +3050,7 @@ server <- function(input, output, session) {
     tagList(
       div(
         class = "form-section",
-        h4("2. Contact and Billing"),
+        h4("1. Contact and Billing"),
         fluidRow(
           column(6, textInput("submitter_first_name", field_label("First name *", "Auto-filled from the login session."), value = name_parts$first)),
           column(6, textInput("submitter_last_name", field_label("Last name *", "Auto-filled from the login session."), value = name_parts$last))
@@ -3068,11 +3068,11 @@ server <- function(input, output, session) {
       div(
         id = "sample_overview_section",
         class = "form-section",
-        h4(if (input$project_type %in% c("proteomics", "metabolomics")) "3. Sample Overview" else "3. Sample Overview Table"),
+        h4(if (input$project_type %in% c("proteomics", "metabolomics")) "2. Sample Overview" else "2. Sample Overview Table"),
         div(
           class = "info-note",
           if (identical(input$project_type, "intact_mass")) {
-            "Optional for Intact projects. Upload a non-empty table using the two-column Intact template, or use the Sample name in section 4. The downloaded template is tab-delimited; uploads may be .txt, .csv, or .tsv."
+            "Optional for Intact projects. Upload a non-empty table using the two-column Intact template, or use the Sample name in section 3. The downloaded template is tab-delimited; uploads may be .txt, .csv, or .tsv."
           } else {
             "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."
           }
@@ -3122,20 +3122,16 @@ server <- function(input, output, session) {
           }
         )
       ),
-      if (identical(input$project_type, "intact_mass")) {
-        div(
-          class = "form-section",
-          h4("4. Sample Information"),
-          fluidRow(
-            column(8, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
-            column(4, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
-          )
-        )
-      },
       div(
         class = "form-section",
-        h4(if (input$project_type %in% c("proteomics", "metabolomics")) "5. Sample Information" else "5. Sample"),
+        h4("3. Sample Information"),
         project_and_sample_type_ui(input$project_type, con),
+        if (identical(input$project_type, "intact_mass")) {
+          fluidRow(
+            column(6, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
+            column(6, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
+          )
+        },
         if (input$project_type == "metabolomics") {
           fluidRow(
             column(
@@ -3285,7 +3281,7 @@ server <- function(input, output, session) {
       ),
       div(
         class = "form-section",
-        h4("6. Biological Question"),
+        h4("4. Biological Question"),
         fluidRow(
           column(6, textAreaInput(
             "sample_notes",
@@ -3415,7 +3411,7 @@ server <- function(input, output, session) {
     if (project_type == "intact_mass") {
       return(div(
       class = "form-section type-intact",
-      h4("7. Intact / Native / QC"),
+      h4("5. Intact / Native / QC"),
         conditionalPanel("input.intact_project_type == 'Native Protein Complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
         textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
         textInput("intact_expected_mass_da", field_label("Expected mass (Da) *", "Monoisotopic or average mass from sequence or formula.")),
@@ -3428,7 +3424,7 @@ server <- function(input, output, session) {
     if (project_type == "proteomics") {
       return(div(
       class = "form-section type-proteomics",
-      h4("7. Proteomics – Data Analysis"),
+      h4("5. Proteomics – Data Analysis"),
         radioButtons("proteomics_acquisition_mode", field_label("Acquisition mode *", "Choose DDA, DIA, no preference, or discuss with facility."), choices = load_choice_values(con, "proteomics_acquisition_mode"), inline = TRUE),
         selectInput(
           "proteomics_quantification_strategy",
@@ -3466,7 +3462,7 @@ server <- function(input, output, session) {
 
     div(
       class = "form-section type-metabolomics",
-      h4("7. Metabolomics – Data Analysis"),
+      h4("5. Metabolomics – Data Analysis"),
       fluidRow(
         column(
           6,

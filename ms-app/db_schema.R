@@ -16,7 +16,7 @@ MS_POOL_FALLBACK_EMAIL <- Sys.getenv(
   "MS_POOL_FALLBACK_EMAIL",
   "omicsdesk@biochem.mpg.de"
 )
-MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-ms-projects")
+MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-mscf-projects")
 MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv(
   "MS_LOCAL_UPLOAD_FALLBACK",
   "/srv/ms-app-data/uploads_pending_pool"

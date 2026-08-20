@@ -95,7 +95,7 @@ SMTP_SSL=0
 SMTP_TLS=0
 # Optional: comma-separated recipient domains, for example biochem.mpg.de.
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
-MS_UPLOAD_ROOT=/fs/pool/pool-ms-projects
+MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects
 MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
 MS_MAX_UPLOAD_MB=75
 # Temporary: keep this only while debugging LDAP, then remove or set to 0.
@@ -154,7 +154,7 @@ The synchronization preserves custom landing blocks and the active/inactive stat
 Configured project-upload root:
 
 ```text
-/fs/pool/pool-ms-projects
+/fs/pool/pool-mscf-projects
 ```
 
 If this path does not exist, the app stores uploads in `/srv/ms-app-data/uploads_pending_pool/` outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.
