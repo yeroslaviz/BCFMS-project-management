@@ -289,74 +289,80 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="deploy-vm" class="level2" data-number="3.5">
 <h2 data-number="3.5" class="anchored" data-anchor-id="deploy-vm"><span class="header-section-number">3.5</span> Deploy (VM)</h2>
+<p>The planned application runtime identity is:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="va">APP_RUN_USER</span><span class="op">=</span>mscf-shiny-user</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="va">APP_RUN_GROUP</span><span class="op">=</span>b_ms</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The dedicated <code>mscf-shiny-user</code> account will obtain read/write access to the NFS-mounted <code>/fs/pool/pool-mscf-projects</code> through the <code>b_ms</code> group. It must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in <code>.Renviron</code>.</p>
+<p>The deploy script now uses these values by default and stops before changing files if the account, group, or membership is missing. Do not use the new defaults on the VM until the account has been provisioned, its pool access has been verified, and the Shiny Server <code>run_as</code> cutover is ready. While production still runs as <code>shiny</code>, an essential deployment must use the explicit temporary override:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="va">APP_RUN_USER</span><span class="op">=</span>shiny <span class="va">APP_RUN_GROUP</span><span class="op">=</span>shiny <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>After the database is set, we need to deploy the app and run the texts to check for the settings. This is especially important, if the VM still shows the local login page after the ldap prompt. We need to run <code>deploy.sh</code> so <code>/srv/shiny-server/ms-app/app.R</code> gets the latest LDAP fixes and updates.</p>
 <p>On the VM:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/yeroslaviz/BCFMS-project-management</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">git</span> pull</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Before running it, we need to make sure <code>/srv/shiny-server/ms-app/.Renviron</code> has the <a href="#runtime-environment">full block</a>, because <code>deploy.sh</code> preserves <code>.Renviron</code> and does not overwrite it:</p>
 <p>After deploy, confirm the deployed app contains the new LDAP code:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> grep <span class="at">-n</span> <span class="st">"client_url_search\|auth-status-box\|is_ldap_mode"</span> /srv/shiny-server/ms-app/app.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> grep <span class="at">-n</span> <span class="st">"client_url_search\|auth-status-box\|is_ldap_mode"</span> /srv/shiny-server/ms-app/app.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p><code>deploy.sh</code> runs LDAP smoke tests and asks for an LDAP username/password unless we set <code>SKIP_SMOKE_TEST=1</code>. For a quick deploy without that prompt:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="va">SKIP_SMOKE_TEST</span><span class="op">=</span>1 <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="va">SKIP_SMOKE_TEST</span><span class="op">=</span>1 <span class="ex">./scripts/deploy.sh</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Code-based text such as <code>MS_SUBMISSION_WARNING</code> is loaded by the Shiny restart performed during deployment. If <code>ms_landing_text_defaults</code> was changed, synchronize those defaults to the existing database after deployment:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
-<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript apply_content_defaults.R</span>
-<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript apply_content_defaults.R</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This updates only the standard landing blocks; it does not reset the database or delete custom landing blocks.</p>
 </section>
 <section id="runtime-environment" class="level2" data-number="3.6">
 <h2 data-number="3.6" class="anchored" data-anchor-id="runtime-environment"><span class="header-section-number">3.6</span> Runtime Environment</h2>
 <p>Create <code>/srv/shiny-server/ms-app/.Renviron</code>:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
-<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
-<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a><span class="st">TRUST_PROXY_AUTH_USER_QUERY=1</span></span>
-<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
-<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span>
-<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_UID=uid</span></span>
-<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_MAIL=mail</span></span>
-<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_PHONE=telephoneNumber</span></span>
-<span id="cb11-9"><a href="#cb11-9" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_OU=ou</span></span>
-<span id="cb11-10"><a href="#cb11-10" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_COST_CENTER=departmentNumber</span></span>
-<span id="cb11-11"><a href="#cb11-11" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_FACILITY_GROUPS=b_ms,b_ngs</span></span>
-<span id="cb11-12"><a href="#cb11-12" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_CN=cn</span></span>
-<span id="cb11-13"><a href="#cb11-13" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_GIVENNAME=givenName</span></span>
-<span id="cb11-14"><a href="#cb11-14" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_SN=sn</span></span>
-<span id="cb11-15"><a href="#cb11-15" aria-hidden="true" tabindex="-1"></a><span class="st">MS_FACILITY_EMAIL=ms-service@biochem.mpg.de</span></span>
-<span id="cb11-16"><a href="#cb11-16" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAIL_FROM=ms-service@biochem.mpg.de</span></span>
-<span id="cb11-17"><a href="#cb11-17" aria-hidden="true" tabindex="-1"></a><span class="st">MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de</span></span>
-<span id="cb11-18"><a href="#cb11-18" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_HOST=msx.biochem.mpg.de</span></span>
-<span id="cb11-19"><a href="#cb11-19" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_PORT=25</span></span>
-<span id="cb11-20"><a href="#cb11-20" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_SSL=0</span></span>
-<span id="cb11-21"><a href="#cb11-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
-<span id="cb11-22"><a href="#cb11-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
-<span id="cb11-23"><a href="#cb11-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
-<span id="cb11-24"><a href="#cb11-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-projects</span></span>
-<span id="cb11-25"><a href="#cb11-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
-<span id="cb11-26"><a href="#cb11-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
-<span id="cb11-27"><a href="#cb11-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
-<span id="cb11-28"><a href="#cb11-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb11-29"><a href="#cb11-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb11-30"><a href="#cb11-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>The project-upload pool is <code>/fs/pool/pool-ms-projects</code>. If it is unavailable, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with <code>shiny:shiny</code> ownership.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="st">TRUST_PROXY_AUTH_USER_QUERY=1</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_UID=uid</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_MAIL=mail</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_PHONE=telephoneNumber</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_OU=ou</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_COST_CENTER=departmentNumber</span></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_FACILITY_GROUPS=b_ms,b_ngs</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_CN=cn</span></span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_GIVENNAME=givenName</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_SN=sn</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a><span class="st">MS_FACILITY_EMAIL=ms-service@biochem.mpg.de</span></span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAIL_FROM=ms-service@biochem.mpg.de</span></span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a><span class="st">MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de</span></span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_HOST=msx.biochem.mpg.de</span></span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_PORT=25</span></span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_SSL=0</span></span>
+<span id="cb13-21"><a href="#cb13-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
+<span id="cb13-22"><a href="#cb13-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
+<span id="cb13-23"><a href="#cb13-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
+<span id="cb13-24"><a href="#cb13-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects</span></span>
+<span id="cb13-25"><a href="#cb13-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
+<span id="cb13-26"><a href="#cb13-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
+<span id="cb13-27"><a href="#cb13-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
+<span id="cb13-28"><a href="#cb13-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb13-29"><a href="#cb13-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb13-30"><a href="#cb13-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The project-upload pool is <code>/fs/pool/pool-mscf-projects</code>. If it is unavailable, the app stores uploads under <code>/srv/ms-app-data/uploads_pending_pool/</code>, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with ownership set to <code>APP_RUN_USER:APP_RUN_GROUP</code>.</p>
 <p>New project folders use the pattern <code>YYYYMMDD_USERNAME_PROJECTID</code>, for example <code>20260724_asmith_Pr_1234</code>.</p>
 </section>
 <section id="apache-ldap-proxy" class="level2" data-number="3.7">
 <h2 data-number="3.7" class="anchored" data-anchor-id="apache-ldap-proxy"><span class="header-section-number">3.7</span> Apache LDAP Proxy</h2>
 <p>Copy the Apache template:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/yeroslaviz/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Enable required modules and the site:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap</span>
-<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
-<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
-<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
+<span id="cb15-4"><a href="#cb15-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The template proxies <code>/ms-app/</code>, protects it with LDAP, and rewrites to <code>/ms-app/?auth_user=&lt;logged-user&gt;</code> so Shiny can provision or find the corresponding user row.</p>
 </section>
 <section id="smoke-tests" class="level2" data-number="3.8">
 <h2 data-number="3.8" class="anchored" data-anchor-id="smoke-tests"><span class="header-section-number">3.8</span> Smoke Tests</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
+<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Expected behavior:</p>
 <ul>
 <li><code>/</code> redirects to <code>/ms-app/</code></li>
@@ -368,8 +374,8 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <section id="backups" class="level2" data-number="3.9">
 <h2 data-number="3.9" class="anchored" data-anchor-id="backups"><span class="header-section-number">3.9</span> Backups</h2>
 <p>Before risky code or Apache maintenance, preserve the deployed application and web-server configuration:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span>/</span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> /srv/shiny-server/ms-app/ /srv/shiny-server/ms-app.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span>/</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /etc/apache2/sites-enabled/ms-vm-shiny-443.conf /etc/apache2/sites-enabled/ms-vm-shiny-443.conf.backup_<span class="va">$(</span><span class="fu">date</span> +%Y%m%d_%H%M<span class="va">)</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Do not use a plain file copy as the primary backup method for a database that may be in use. Follow <a href="../chapters/deploy-operations.html#database-backup-and-exact-recovery">Database backup and exact recovery</a> for a transactionally consistent SQLite backup and the separate upload-directory backup.</p>
 </section>
 <section id="external-reference" class="level2" data-number="3.10">

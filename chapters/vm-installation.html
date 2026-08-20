@@ -276,31 +276,36 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </section>
 <section id="shiny-server" class="level2" data-number="7.3">
 <h2 data-number="7.3" class="anchored" data-anchor-id="shiny-server"><span class="header-section-number">7.3</span> Shiny Server</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt-get install <span class="at">-y</span> gdebi-core</span>
-<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb</span>
-<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> gdebi shiny-server-1.5.23.1030-amd64.deb</span>
-<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable shiny-server</span>
-<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The planned application service account is <code>mscf-shiny-user</code>, with runtime group <code>b_ms</code>. The account receives read/write access to <code>/fs/pool/pool-mscf-projects</code> through that group and must not receive root or sudo membership. Confirm that the centrally provisioned account and group are visible on the VM before using them:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="fu">getent</span> passwd mscf-shiny-user</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="fu">getent</span> group b_ms</span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="fu">id</span> mscf-shiny-user</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>The remaining examples in this guide that use the distribution-default <code>shiny</code> account describe the current installation. Replace them only during the coordinated runtime-user cutover, after pool access and Shiny Server <code>run_as</code> have been verified. The deployment script is already prepared with <code>APP_RUN_USER=mscf-shiny-user</code> and <code>APP_RUN_GROUP=b_ms</code> defaults.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt-get install <span class="at">-y</span> gdebi-core</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">wget</span> https://download3.rstudio.org/ubuntu-20.04/x86_64/shiny-server-1.5.23.1030-amd64.deb</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> gdebi shiny-server-1.5.23.1030-amd64.deb</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl enable shiny-server</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl start shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Create the app folder:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /srv/shiny-server/ms-app</span>
-<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span>
-<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> usermod <span class="at">-a</span> <span class="at">-G</span> shiny <span class="st">"</span><span class="va">$USER</span><span class="st">"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /srv/shiny-server/ms-app</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> usermod <span class="at">-a</span> <span class="at">-G</span> shiny <span class="st">"</span><span class="va">$USER</span><span class="st">"</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="deploy-app-files" class="level2" data-number="7.4">
 <h2 data-number="7.4" class="anchored" data-anchor-id="deploy-app-files"><span class="header-section-number">7.4</span> Deploy App Files</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>user<span class="op">&gt;</span>/BCFMS-project-management</span>
-<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--delete</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> <span class="at">--exclude</span> <span class="st">'.Renviron'</span> ms-app/ /srv/shiny-server/ms-app/</span>
-<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>user<span class="op">&gt;</span>/BCFMS-project-management</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> rsync <span class="at">-av</span> <span class="at">--delete</span> <span class="at">--exclude</span> <span class="st">'ms_projects.db'</span> <span class="at">--exclude</span> <span class="st">'.Renviron'</span> ms-app/ /srv/shiny-server/ms-app/</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> shiny:shiny /srv/shiny-server/ms-app</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="apply-for-https-certificate" class="level2" data-number="7.5">
 <h2 data-number="7.5" class="anchored" data-anchor-id="apply-for-https-certificate"><span class="header-section-number">7.5</span> Apply for https certificate</h2>
 <p>Run the following command which generates a private key ‘private-key.pem’ and a certificate request ‘certificate-request.pem’. Change the file names to the appropriate ones.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/</span>
-<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> req <span class="at">-newkey</span> rsa:4096 <span class="at">-sha256</span> <span class="at">-nodes</span> <span class="at">-keyout</span> mscf-private-key.pem <span class="at">-out</span> mscf-certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/</span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> req <span class="at">-newkey</span> rsa:4096 <span class="at">-sha256</span> <span class="at">-nodes</span> <span class="at">-keyout</span> mscf-private-key.pem <span class="at">-out</span> mscf-certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Leave all fields at their default values.</p>
 <p>View the content of the certificate request. You will need to insert it in the final step of the next section when submitting the request.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="fu">cat</span> certificate-request.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <ul>
 <li><p>Login to <a href="https://cm.harica.gr">https://cm.harica.gr</a> &gt; use <code>Academic Login</code></p></li>
 <li><p>Search / Select “MPI of Biochemistry”, then log in with your biochem user account.</p></li>
@@ -323,55 +328,55 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 ├── Cert.pem
 └── Cert_bundle.pem</code></pre>
 <p>It is first best to compare the certifiacte to the private key.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl x509 <span class="dt">\</span></span>
-<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/Cert_bundle.pem <span class="dt">\</span></span>
-<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubkey</span> <span class="at">-noout</span> <span class="kw">|</span></span>
-<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> pkey <span class="at">-pubin</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
-<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span>
-<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl pkey <span class="dt">\</span></span>
-<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/2027_private-key.pem <span class="dt">\</span></span>
-<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubout</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
-<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl x509 <span class="dt">\</span></span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/Cert_bundle.pem <span class="dt">\</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubkey</span> <span class="at">-noout</span> <span class="kw">|</span></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> pkey <span class="at">-pubin</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl pkey <span class="dt">\</span></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027/2027_private-key.pem <span class="dt">\</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubout</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The two hashes <strong>must</strong> be identical!</p>
 <p>Creating a new folder for the new certificate:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /etc/apache2/certificate/2027</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> mkdir <span class="at">-p</span> /etc/apache2/certificate/2027</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Rename the two certifiactes to the new place with a new name</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp Cert.pem /etc/apache2/certificate/2027/2027_mscf-vm.pem</span>
-<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp Cert_bundle.pem /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp Cert.pem /etc/apache2/certificate/2027/2027_mscf-vm.pem</span>
+<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp Cert_bundle.pem /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Copying the private key to its new place:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp 2027_private-key.pem <span class="dt">\</span></span>
-<span id="cb15-2"><a href="#cb15-2" aria-hidden="true" tabindex="-1"></a>    /etc/apache2/certificate/2027/2027_private-key.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp 2027_private-key.pem <span class="dt">\</span></span>
+<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a>    /etc/apache2/certificate/2027/2027_private-key.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Setting the permissions:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> root:root /etc/apache2/certificate/2027</span>
-<span id="cb16-2"><a href="#cb16-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 644 /etc/apache2/certificate/2027/<span class="pp">*</span>.pem</span>
-<span id="cb16-3"><a href="#cb16-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 600 /etc/apache2/certificate/2027/2027_private-key.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown <span class="at">-R</span> root:root /etc/apache2/certificate/2027</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 644 /etc/apache2/certificate/2027/<span class="pp">*</span>.pem</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 600 /etc/apache2/certificate/2027/2027_private-key.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Inspecting the certificate showing me to have three of them.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-c</span> <span class="st">'BEGIN CERTIFICATE'</span> <span class="dt">\</span></span>
-<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>    /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="fu">grep</span> <span class="at">-c</span> <span class="st">'BEGIN CERTIFICATE'</span> <span class="dt">\</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Inspect the first certificate in each file:</p>
 <p>The standalone PEM certificate should show mscf-vm.biochem.mpg.de in its Subject Alternative Names.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> x509 <span class="dt">\</span></span>
-<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_mscf-vm.pem <span class="dt">\</span></span>
-<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span> <span class="at">-dates</span> <span class="at">-ext</span> subjectAltName</span>
-<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> x509 <span class="dt">\</span></span>
-<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem <span class="dt">\</span></span>
-<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>compare again the hash between certificate and private key</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl x509 <span class="dt">\</span></span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb19"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb19-1"><a href="#cb19-1" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> x509 <span class="dt">\</span></span>
 <span id="cb19-2"><a href="#cb19-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_mscf-vm.pem <span class="dt">\</span></span>
-<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubkey</span> <span class="at">-noout</span> <span class="kw">|</span></span>
-<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> pkey <span class="at">-pubin</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
-<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span>
-<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl pkey <span class="dt">\</span></span>
-<span id="cb19-8"><a href="#cb19-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_private-key.pem <span class="dt">\</span></span>
-<span id="cb19-9"><a href="#cb19-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubout</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
-<span id="cb19-10"><a href="#cb19-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb19-3"><a href="#cb19-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span> <span class="at">-dates</span> <span class="at">-ext</span> subjectAltName</span>
+<span id="cb19-4"><a href="#cb19-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb19-5"><a href="#cb19-5" aria-hidden="true" tabindex="-1"></a><span class="ex">openssl</span> x509 <span class="dt">\</span></span>
+<span id="cb19-6"><a href="#cb19-6" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_mscf-vm_bundle.pem <span class="dt">\</span></span>
+<span id="cb19-7"><a href="#cb19-7" aria-hidden="true" tabindex="-1"></a>    <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>compare again the hash between certificate and private key</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl x509 <span class="dt">\</span></span>
+<span id="cb20-2"><a href="#cb20-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_mscf-vm.pem <span class="dt">\</span></span>
+<span id="cb20-3"><a href="#cb20-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubkey</span> <span class="at">-noout</span> <span class="kw">|</span></span>
+<span id="cb20-4"><a href="#cb20-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> pkey <span class="at">-pubin</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
+<span id="cb20-5"><a href="#cb20-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span>
+<span id="cb20-6"><a href="#cb20-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb20-7"><a href="#cb20-7" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> openssl pkey <span class="dt">\</span></span>
+<span id="cb20-8"><a href="#cb20-8" aria-hidden="true" tabindex="-1"></a>    <span class="at">-in</span> /etc/apache2/certificate/2027/2027_private-key.pem <span class="dt">\</span></span>
+<span id="cb20-9"><a href="#cb20-9" aria-hidden="true" tabindex="-1"></a>    <span class="at">-pubout</span> <span class="at">-outform</span> DER <span class="kw">|</span></span>
+<span id="cb20-10"><a href="#cb20-10" aria-hidden="true" tabindex="-1"></a>    <span class="fu">sha256sum</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Change the Apache configuration</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb20"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb20-1"><a href="#cb20-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> nano /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb21"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> nano /etc/apache2/sites-available/ms-vm-shiny-443.conf</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Change the following section to contain the new paths to the new certificates: (Using the actual paths directly initially avoids uncertainty about the current symlinks.)</p>
 <pre><code>&lt;VirtualHost *:443&gt;
     ServerName mscf-vm.biochem.mpg.de
@@ -384,25 +389,25 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 &lt;/VirtualHost&gt;</code></pre>
 <p>Test and reload Apache</p>
 <p>First check the configuration without disrupting the running server:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb22"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb22-1"><a href="#cb22-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
-<span id="cb22-2"><a href="#cb22-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl configtest</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb23"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb23-1"><a href="#cb23-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
+<span id="cb23-2"><a href="#cb23-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl configtest</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>You should get:</p>
 <pre><code>Syntax OK</code></pre>
 <p>Reload Apache:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb24"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb24-1"><a href="#cb24-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl reload apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl reload apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Check its status:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb25"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl <span class="at">--no-pager</span> <span class="at">--full</span> status apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl <span class="at">--no-pager</span> <span class="at">--full</span> status apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Confirm the certificate being served</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb26"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb26-1"><a href="#cb26-1" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="kw">|</span> <span class="ex">openssl</span> s_client <span class="dt">\</span></span>
-<span id="cb26-2"><a href="#cb26-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-connect</span> mscf-vm.biochem.mpg.de:443 <span class="dt">\</span></span>
-<span id="cb26-3"><a href="#cb26-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-servername</span> mscf-vm.biochem.mpg.de <span class="dv">2</span><span class="op">&gt;</span>/dev/null <span class="kw">|</span></span>
-<span id="cb26-4"><a href="#cb26-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> x509 <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span> <span class="at">-serial</span> <span class="at">-dates</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Also verify the chain:</p>
 <div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb27"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb27-1"><a href="#cb27-1" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="kw">|</span> <span class="ex">openssl</span> s_client <span class="dt">\</span></span>
 <span id="cb27-2"><a href="#cb27-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-connect</span> mscf-vm.biochem.mpg.de:443 <span class="dt">\</span></span>
-<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-servername</span> mscf-vm.biochem.mpg.de <span class="dt">\</span></span>
-<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">-verify_return_error</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">|</span></span>
-<span id="cb27-5"><a href="#cb27-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tail</span> <span class="at">-n</span> 5</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<span id="cb27-3"><a href="#cb27-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-servername</span> mscf-vm.biochem.mpg.de <span class="dv">2</span><span class="op">&gt;</span>/dev/null <span class="kw">|</span></span>
+<span id="cb27-4"><a href="#cb27-4" aria-hidden="true" tabindex="-1"></a>    <span class="ex">openssl</span> x509 <span class="at">-noout</span> <span class="at">-subject</span> <span class="at">-issuer</span> <span class="at">-serial</span> <span class="at">-dates</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Also verify the chain:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb28"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb28-1"><a href="#cb28-1" aria-hidden="true" tabindex="-1"></a><span class="bu">echo</span> <span class="kw">|</span> <span class="ex">openssl</span> s_client <span class="dt">\</span></span>
+<span id="cb28-2"><a href="#cb28-2" aria-hidden="true" tabindex="-1"></a>    <span class="at">-connect</span> mscf-vm.biochem.mpg.de:443 <span class="dt">\</span></span>
+<span id="cb28-3"><a href="#cb28-3" aria-hidden="true" tabindex="-1"></a>    <span class="at">-servername</span> mscf-vm.biochem.mpg.de <span class="dt">\</span></span>
+<span id="cb28-4"><a href="#cb28-4" aria-hidden="true" tabindex="-1"></a>    <span class="at">-verify_return_error</span> <span class="dv">2</span><span class="op">&gt;&amp;</span><span class="dv">1</span> <span class="kw">|</span></span>
+<span id="cb28-5"><a href="#cb28-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">tail</span> <span class="at">-n</span> 5</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>A successful result should contain:</p>
 <pre><code>Verify return code: 0 (ok)</code></pre>
 <p>Keep the existing <code>/etc/apache2/certificate/2027/</code> files unchanged until new certificates have been verified ( The certificates are always valid for only 365 days). That gives a simple rollback by restoring the two old paths in the Apache configuration and reloading Apache.</p>
@@ -410,80 +415,80 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <h3 data-number="7.5.1" class="anchored" data-anchor-id="changes-on-22.07.2026"><span class="header-section-number">7.5.1</span> Changes on 22.07.2026</h3>
 <p><a href="https://cm.harica.gr/">Harica</a> has revoked the old certifiacte. For that reason I have applied for a new certifiacate. The new one was saved under <code>/home/yeroslaviz/certificate_request/2027/2027_07-22-2026</code>.</p>
 <p><strong>The older Cert files were deleted.</strong></p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb29"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb29-1"><a href="#cb29-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027</span>
-<span id="cb29-2"><a href="#cb29-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> 2027_certificate-request.pem 2027_private-key.pem Cert<span class="pp">*</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /home/<span class="op">&lt;</span>USER<span class="op">&gt;</span>/certificate_request/2027</span>
+<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">rm</span> 2027_certificate-request.pem 2027_private-key.pem Cert<span class="pp">*</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>The rest was kept in the same way. I copied the new Cert files to the apache2 folder and restarted the apache2 server after confirming the hashes are identical.</p>
 <p>The server is back online and still works with https.</p>
 </section>
 </section>
 <section id="initialize-database" class="level2" data-number="7.6">
 <h2 data-number="7.6" class="anchored" data-anchor-id="initialize-database"><span class="header-section-number">7.6</span> Initialize Database</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb30"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb30-1"><a href="#cb30-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
-<span id="cb30-2"><a href="#cb30-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="bu">cd</span> /srv/shiny-server/ms-app</span>
+<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> <span class="at">-u</span> shiny Rscript setup_database.R</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>This creates a missing database. When the database already exists, it preserves all rows and applies only schema migrations and seed checks. The destructive reset option, <code>MS_RESET_DB=1</code>, must not be used during routine installation or deployment.</p>
 </section>
 <section id="runtime-environment" class="level2" data-number="7.7">
 <h2 data-number="7.7" class="anchored" data-anchor-id="runtime-environment"><span class="header-section-number">7.7</span> Runtime Environment</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb31"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb31-1"><a href="#cb31-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
-<span id="cb31-2"><a href="#cb31-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
-<span id="cb31-3"><a href="#cb31-3" aria-hidden="true" tabindex="-1"></a><span class="st">TRUST_PROXY_AUTH_USER_QUERY=1</span></span>
-<span id="cb31-4"><a href="#cb31-4" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
-<span id="cb31-5"><a href="#cb31-5" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span>
-<span id="cb31-6"><a href="#cb31-6" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_UID=uid</span></span>
-<span id="cb31-7"><a href="#cb31-7" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_MAIL=mail</span></span>
-<span id="cb31-8"><a href="#cb31-8" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_PHONE=telephoneNumber</span></span>
-<span id="cb31-9"><a href="#cb31-9" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_OU=ou</span></span>
-<span id="cb31-10"><a href="#cb31-10" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_COST_CENTER=departmentNumber</span></span>
-<span id="cb31-11"><a href="#cb31-11" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_FACILITY_GROUPS=b_ms,b_ngs</span></span>
-<span id="cb31-12"><a href="#cb31-12" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_CN=cn</span></span>
-<span id="cb31-13"><a href="#cb31-13" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_GIVENNAME=givenName</span></span>
-<span id="cb31-14"><a href="#cb31-14" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_SN=sn</span></span>
-<span id="cb31-15"><a href="#cb31-15" aria-hidden="true" tabindex="-1"></a><span class="st">MS_FACILITY_EMAIL=ms-service@biochem.mpg.de</span></span>
-<span id="cb31-16"><a href="#cb31-16" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAIL_FROM=ms-service@biochem.mpg.de</span></span>
-<span id="cb31-17"><a href="#cb31-17" aria-hidden="true" tabindex="-1"></a><span class="st">MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de</span></span>
-<span id="cb31-18"><a href="#cb31-18" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_HOST=msx.biochem.mpg.de</span></span>
-<span id="cb31-19"><a href="#cb31-19" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_PORT=25</span></span>
-<span id="cb31-20"><a href="#cb31-20" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_SSL=0</span></span>
-<span id="cb31-21"><a href="#cb31-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
-<span id="cb31-22"><a href="#cb31-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
-<span id="cb31-23"><a href="#cb31-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
-<span id="cb31-24"><a href="#cb31-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-ms-projects</span></span>
-<span id="cb31-25"><a href="#cb31-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
-<span id="cb31-26"><a href="#cb31-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
-<span id="cb31-27"><a href="#cb31-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
-<span id="cb31-28"><a href="#cb31-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb31-29"><a href="#cb31-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb31-30"><a href="#cb31-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /srv/shiny-server/ms-app/.Renviron <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
+<span id="cb32-2"><a href="#cb32-2" aria-hidden="true" tabindex="-1"></a><span class="st">AUTH_MODE=ldap</span></span>
+<span id="cb32-3"><a href="#cb32-3" aria-hidden="true" tabindex="-1"></a><span class="st">TRUST_PROXY_AUTH_USER_QUERY=1</span></span>
+<span id="cb32-4"><a href="#cb32-4" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_URI=ldaps://ldapserv1.biochem.mpg.de,ldaps://ldapserv2.biochem.mpg.de,ldaps://ldapserv3.biochem.mpg.de</span></span>
+<span id="cb32-5"><a href="#cb32-5" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_BASE_DN=dc=biochem,dc=mpg,dc=de</span></span>
+<span id="cb32-6"><a href="#cb32-6" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_UID=uid</span></span>
+<span id="cb32-7"><a href="#cb32-7" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_MAIL=mail</span></span>
+<span id="cb32-8"><a href="#cb32-8" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_PHONE=telephoneNumber</span></span>
+<span id="cb32-9"><a href="#cb32-9" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_OU=ou</span></span>
+<span id="cb32-10"><a href="#cb32-10" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_COST_CENTER=departmentNumber</span></span>
+<span id="cb32-11"><a href="#cb32-11" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_FACILITY_GROUPS=b_ms,b_ngs</span></span>
+<span id="cb32-12"><a href="#cb32-12" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_CN=cn</span></span>
+<span id="cb32-13"><a href="#cb32-13" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_GIVENNAME=givenName</span></span>
+<span id="cb32-14"><a href="#cb32-14" aria-hidden="true" tabindex="-1"></a><span class="st">LDAP_ATTR_SN=sn</span></span>
+<span id="cb32-15"><a href="#cb32-15" aria-hidden="true" tabindex="-1"></a><span class="st">MS_FACILITY_EMAIL=ms-service@biochem.mpg.de</span></span>
+<span id="cb32-16"><a href="#cb32-16" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAIL_FROM=ms-service@biochem.mpg.de</span></span>
+<span id="cb32-17"><a href="#cb32-17" aria-hidden="true" tabindex="-1"></a><span class="st">MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de</span></span>
+<span id="cb32-18"><a href="#cb32-18" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_HOST=msx.biochem.mpg.de</span></span>
+<span id="cb32-19"><a href="#cb32-19" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_PORT=25</span></span>
+<span id="cb32-20"><a href="#cb32-20" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_SSL=0</span></span>
+<span id="cb32-21"><a href="#cb32-21" aria-hidden="true" tabindex="-1"></a><span class="st">SMTP_TLS=0</span></span>
+<span id="cb32-22"><a href="#cb32-22" aria-hidden="true" tabindex="-1"></a><span class="st"># Optional: comma-separated recipient domains, for example biochem.mpg.de.</span></span>
+<span id="cb32-23"><a href="#cb32-23" aria-hidden="true" tabindex="-1"></a><span class="st"># MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de</span></span>
+<span id="cb32-24"><a href="#cb32-24" aria-hidden="true" tabindex="-1"></a><span class="st">MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects</span></span>
+<span id="cb32-25"><a href="#cb32-25" aria-hidden="true" tabindex="-1"></a><span class="st">MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool</span></span>
+<span id="cb32-26"><a href="#cb32-26" aria-hidden="true" tabindex="-1"></a><span class="st">MS_MAX_UPLOAD_MB=75</span></span>
+<span id="cb32-27"><a href="#cb32-27" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span>
+<span id="cb32-28"><a href="#cb32-28" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chown shiny:shiny /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb32-29"><a href="#cb32-29" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> chmod 640 /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb32-30"><a href="#cb32-30" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="apache-ldap" class="level2" data-number="7.8">
 <h2 data-number="7.8" class="anchored" data-anchor-id="apache-ldap"><span class="header-section-number">7.8</span> Apache / LDAP</h2>
 <p>Install LDAP client tools:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb32"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb32-1"><a href="#cb32-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt-get install <span class="at">-y</span> ldap-utils libldap2-dev libsasl2-dev ca-certificates</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apt-get install <span class="at">-y</span> ldap-utils libldap2-dev libsasl2-dev ca-certificates</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Configure OpenLDAP trust:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb33"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb33-1"><a href="#cb33-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /etc/ldap/ldap.conf <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
-<span id="cb33-2"><a href="#cb33-2" aria-hidden="true" tabindex="-1"></a><span class="st">BASE            dc=biochem,dc=mpg,dc=de</span></span>
-<span id="cb33-3"><a href="#cb33-3" aria-hidden="true" tabindex="-1"></a><span class="st">URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de</span></span>
-<span id="cb33-4"><a href="#cb33-4" aria-hidden="true" tabindex="-1"></a><span class="st">TLS_REQCERT     hard</span></span>
-<span id="cb33-5"><a href="#cb33-5" aria-hidden="true" tabindex="-1"></a><span class="st">TLS_CACERTDIR   /etc/ssl/certs</span></span>
-<span id="cb33-6"><a href="#cb33-6" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> tee /etc/ldap/ldap.conf <span class="op">&gt;</span>/dev/null <span class="op">&lt;&lt;'EOF'</span></span>
+<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="st">BASE            dc=biochem,dc=mpg,dc=de</span></span>
+<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="st">URI             ldaps://ldapserv1.biochem.mpg.de ldaps://ldapserv2.biochem.mpg.de ldaps://ldapserv3.biochem.mpg.de</span></span>
+<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="st">TLS_REQCERT     hard</span></span>
+<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="st">TLS_CACERTDIR   /etc/ssl/certs</span></span>
+<span id="cb34-6"><a href="#cb34-6" aria-hidden="true" tabindex="-1"></a><span class="op">EOF</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Copy and enable the vhost:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb34"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb34-1"><a href="#cb34-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/<span class="op">&lt;</span>user<span class="op">&gt;</span>/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span>
-<span id="cb34-2"><a href="#cb34-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap</span>
-<span id="cb34-3"><a href="#cb34-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
-<span id="cb34-4"><a href="#cb34-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
-<span id="cb34-5"><a href="#cb34-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> cp /home/<span class="op">&lt;</span>user<span class="op">&gt;</span>/BCFMS-project-management/scripts/ms-vm-shiny-443.conf /etc/apache2/sites-available/ms-vm-shiny-443.conf</span>
+<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2enmod ssl proxy proxy_http proxy_wstunnel headers rewrite ldap authnz_ldap</span>
+<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> a2ensite ms-vm-shiny-443.conf</span>
+<span id="cb35-4"><a href="#cb35-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> apache2ctl <span class="at">-t</span></span>
+<span id="cb35-5"><a href="#cb35-5" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart apache2</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="verification" class="level2" data-number="7.9">
 <h2 data-number="7.9" class="anchored" data-anchor-id="verification"><span class="header-section-number">7.9</span> Verification</h2>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb35"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb35-1"><a href="#cb35-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
-<span id="cb35-2"><a href="#cb35-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
-<span id="cb35-3"><a href="#cb35-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> https://mscf-vm.biochem.mpg.de/</span>
+<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-Ik</span> <span class="at">-u</span> USER https://mscf-vm.biochem.mpg.de/ms-app/</span>
+<span id="cb36-3"><a href="#cb36-3" aria-hidden="true" tabindex="-1"></a><span class="ex">curl</span> <span class="at">-I</span> http://127.0.0.1:3838/ms-app/</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 <p>Local maintenance login:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb36"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb36-1"><a href="#cb36-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=local/'</span> /srv/shiny-server/ms-app/.Renviron</span>
-<span id="cb36-2"><a href="#cb36-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>Return to LDAP:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=ldap/'</span> /srv/shiny-server/ms-app/.Renviron</span>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb37"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb37-1"><a href="#cb37-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=local/'</span> /srv/shiny-server/ms-app/.Renviron</span>
 <span id="cb37-2"><a href="#cb37-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Return to LDAP:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb38"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb38-1"><a href="#cb38-1" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> sed <span class="at">-i</span> <span class="st">'s/^AUTH_MODE=.*/AUTH_MODE=ldap/'</span> /srv/shiny-server/ms-app/.Renviron</span>
+<span id="cb38-2"><a href="#cb38-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sudo</span> systemctl restart shiny-server</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
 </section>
 <section id="backup-restore" class="level2" data-number="7.10">
 <h2 data-number="7.10" class="anchored" data-anchor-id="backup-restore"><span class="header-section-number">7.10</span> Backup / Restore</h2>
