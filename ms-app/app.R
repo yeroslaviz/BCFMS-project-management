@@ -2003,20 +2003,22 @@ sample_rows_from_table <- function(sample_table) {
     ))
   }
 
-  if (all(c("Tube ID", "Sample Name") %in% names(sample_table))) {
-    return(data.frame(
-      row_index = seq_len(nrow(sample_table)),
-      tube_id = sample_table[["Tube ID"]],
-      condition = "",
-      replicate = "",
-      is_control = 0L,
-      description = sample_table[["Sample Name"]],
-      stringsAsFactors = FALSE
-    ))
+  descriptive_tube_column <- "Sample Number (clearly indicated on tube)"
+  descriptive_name_column <- "Sample Name (used for data analysis)"
+  tube_column <- if ("Tube ID" %in% names(sample_table)) "Tube ID" else if ("Tube_ID" %in% names(sample_table)) "Tube_ID" else if (descriptive_tube_column %in% names(sample_table)) descriptive_tube_column else NULL
+  name_column <- if ("Sample Name" %in% names(sample_table)) "Sample Name" else if (descriptive_name_column %in% names(sample_table)) descriptive_name_column else NULL
+  n <- nrow(sample_table)
+  value_column <- function(column_name) {
+    if (is.null(column_name) || !(column_name %in% names(sample_table))) {
+      rep("", n)
+    } else {
+      trimws(as.character(sample_table[[column_name]]))
+    }
   }
-
-  description <- trimws(sample_table[["Description"]] %||% "")
-  comments <- trimws(sample_table[["Comments"]] %||% "")
+  tube_id <- value_column(tube_column)
+  description <- value_column(name_column)
+  if (all(!nzchar(description))) description <- value_column("Description")
+  comments <- value_column("Comments")
   combined_description <- ifelse(
     nzchar(description) & nzchar(comments),
     paste(description, comments, sep = " | "),
@@ -2024,11 +2026,11 @@ sample_rows_from_table <- function(sample_table) {
   )
 
   data.frame(
-    row_index = seq_len(nrow(sample_table)),
-    tube_id = sample_table[["Tube_ID"]],
-    condition = sample_table[["Condition"]] %||% "",
-    replicate = sample_table[["Replicate"]] %||% "",
-    is_control = as.integer(tolower(sample_table[["Control?"]]) == "yes"),
+    row_index = seq_len(n),
+    tube_id = tube_id,
+    condition = value_column("Condition"),
+    replicate = value_column("Replicate"),
+    is_control = as.integer(tolower(value_column("Control?")) == "yes"),
     description = combined_description,
     stringsAsFactors = FALSE
   )
