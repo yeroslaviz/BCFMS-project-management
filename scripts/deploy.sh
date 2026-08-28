@@ -169,11 +169,6 @@ if ! getent group "${APP_RUN_GROUP}" >/dev/null; then
   echo "Deploy failed: runtime group ${APP_RUN_GROUP} does not exist." >&2
   exit 1
 fi
-if ! id -nG "${APP_RUN_USER}" | tr ' ' '\n' | grep -Fxq "${APP_RUN_GROUP}"; then
-  echo "Deploy failed: ${APP_RUN_USER} is not a member of ${APP_RUN_GROUP}." >&2
-  exit 1
-fi
-
 if sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
   sudo install -d -o "${APP_RUN_USER}" -g "${APP_RUN_GROUP}" -m 0750 "${PERSISTENT_UPLOAD_FALLBACK}"
   sudo chown -R "${APP_RUN_USER}:${APP_RUN_GROUP}" "${APP_TARGET}"

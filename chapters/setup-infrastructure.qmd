@@ -77,9 +77,9 @@ APP_RUN_USER=mscf-shiny-user
 APP_RUN_GROUP=b_ms
 ```
 
-The dedicated `mscf-shiny-user` account will obtain read/write access to the NFS-mounted `/fs/pool/pool-mscf-projects` through the `b_ms` group. It must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in `.Renviron`.
+The dedicated `mscf-shiny-user` account has direct user read/write access in the ACL of the NFS-mounted `/fs/pool/pool-mscf-projects`. The ACL separately grants group read/write access to `b_ms`, which remains the group used for deployed-file ownership. The service account does not need to belong to `b_ms` and must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in `.Renviron`.
 
-The deploy script now uses these values by default and stops before changing files if the account, group, or membership is missing. Do not use the new defaults on the VM until the account has been provisioned, its pool access has been verified, and the Shiny Server `run_as` cutover is ready. While production still runs as `shiny`, an essential deployment must use the explicit temporary override:
+The deploy script now uses these values by default and stops before changing files if the account or ownership group is missing. Do not use the new defaults on the VM until the account has been provisioned, its direct pool access has been verified, and the Shiny Server `run_as` cutover is ready. While production still runs as `shiny`, an essential deployment must use the explicit temporary override:
 
 ```bash
 APP_RUN_USER=shiny APP_RUN_GROUP=shiny ./scripts/deploy.sh
@@ -159,6 +159,8 @@ sudo systemctl restart shiny-server
 The project-upload pool is `/fs/pool/pool-mscf-projects`. If it is unavailable, the app stores uploads under `/srv/ms-app-data/uploads_pending_pool/`, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with ownership set to `APP_RUN_USER:APP_RUN_GROUP`.
 
 New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`, for example `20260724_asmith_Pr_1234`.
+
+The app applies mode `0777` to each project folder it creates and mode `0666` to each uploaded project file. This is deliberately limited to project storage under `MS_UPLOAD_ROOT` or the protected fallback root; it does not change the process-wide umask or permissions elsewhere. Access to the main pool remains gated by the pool root ACL. Technicians work through SMB, where the storage service applies its Samba permission override to files they create. Released results are copied separately to `pool-mscf-public`, whose existing permission script grants access based on the recipient username.
 
 ## Apache LDAP Proxy
 

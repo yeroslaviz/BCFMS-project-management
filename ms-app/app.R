@@ -2063,6 +2063,14 @@ copy_file_maybe_gzip <- function(source, destination, compress = FALSE) {
   destination
 }
 
+set_project_path_mode <- function(path, mode) {
+  changed <- Sys.chmod(path, mode = mode, use_umask = FALSE)
+  if (length(changed) != 1 || is.na(changed) || !changed) {
+    stop("Could not set project-storage permissions on: ", path)
+  }
+  invisible(path)
+}
+
 prepare_project_folder <- function(project_code, username, submission_date = Sys.Date()) {
   folder_name <- paste(
     format(as.Date(submission_date), "%Y%m%d"),
@@ -2088,6 +2096,7 @@ prepare_project_folder <- function(project_code, username, submission_date = Sys
   if (!dir.exists(folder)) {
     stop("Could not create the project upload folder: ", folder)
   }
+  set_project_path_mode(folder, "0777")
 
   list(root = root, folder = normalizePath(folder, mustWork = FALSE), status = status)
 }
@@ -2103,6 +2112,7 @@ store_upload_set <- function(con, project_id, upload, file_type, folder, usernam
     if (compress) stored_name <- paste0(stored_name, ".gz")
     destination <- file.path(folder, stored_name)
     copy_file_maybe_gzip(upload$datapath[i], destination, compress = compress)
+    set_project_path_mode(destination, "0666")
     checksum <- digest::digest(file = destination, algo = "sha256")
     insert_record(con, "project_files", list(
       project_id = project_id,
@@ -2132,6 +2142,7 @@ store_sample_table_upload <- function(con, project_id, upload, sample_table, pro
   )
   destination <- file.path(folder, stored_name)
   write_normalized_sample_table(sample_table, destination)
+  set_project_path_mode(destination, "0666")
   checksum <- digest::digest(file = destination, algo = "sha256")
 
   insert_record(con, "project_files", list(

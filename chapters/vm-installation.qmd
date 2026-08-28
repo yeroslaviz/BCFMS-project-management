@@ -49,7 +49,7 @@ git clone git@github.com:yeroslaviz/BCFMS-project-management.git
 
 ## Shiny Server
 
-The planned application service account is `mscf-shiny-user`, with runtime group `b_ms`. The account receives read/write access to `/fs/pool/pool-mscf-projects` through that group and must not receive root or sudo membership. Confirm that the centrally provisioned account and group are visible on the VM before using them:
+The planned application service account is `mscf-shiny-user`, with deployed-file ownership group `b_ms`. The pool ACL grants the account direct user read/write access and separately grants group read/write access to `b_ms`; the account does not need to belong to that group and must not receive root or sudo membership. Confirm that the centrally provisioned account and group are visible on the VM before using them:
 
 ```bash
 getent passwd mscf-shiny-user

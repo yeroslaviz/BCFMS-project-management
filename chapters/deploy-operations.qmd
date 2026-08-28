@@ -15,9 +15,9 @@ APP_RUN_USER=mscf-shiny-user
 APP_RUN_GROUP=b_ms
 ```
 
-`mscf-shiny-user` is the dedicated MS Core Facility service account. It will receive pool access through membership in `b_ms`; it does not need root or sudo membership. These are deployment-shell variables, not R settings, so do not add them to the app-local `.Renviron`.
+`mscf-shiny-user` is the dedicated MS Core Facility service account. The pool ACL grants this user read/write access directly; `b_ms` separately has group read/write access and remains the group used for deployed-file ownership. The service account does not need to belong to `b_ms` and does not need root or sudo membership. These are deployment-shell variables, not R settings, so do not add them to the app-local `.Renviron`.
 
-The repository is prepared for this identity, but do not perform the production cutover until the account exists, `id mscf-shiny-user` lists `b_ms`, storage administrators have confirmed access to `/fs/pool/pool-mscf-projects`, and Shiny Server has been configured to run this app as that user. Until then, a necessary deployment using the existing account must override both values explicitly:
+The repository is prepared for this identity, but do not perform the production cutover until the account exists, storage administrators have confirmed its direct ACL access to `/fs/pool/pool-mscf-projects`, and Shiny Server has been configured to run this app as that user. Until then, a necessary deployment using the existing account must override both values explicitly:
 
 ```bash
 APP_RUN_USER=shiny APP_RUN_GROUP=shiny ./scripts/deploy.sh
@@ -31,7 +31,9 @@ git pull origin main
 ./scripts/deploy.sh
 ```
 
-The deploy script verifies that the configured account and group exist and that the account belongs to the group. It then syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`.
+The deploy script verifies that the configured account and ownership group exist. It then syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`. Group membership is not required because the runtime account owns the deployed files and has a direct pool ACL.
+
+Project folders created by the app receive mode `0777`, and uploaded project files receive mode `0666`. These modes are applied only to paths created inside the configured project pool or protected fallback. The pool-root ACL continues to control who can reach them. This supports the tested workflow in which Shiny writes through NFS and technicians work through SMB; Samba applies its override to technician-created files. The separate `pool-mscf-public` release workflow retains its username-based permission script.
 
 ## Pre-Deploy Backups
 
