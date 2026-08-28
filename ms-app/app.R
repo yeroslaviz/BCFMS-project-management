@@ -1163,18 +1163,18 @@ next_project_code <- function(con, project_type) {
     stop("Cannot generate a project code for unknown project type: ", project_type)
   }
 
-  code_pattern <- paste0(prefix, "_%")
+  code_pattern <- paste0(prefix, "%")
   rows <- dbGetQuery(con, "
     SELECT project_code
     FROM projects
     WHERE project_code LIKE ?
   ", params = list(code_pattern))
   codes <- rows$project_code %||% character()
-  code_regex <- paste0("^", prefix, "_[0-9]+$")
+  code_regex <- paste0("^", prefix, "[0-9]+$")
   codes <- codes[grepl(code_regex, codes)]
-  nums <- suppressWarnings(as.integer(sub(paste0("^", prefix, "_"), "", codes)))
+  nums <- suppressWarnings(as.integer(sub(paste0("^", prefix), "", codes)))
   nums <- nums[!is.na(nums)]
-  paste0(prefix, "_", max(c(0L, nums)) + 1L)
+  paste0(prefix, sprintf("%06d", max(c(0L, nums)) + 1L))
 }
 
 project_summary_text <- function(project, samples = NULL) {
@@ -2074,12 +2074,7 @@ set_project_path_mode <- function(path, mode) {
 }
 
 prepare_project_folder <- function(project_code, username, submission_date = Sys.Date()) {
-  folder_name <- paste(
-    format(as.Date(submission_date), "%Y%m%d"),
-    sanitize_path_part(username),
-    sanitize_path_part(project_code),
-    sep = "_"
-  )
+  folder_name <- paste(sanitize_path_part(project_code), sanitize_path_part(username), sep = "_")
   root <- MS_UPLOAD_ROOT
   status <- "pool"
 
@@ -2088,6 +2083,14 @@ prepare_project_folder <- function(project_code, username, submission_date = Sys
     status <- "pool_missing_fallback"
   }
 
+  parent <- switch(
+    substr(sanitize_path_part(project_code), 1, 2),
+    In = "Intact",
+    Pr = "Proteomics",
+    Me = "Metabolomics",
+    "Other"
+  )
+  root <- file.path(root, parent)
   folder <- file.path(root, folder_name)
   dir.create(folder, recursive = TRUE, showWarnings = FALSE)
   if (!dir.exists(folder)) {
@@ -3142,7 +3145,7 @@ server <- function(input, output, session) {
         if (identical(input$project_type, "intact_mass")) {
           fluidRow(
             column(6, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
-            column(6, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date())))
+            column(6, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date())))
           )
         },
         if (input$project_type == "metabolomics") {
@@ -3150,7 +3153,7 @@ server <- function(input, output, session) {
             column(
               6,
               fluidRow(
-                column(8, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+                column(8, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
                 column(4, textInput("submission_time", field_label("Time", "Submission time in HH:MM format; it may be changed manually."), value = format(Sys.time(), "%H:%M")))
               ),
               readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1),
@@ -3166,11 +3169,6 @@ server <- function(input, output, session) {
               6,
               conditionalPanel(
                 condition = "input.metabolomics_sample_type && ['Cell Pellet', 'Protein Pellet'].indexOf(input.metabolomics_sample_type) < 0",
-                textAreaInput(
-                  "sample_buffer",
-                  field_label("Buffer / Solvent", "Describe the submitted solution or sample matrix."),
-                  rows = 3
-                ),
                 fluidRow(
                   column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
                   column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
@@ -3234,7 +3232,7 @@ server <- function(input, output, session) {
             column(
               6,
               fluidRow(
-                column(8, textInput("submission_date", field_label("Date of submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
+                column(8, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
                 column(4, textInput("submission_time", field_label("Time", "Submission time in HH:MM format; it may be changed manually."), value = format(Sys.time(), "%H:%M")))
               ),
               readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1),
@@ -3243,9 +3241,9 @@ server <- function(input, output, session) {
             column(
               6,
               conditionalPanel(
-                condition = "['In-solution', 'In-solution Digest', 'Gel Band /Gel Lane', 'On-beads', 'Supernatant', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'Enrichement (PTM)'].indexOf(input.proteomics_sample_type) >= 0",
+                condition = "['in-solution', 'in-solution digest', 'gel band /gel lane', 'on-beads', 'supernatant', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'enrichement (ptm)'].indexOf((input.proteomics_sample_type || '').toLowerCase()) >= 0",
                 conditionalPanel(
-                  condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf(input.proteomics_sample_type) < 0",
+                  condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf((input.proteomics_sample_type || '').toLowerCase()) < 0",
                   textAreaInput(
                     "sample_buffer",
                     field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents. PBS, HEPES, and Tris can interfere with ESI."),
@@ -3269,7 +3267,7 @@ server <- function(input, output, session) {
                 )
               ),
               conditionalPanel(
-                condition = "['Cell Pellet', 'Protein Pellet', 'Tissue'].indexOf(input.proteomics_sample_type) >= 0",
+                condition = "['cell pellet', 'protein pellet', 'tissue'].indexOf((input.proteomics_sample_type || '').toLowerCase()) >= 0",
                 textInput(
                   "sample_amount",
                   field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein, 1e6 cells, 5 mg tissue")
@@ -3438,7 +3436,7 @@ server <- function(input, output, session) {
       return(div(
       class = "form-section type-proteomics",
       h4("5. Proteomics – Data Analysis"),
-        radioButtons("proteomics_acquisition_mode", field_label("Acquisition mode *", "Choose DDA, DIA, no preference, or discuss with facility."), choices = load_choice_values(con, "proteomics_acquisition_mode"), inline = TRUE),
+        radioButtons("proteomics_acquisition_mode", field_label("Acquisition mode *", "Choose DDA, DIA, no preference, or discuss with facility."), choices = load_choice_values(con, "proteomics_acquisition_mode"), selected = "Discuss with facility", inline = TRUE),
         selectInput(
           "proteomics_quantification_strategy",
           field_label("Quantification strategy", "Optional. Label-free, SILAC, no quantification, or other."),
@@ -3915,6 +3913,7 @@ server <- function(input, output, session) {
       project$metabolomics_acquisition_mode,
       c("DDA", "Targeted")
     )
+    proteomics_acquisition_choices <- choice_values_with_current(con, "proteomics_acquisition_mode", project$proteomics_acquisition_mode)
     existing_additional_cost <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
     additional_cost_input <- if (!is.na(existing_additional_cost) && existing_additional_cost > 0) {
       format_euro(existing_additional_cost)
@@ -3971,6 +3970,7 @@ server <- function(input, output, session) {
             column(6, textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4)),
             column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
           ),
+          uiOutput("edit_type_specific_details"),
           fluidRow(
             column(4, selectInput(
               "edit_column_type",
@@ -4015,6 +4015,14 @@ server <- function(input, output, session) {
               "Metabolomics acquisition mode",
               choices = c("Not selected" = "", metabolomics_acquisition_choices),
               selected = scalar_text(project$metabolomics_acquisition_mode)
+            )
+          },
+          if (can_edit_all_projects() && identical(scalar_text(project$project_type), "proteomics")) {
+            selectInput(
+              "edit_proteomics_acquisition_mode",
+              "Proteomics acquisition mode",
+              choices = proteomics_acquisition_choices,
+              selected = scalar_text(project$proteomics_acquisition_mode, "Discuss with facility")
             )
           },
           if (can_edit_all_projects()) {
@@ -4081,6 +4089,25 @@ server <- function(input, output, session) {
       "Current status",
       status_with_date(project$status, project$last_status_update_at)
     )
+  })
+
+  output$edit_type_specific_details <- renderUI({
+    project_id <- editing_project_id()
+    req(project_id)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    project <- load_project_detail(con, project_id)
+    if (nrow(project) == 0) return(NULL)
+    p <- project[1, , drop = FALSE]
+    rows <- list(
+      `Project-specific details` = paste(
+        if (identical(p$project_type, "proteomics")) paste("Project type:", scalar_text(p$proteomics_project_type)) else if (identical(p$project_type, "metabolomics")) paste("Project type:", scalar_text(p$metabolomics_analysis_type)) else paste("Project type:", scalar_text(p$intact_project_type)),
+        if (identical(p$project_type, "proteomics")) paste("Sample type:", scalar_text(p$proteomics_sample_type)) else if (identical(p$project_type, "metabolomics")) paste("Sample type:", scalar_text(p$metabolomics_sample_type)) else paste("Sample type:", scalar_text(p$intact_sample_type)),
+        if (identical(p$project_type, "proteomics")) paste("Acquisition mode:", scalar_text(p$proteomics_acquisition_mode)) else if (identical(p$project_type, "metabolomics")) paste("Approach:", scalar_text(p$metabolomics_approach)) else paste("Expected mass:", scalar_text(p$intact_expected_mass_da)),
+        sep = "\n"
+      )
+    )
+    div(class = "edit-type-specific-details", h4("Project-specific details"), tags$pre(rows[[1]]))
   })
 
   output$edit_cost_breakdown <- renderUI({
@@ -4314,6 +4341,9 @@ server <- function(input, output, session) {
     }
     if (role_is_admin(current_user_role()) && identical(scalar_text(project_before$project_type), "metabolomics")) {
       values$metabolomics_acquisition_mode <- trim_scalar(input$edit_metabolomics_acquisition_mode)
+    }
+    if (can_edit_all_projects() && identical(scalar_text(project_before$project_type), "proteomics")) {
+      values$proteomics_acquisition_mode <- trim_scalar(input$edit_proteomics_acquisition_mode, "Discuss with facility")
     }
     status_changed <- FALSE
     status_changed_at <- NULL
