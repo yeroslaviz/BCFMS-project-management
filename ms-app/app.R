@@ -3241,7 +3241,7 @@ server <- function(input, output, session) {
             column(
               6,
               conditionalPanel(
-                condition = "['in-solution', 'in-solution digest', 'gel band /gel lane', 'on-beads', 'supernatant', 'ready-to-load (digested)', 'ready-to-load (digested+desalted)', 'enrichement (ptm)'].indexOf((input.proteomics_sample_type || '').toLowerCase()) >= 0",
+                condition = "/(solution|gel band|on-beads|supernatant|enrichement)/i.test(input.proteomics_sample_type || '') || ['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf((input.proteomics_sample_type || '').toLowerCase()) >= 0",
                 conditionalPanel(
                   condition = "['ready-to-load (digested)', 'ready-to-load (digested+desalted)'].indexOf((input.proteomics_sample_type || '').toLowerCase()) < 0",
                   textAreaInput(
@@ -3711,7 +3711,8 @@ server <- function(input, output, session) {
         "ready-to-load (digested+desalted)"
       )
       selected_proteomics_sample_type <- trim_scalar(input$proteomics_sample_type)
-      if (selected_proteomics_sample_type %in% full_preparation_sample_types) {
+      if (selected_proteomics_sample_type %in% full_preparation_sample_types ||
+          grepl("solution|gel band|on-beads|supernatant|enrichement", selected_proteomics_sample_type, ignore.case = TRUE)) {
         project_values$sample_amount <- ""
       } else if (selected_proteomics_sample_type %in% ready_to_load_sample_types) {
         project_values$sample_buffer <- ""
