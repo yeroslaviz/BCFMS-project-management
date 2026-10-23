@@ -141,6 +141,7 @@ LDAP_ATTR_SN=sn
 MS_FACILITY_EMAIL=ms-service@biochem.mpg.de
 MS_MAIL_FROM=ms-service@biochem.mpg.de
 MS_POOL_FALLBACK_EMAIL=omicsdesk@biochem.mpg.de
+BIOINFORMATICS_ALERT_EMAIL=
 SMTP_HOST=msx.biochem.mpg.de
 SMTP_PORT=25
 SMTP_SSL=0

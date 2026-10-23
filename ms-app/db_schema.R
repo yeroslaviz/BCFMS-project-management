@@ -16,6 +16,7 @@ MS_POOL_FALLBACK_EMAIL <- Sys.getenv(
   "MS_POOL_FALLBACK_EMAIL",
   "omicsdesk@biochem.mpg.de"
 )
+MS_BIOINFORMATICS_ALERT_EMAIL <- Sys.getenv("BIOINFORMATICS_ALERT_EMAIL", "")
 MS_UPLOAD_ROOT <- Sys.getenv("MS_UPLOAD_ROOT", "/fs/pool/pool-mscf-projects")
 MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv(
   "MS_LOCAL_UPLOAD_FALLBACK",
@@ -483,6 +484,27 @@ ms_cleanup_budget_holders <- function(con) {
        OR lower(surname) IN ('surname', 'user')
   "
   )
+
+  dbExecute(con, "
+    CREATE TABLE IF NOT EXISTS mail_delivery_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER NOT NULL,
+      delivery_type TEXT NOT NULL,
+      recipients TEXT NOT NULL,
+      subject TEXT NOT NULL,
+      body TEXT NOT NULL,
+      attachment_path TEXT,
+      html INTEGER NOT NULL DEFAULT 0,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      next_attempt_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      status TEXT NOT NULL DEFAULT 'pending',
+      last_error TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      sent_at DATETIME,
+      UNIQUE(project_id, delivery_type),
+      FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
+    )
+  ")
 
   dbExecute(
     con,
