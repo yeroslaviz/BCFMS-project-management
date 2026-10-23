@@ -1,1 +1,1 @@
-Sample Number (clearly indicated on tube)	Sample Name (used for data analysis)	Condition	Replicate	Sample amount [Unit] (optional)	Comments (optional)
+Sample Number (clearly indicated on tube)	Sample Name (used for data analysis)	Condition	Replicate	Sample amount	Sample amount Unit (optional)	Comments (optional)

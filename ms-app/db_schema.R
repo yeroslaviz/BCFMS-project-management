@@ -184,6 +184,7 @@ ms_controlled_options <- list(
     "Tims2_Mann",
     "Tims3",
     "Zeno1_Mann",
+    "Microtof",
     "Other"
   ),
   data_acquisition = c("DDA", "DIA", "DIA and DDA")
@@ -927,6 +928,15 @@ ms_migrate_schema <- function(con) {
       "SELECT COUNT(*) AS n FROM controlled_options"
     )$n[[1]]
     if (controlled_option_count > 0) {
+      dbExecute(
+        con,
+        "
+        INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+        SELECT 'ms_machine', 'Microtof', COALESCE(MAX(display_order), 0) + 1
+        FROM controlled_options
+        WHERE option_group = 'ms_machine'
+        "
+      )
       dbExecute(
         con,
         "

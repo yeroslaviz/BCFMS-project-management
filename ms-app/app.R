@@ -618,7 +618,9 @@ dropdown_option_group_labels <- c(
   metabolomics_acquisition_mode = "Acquisition Mode",
   concentration_determination = "Concentration Determination",
   concentration_method = "Concentration Method",
-  volume_unit = "Volume Unit"
+  volume_unit = "Volume Unit",
+  column_type = "Column Type",
+  ms_machine = "MS Machine"
 )
 
 dropdown_option_groups_by_project_type <- list(
@@ -633,6 +635,7 @@ dropdown_option_groups_by_project_type <- list(
     "metabolomics_analysis_type", "metabolomics_sample_type",
     "metabolomics_approach", "metabolomics_acquisition_mode", "volume_unit"
   ),
+  all = c("column_type", "ms_machine"),
   intact_mass = c(
     "intact_project_type", "intact_sample_type",
     "concentration_determination", "concentration_method", "volume_unit"
@@ -640,7 +643,11 @@ dropdown_option_groups_by_project_type <- list(
 )
 
 dropdown_option_group_choices <- function(project_type, current = "") {
-  groups <- dropdown_option_groups_by_project_type[[trim_scalar(project_type)]]
+  groups <- if (identical(trim_scalar(project_type), "general")) {
+    c("column_type", "ms_machine")
+  } else {
+    dropdown_option_groups_by_project_type[[trim_scalar(project_type)]]
+  }
   if (is.null(groups)) groups <- character()
   current <- trim_scalar(current)
   if (nzchar(current) && !(current %in% groups)) groups <- c(groups, current)
@@ -1926,6 +1933,17 @@ read_sample_table_upload <- function(upload, project_type, num_samples = NULL, r
     ))
   }
 
+  required_headers <- expected[!grepl("\\(optional\\)", expected, ignore.case = TRUE)]
+  for (column_name in required_headers) {
+    if (column_name %in% names(table)) {
+      values <- trimws(as.character(table[[column_name]]))
+      values[is.na(values)] <- ""
+      if (any(!nzchar(values))) {
+        errors <- c(errors, paste0("Every sample row needs a value in '", column_name, "'."))
+      }
+    }
+  }
+
   expected_rows_supplied <- !is.null(num_samples) && length(num_samples) > 0 && !all(is.na(num_samples))
   if (!expected_rows_supplied) {
     if (nrow(table) == 0) {
@@ -3152,10 +3170,7 @@ server <- function(input, output, session) {
           fluidRow(
             column(
               6,
-              fluidRow(
-                column(8, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-                column(4, textInput("submission_time", field_label("Time", "Submission time in HH:MM format; it may be changed manually."), value = format(Sys.time(), "%H:%M")))
-              ),
+              textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date())),
               readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1),
               numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1),
               selectizeInput(
@@ -3231,10 +3246,7 @@ server <- function(input, output, session) {
           fluidRow(
             column(
               6,
-              fluidRow(
-                column(8, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date()))),
-                column(4, textInput("submission_time", field_label("Time", "Submission time in HH:MM format; it may be changed manually."), value = format(Sys.time(), "%H:%M")))
-              ),
+              textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date())),
               readonly_numeric_input("num_samples", field_label("Biological Samples", "Automatically calculated from the number of rows in the uploaded sample overview table."), value = 0, min = 0, step = 1),
               numericInput("technical_replicates", field_label("Technical replicates *", "Number of repeated measurements of the same biological sample."), value = 0, min = 0, step = 1)
             ),
@@ -3532,10 +3544,6 @@ server <- function(input, output, session) {
           technical_replicates < 0 || technical_replicates != floor(technical_replicates)) {
         errors <- c(errors, "Technical replicates must be a non-negative integer.")
       }
-      submission_time <- trim_scalar(input$submission_time)
-      if (!grepl("^([01][0-9]|2[0-3]):[0-5][0-9]$", submission_time)) {
-        errors <- c(errors, "Time must use 24-hour HH:MM format.")
-      }
     }
 
     if (!(selected_type %in% c("intact_mass", "proteomics", "metabolomics"))) {
@@ -3657,7 +3665,7 @@ server <- function(input, output, session) {
       submitter_group = selected_budget_group,
       budget_id = selected_budget_id,
       submission_date = trim_scalar(input$submission_date, as.character(Sys.Date())),
-      submission_time = if (input$project_type %in% c("proteomics", "metabolomics")) trim_scalar(input$submission_time, format(Sys.time(), "%H:%M")) else "",
+      submission_time = "",
       num_samples = as.integer(nrow(sample_table_result$table)),
       technical_replicates = if (identical(input$project_type, "intact_mass")) 0L else as.integer(input$technical_replicates),
       sample_buffer = trim_scalar(input$sample_buffer),
@@ -3907,7 +3915,6 @@ server <- function(input, output, session) {
     staff_choices <- load_staff_choices(con)
     column_type_choices <- choice_values_with_current(con, "column_type", project$column_type)
     ms_machine_choices <- choice_values_with_current(con, "ms_machine", project$ms_machine)
-    data_acquisition_choices <- choice_values_with_current(con, "data_acquisition", project$data_acquisition)
     metabolomics_acquisition_choices <- choice_values_with_current(
       con,
       "metabolomics_acquisition_mode",
@@ -3984,12 +3991,6 @@ server <- function(input, output, session) {
               "MS Machine",
               choices = c("Not set" = "", ms_machine_choices),
               selected = scalar_text(project$ms_machine)
-            )),
-            column(4, selectInput(
-              "edit_data_acquisition",
-              "Data Acquisition",
-              choices = c("Not set" = "", data_acquisition_choices),
-              selected = scalar_text(project$data_acquisition)
             ))
           ),
           fluidRow(
@@ -4332,7 +4333,6 @@ server <- function(input, output, session) {
       column_type_other = if (identical(trim_scalar(input$edit_column_type), "Other")) other_fields[["Other Column Type"]] else "",
       ms_machine = trim_scalar(input$edit_ms_machine),
       ms_machine_other = if (identical(trim_scalar(input$edit_ms_machine), "Other")) other_fields[["Other MS Machine"]] else "",
-      data_acquisition = trim_scalar(input$edit_data_acquisition),
       report_notes = trim_scalar(input$edit_report_notes),
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
@@ -4635,7 +4635,8 @@ server <- function(input, output, session) {
         choices = c(
           "Proteomics" = "proteomics",
           "Metabolomics" = "metabolomics",
-          "Intact / Native / QC" = "intact_mass"
+          "Intact / Native / QC" = "intact_mass",
+          "General" = "general"
         ),
         selected = "proteomics",
         inline = TRUE

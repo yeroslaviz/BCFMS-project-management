@@ -1,1 +1,1 @@
-Sample Number (clearly indicated on tube)	Sample Name (used for data analysis)	Condition	Replicate	Concentration [Unit]  (optional)	Sample amount [Unit] (optional)	Comments (optional)
+Sample Number (clearly indicated on tube)	Sample Name (used for data analysis)	Condition	Replicate	Concentration (optional)	Concentration Unit (optional)	Sample amount (optional)	Sample amount Unit (optional)	Comments (optional)
