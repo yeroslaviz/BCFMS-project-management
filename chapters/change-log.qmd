@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 04.11.2026](#changes-on-04.11.2026)
 - [Changes on 20.08.2026](#changes-on-20.08.2026)
 - [Changes on 31.07.2026](#changes-on-31.07.2026)
 - [Changes on 27.07.2026](#changes-on-27.07.2026)
@@ -22,6 +23,13 @@ execute:
 - [Changes on 18.06.2026](#changes-on-18.06.2026)
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
+
+## Changes on 04.11.2026
+
+1. Removed **Data Acquisition** and **Acquisition Mode** from the staff project-overview table while retaining the underlying project data and edit controls.
+2. Removed the **Important information / Sample retention** block from project reports and cost-estimation PDFs; invoices retain the existing block.
+3. Added a staff-only **Additional text for the data release email** field to the project editor. The value is stored per project and inserted below the Windows and Mac result paths when the status changes to **Results sent**.
+4. Ensured queued data-release retries retain the complete release email, including the staff-entered text.
 
 ## Changes on 20.08.2026
 

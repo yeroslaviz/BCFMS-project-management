@@ -204,7 +204,7 @@ html_escape <- function(value) {
 }
 
 status_is_data_released <- function(status) {
-  tolower(trim_scalar(status)) %in% c("data released", "data release", "results sent")
+  tolower(trim_scalar(status)) %in% c("data released", "data release", "result sent", "results sent")
 }
 
 parse_optional_nonnegative_number <- function(value, label) {
@@ -1527,11 +1527,13 @@ write_project_report_pdf <- function(
     }
   }
 
-  section("Important information")
-  ensure_space(0.06)
-  graphics::text(0.065, y - 0.012, "Sample retention", adj = c(0, 1), col = "#C00000", cex = 0.72, font = 2)
-  graphics::text(0.31, y - 0.012, strwrap(MS_SUBMISSION_WARNING, width = 72)[[1]], adj = c(0, 1), col = "#C00000", cex = 0.78)
-  y <<- y - 0.04
+  if (identical(document_type, "invoice")) {
+    section("Important information")
+    ensure_space(0.06)
+    graphics::text(0.065, y - 0.012, "Sample retention", adj = c(0, 1), col = "#C00000", cex = 0.72, font = 2)
+    graphics::text(0.31, y - 0.012, strwrap(MS_SUBMISSION_WARNING, width = 72)[[1]], adj = c(0, 1), col = "#C00000", cex = 0.78)
+    y <<- y - 0.04
+  }
 }
 
 log_email <- function(con, project_id, recipients, subject, status, error_message = "") {
@@ -1751,14 +1753,6 @@ project_type_sample_description <- function(project) {
   if (length(details) == 0) project_type else paste0(project_type, ": ", paste(details, collapse = "; "))
 }
 
-project_data_location <- function(project) {
-  folder <- trim_scalar(project$project_folder)
-  if (nzchar(folder)) return(folder)
-  root <- trim_scalar(project$upload_root, MS_UPLOAD_ROOT)
-  if (!nzchar(root)) root <- MS_UPLOAD_ROOT
-  file.path(root, sanitize_path_part(scalar_text(project$project_code, "project")))
-}
-
 project_public_locations <- function(project) {
   parent <- switch(scalar_text(project$project_type), proteomics = "Proteomics", metabolomics = "Metabolomics", intact_mass = "Intact", "Other")
   folder <- sanitize_path_part(basename(trim_scalar(project$project_folder)))
@@ -1819,13 +1813,13 @@ send_ms_cost_estimation_email <- function(con, project, report_file = NULL) {
   send_mail_safe(con, project$id[[1]], recipients, subject, body, attachments = report_file, html = TRUE)
 }
 
-send_ms_data_released_email <- function(con, project) {
+build_ms_data_released_email <- function(con, project) {
   contact <- resolve_project_user_contact(con, project)
   recipients <- contact$email
   subject <- paste(project$project_code, "MS data released", sep = " - ")
-  data_path <- project_data_location(project)
   public_paths <- project_public_locations(project)
-  body <- paste(
+  release_note <- trim_scalar(project$data_release_note)
+  body_lines <- c(
     paste0("Dear ", contact$name, ","),
     "",
     paste0("Data for Mass Spectrometry Core Facility project ", scalar_text(project$project_code), " are now available."),
@@ -1834,14 +1828,19 @@ send_ms_data_released_email <- function(con, project) {
     paste0("(Windows) ", public_paths$windows),
     paste0("(Mac) ", public_paths$mac),
     "",
+    if (nzchar(release_note)) c(release_note, ""),
     "Please contact the MS Core Facility if you have questions about the released data.",
     "",
     "Best regards,",
-    "Mass Spectrometry Core Facility",
-    sep = "\n"
+    "Mass Spectrometry Core Facility"
   )
 
-  send_mail_safe(con, project$id[[1]], recipients, subject, body)
+  list(recipients = recipients, subject = subject, body = paste(body_lines, collapse = "\n"))
+}
+
+send_ms_data_released_email <- function(con, project) {
+  mail <- build_ms_data_released_email(con, project)
+  send_mail_safe(con, project$id[[1]], mail$recipients, mail$subject, mail$body)
 }
 
 validate_fasta_file <- function(path) {
@@ -2813,7 +2812,6 @@ server <- function(input, output, session) {
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_name, p.submitter_email,
                p.column_type, p.column_type_other, p.ms_machine, p.ms_machine_other,
-               p.data_acquisition, p.metabolomics_acquisition_mode,
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_project_type
                  WHEN 'proteomics' THEN p.proteomics_project_type
@@ -2967,15 +2965,8 @@ server <- function(input, output, session) {
         status_update = "Status",
         technician = "Sample handler",
         column_type_display = "Column Type",
-        ms_machine_display = "MS Machine",
-        data_acquisition = "Data Acquisition"
+        ms_machine_display = "MS Machine"
       )
-      if (role_is_admin(current_user_role())) {
-        display_columns <- c(
-          display_columns,
-          metabolomics_acquisition_mode = "Acquisition Mode"
-        )
-      }
     }
     display_columns <- c(
       display_columns,
@@ -4035,6 +4026,13 @@ server <- function(input, output, session) {
             choices = staff_choices,
             selected = scalar_text(project$technician_user_id)
           ),
+          if (can_edit_all_projects()) textAreaInput(
+            "edit_data_release_note",
+            "Additional text for the data release email",
+            value = scalar_text(project$data_release_note),
+            rows = 4,
+            placeholder = "Optional information shown below the Windows and Mac project-folder paths."
+          ),
           textAreaInput("edit_sample_buffer", "Buffer / Solvent", value = project$sample_buffer, rows = 3),
           fluidRow(
             column(4, textInput("edit_sample_concentration", "Concentration", value = project$sample_concentration)),
@@ -4408,6 +4406,9 @@ server <- function(input, output, session) {
     if (!is_intact_project) {
       values$technical_replicates <- as.integer(edit_technical_replicates)
     }
+    if (can_edit_all_projects()) {
+      values$data_release_note <- trim_scalar(input$edit_data_release_note)
+    }
     if (role_is_admin(current_user_role()) && identical(scalar_text(project_before$project_type), "metabolomics")) {
       values$metabolomics_acquisition_mode <- trim_scalar(input$edit_metabolomics_acquisition_mode)
     }
@@ -4489,9 +4490,10 @@ server <- function(input, output, session) {
       if (isTRUE(res$success)) {
         showNotification("Data release email sent to the project user.", type = "message")
       } else {
-        queue_mail_delivery(con, project_id, "results_sent", resolve_project_user_contact(con, project_after)$email,
-          paste(project_after$project_code[[1]], "MS data released", sep = " - "),
-          paste("Data for Mass Spectrometry Core Facility project", project_after$project_code[[1]], "are now available.", sep = " "),
+        release_mail <- build_ms_data_released_email(con, project_after)
+        queue_mail_delivery(con, project_id, "results_sent", release_mail$recipients,
+          release_mail$subject,
+          release_mail$body,
           error_message = res$error %||% "unknown error")
         showNotification(paste("Project updated, but data release email failed:", res$error %||% "unknown error"), type = "warning", duration = 10)
         alert_recipients <- unique(c(MS_POOL_FALLBACK_EMAIL, trim_scalar(MS_BIOINFORMATICS_ALERT_EMAIL)))
