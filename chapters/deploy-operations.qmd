@@ -35,7 +35,7 @@ The deploy script verifies that the configured account and ownership group exist
 
 Project folders created by the app receive mode `0777`, and uploaded or generated project files receive mode `0666`. These modes are applied only inside the configured private/public pools or protected fallbacks. The pool-root ACLs continue to control who can reach them. This supports the tested workflow in which Shiny writes through NFS and technicians work through SMB; Samba applies its override to technician-created files. The `pool-mscf-public` username-based permission script remains in effect.
 
-For every new project, the app creates matching `PROJECTID_USERNAME` folders below the type-specific private and public directories. The public folder contains the sample-submission artifacts and cost-estimation PDF, and includes `Results_for_customer` for released results.
+For every new project, the app creates matching `PROJECTID_USERNAME` folders below the type-specific private and public directories. The private project folder includes `Results_for_customer` for preparing released results. The public folder contains the sample-submission artifacts and cost-estimation PDF.
 
 ## Pre-Deploy Backups
 

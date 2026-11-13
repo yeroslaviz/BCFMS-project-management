@@ -161,7 +161,7 @@ sudo systemctl restart shiny-server
 
 The project-upload pool is `/fs/pool/pool-mscf-projects`, and the customer-facing pool is `/fs/pool/pool-mscf-public`. If either mount is unavailable, the app uses its persistent fallback under `/srv/ms-app-data/` and logs/sends a facility notification instead of blocking project submission. The deploy script creates both fallbacks with ownership set to `APP_RUN_USER:APP_RUN_GROUP`.
 
-New project folders use the pattern `PROJECTID_USERNAME`, for example `Pr000001_asmith` or `Me000001_asmith`. The same type-specific folder is created in both pools. The public folder receives the sample submission PDF, normalized sample table, and cost-estimation PDF, plus an empty `Results_for_customer` directory.
+New project folders use the pattern `PROJECTID_USERNAME`, for example `Pr000001_asmith` or `Me000001_asmith`. The same type-specific folder is created in both pools. The private project folder contains an empty `Results_for_customer` directory for preparing released results. The public folder receives the sample submission PDF, normalized sample table, and cost-estimation PDF.
 
 The app applies mode `0777` to each project folder it creates and mode `0666` to each uploaded or generated project file. This is deliberately limited to project storage under the configured private/public roots or their protected fallbacks; it does not change the process-wide umask or permissions elsewhere. Access remains gated by the pool-root ACLs. Technicians work through SMB, where the storage service applies its Samba permission override to files they create. The existing `pool-mscf-public` permission workflow continues to grant access based on the recipient username.
 

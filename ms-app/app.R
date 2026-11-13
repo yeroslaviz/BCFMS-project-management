@@ -2173,6 +2173,13 @@ prepare_project_folder <- function(project_code, username, submission_date = Sys
   }
   set_project_path_mode(folder, "0777")
 
+  results_folder <- file.path(folder, "Results_for_customer")
+  dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(results_folder)) {
+    stop("Could not create the customer-results folder: ", results_folder)
+  }
+  set_project_path_mode(results_folder, "0777")
+
   public_root <- MS_PUBLIC_ROOT
   public_status <- "pool"
   if (!dir.exists(public_root)) {
@@ -2193,13 +2200,6 @@ prepare_project_folder <- function(project_code, username, submission_date = Sys
     stop("Could not create the public project folder: ", public_folder)
   }
   set_project_path_mode(public_folder, "0777")
-
-  results_folder <- file.path(public_folder, "Results_for_customer")
-  dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
-  if (!dir.exists(results_folder)) {
-    stop("Could not create the customer-results folder: ", results_folder)
-  }
-  set_project_path_mode(results_folder, "0777")
 
   list(
     root = root,
@@ -2259,13 +2259,6 @@ ensure_project_public_folder <- function(project) {
     stop("Could not create the public project folder: ", folder)
   }
   set_project_path_mode(folder, "0777")
-
-  results_folder <- file.path(folder, "Results_for_customer")
-  dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
-  if (!dir.exists(results_folder)) {
-    stop("Could not create the customer-results folder: ", results_folder)
-  }
-  set_project_path_mode(results_folder, "0777")
   normalizePath(folder, mustWork = FALSE)
 }
 
