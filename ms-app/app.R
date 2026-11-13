@@ -1338,7 +1338,7 @@ write_project_report_pdf <- function(
     document_type,
     invoice = "Mass Spectrometry Project Invoice",
     cost_estimate = "Mass Spectrometry Cost Estimate",
-    "Mass Spectrometry Project Report"
+    "Sample submission sheet"
   )
   if (is.null(cost_breakdown)) cost_breakdown <- project_cost_breakdown_snapshot(project)
   pdf_currency <- function(value) {
@@ -1755,7 +1755,10 @@ project_type_sample_description <- function(project) {
 
 project_public_locations <- function(project) {
   parent <- switch(scalar_text(project$project_type), proteomics = "Proteomics", metabolomics = "Metabolomics", intact_mass = "Intact", "Other")
-  folder <- sanitize_path_part(basename(trim_scalar(project$project_folder)))
+  folder <- sanitize_path_part(basename(first_non_empty(
+    project$public_project_folder,
+    project$project_folder
+  )))
   if (!nzchar(folder)) folder <- paste(sanitize_path_part(project$project_code), sanitize_path_part(project$responsible_user), sep = "_")
   list(
     windows = paste0("\\\\samba-pool-mscf-public\\pool-mscf-public\\", parent, "\\", folder),
@@ -1805,7 +1808,7 @@ send_ms_cost_estimation_email <- function(con, project, report_file = NULL) {
     "</table>",
     "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
     "<p>The attached report contains the complete project and cost breakdown.</p>",
-    "<p>Please inform the facility when you want to bring your samples and be aware of our opening hours. Please do not hesitate to contact us if any additional questions arise.</p>",
+    "<p>Please let us know in advance when you plan to drop off your samples and note our opening hours. To prevent any confusion, kindly state your Project ID when submitting your samples. Do not hesitate to contact us if any additional questions arise.</p>",
     "<p>Best regards,<br>Mass Spectrometry Core Facility</p>",
     "</body></html>"
   )
@@ -2170,7 +2173,117 @@ prepare_project_folder <- function(project_code, username, submission_date = Sys
   }
   set_project_path_mode(folder, "0777")
 
-  list(root = root, folder = normalizePath(folder, mustWork = FALSE), status = status)
+  public_root <- MS_PUBLIC_ROOT
+  public_status <- "pool"
+  if (!dir.exists(public_root)) {
+    public_root <- MS_LOCAL_PUBLIC_FALLBACK
+    public_status <- "pool_missing_fallback"
+  }
+
+  public_root <- file.path(public_root, parent)
+  public_folder <- file.path(public_root, folder_name)
+  dir.create(public_folder, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(public_folder)) {
+    public_root <- file.path(MS_LOCAL_PUBLIC_FALLBACK, parent)
+    public_folder <- file.path(public_root, folder_name)
+    dir.create(public_folder, recursive = TRUE, showWarnings = FALSE)
+    public_status <- "fallback"
+  }
+  if (!dir.exists(public_folder)) {
+    stop("Could not create the public project folder: ", public_folder)
+  }
+  set_project_path_mode(public_folder, "0777")
+
+  results_folder <- file.path(public_folder, "Results_for_customer")
+  dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(results_folder)) {
+    stop("Could not create the customer-results folder: ", results_folder)
+  }
+  set_project_path_mode(results_folder, "0777")
+
+  list(
+    root = root,
+    folder = normalizePath(folder, mustWork = FALSE),
+    status = status,
+    public_root = public_root,
+    public_folder = normalizePath(public_folder, mustWork = FALSE),
+    public_status = public_status,
+    results_folder = normalizePath(results_folder, mustWork = FALSE)
+  )
+}
+
+copy_project_artifact <- function(source, destination_folder) {
+  if (!file.exists(source)) {
+    stop("Project artifact does not exist: ", source)
+  }
+  if (!dir.exists(destination_folder)) {
+    stop("Project artifact destination does not exist: ", destination_folder)
+  }
+
+  destination <- file.path(destination_folder, basename(source))
+  copied <- file.copy(source, destination, overwrite = TRUE, copy.mode = FALSE)
+  if (length(copied) != 1 || is.na(copied) || !copied) {
+    stop("Could not store the project artifact in: ", destination_folder)
+  }
+  set_project_path_mode(destination, "0666")
+  normalizePath(destination, mustWork = FALSE)
+}
+
+project_public_folder <- function(project) {
+  configured <- trim_scalar(project$public_project_folder)
+  if (nzchar(configured)) return(configured)
+
+  parent <- switch(
+    scalar_text(project$project_type),
+    intact_mass = "Intact",
+    proteomics = "Proteomics",
+    metabolomics = "Metabolomics",
+    "Other"
+  )
+  folder_name <- sanitize_path_part(basename(trim_scalar(project$project_folder)))
+  if (!nzchar(folder_name)) {
+    folder_name <- paste(
+      sanitize_path_part(project$project_code),
+      sanitize_path_part(project$responsible_user),
+      sep = "_"
+    )
+  }
+  root <- if (dir.exists(MS_PUBLIC_ROOT)) MS_PUBLIC_ROOT else MS_LOCAL_PUBLIC_FALLBACK
+  file.path(root, parent, folder_name)
+}
+
+ensure_project_public_folder <- function(project) {
+  folder <- project_public_folder(project)
+  dir.create(folder, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(folder)) {
+    stop("Could not create the public project folder: ", folder)
+  }
+  set_project_path_mode(folder, "0777")
+
+  results_folder <- file.path(folder, "Results_for_customer")
+  dir.create(results_folder, recursive = TRUE, showWarnings = FALSE)
+  if (!dir.exists(results_folder)) {
+    stop("Could not create the customer-results folder: ", results_folder)
+  }
+  set_project_path_mode(results_folder, "0777")
+  normalizePath(folder, mustWork = FALSE)
+}
+
+write_public_cost_estimation <- function(project, samples, files, cost_breakdown) {
+  folder <- ensure_project_public_folder(project)
+  folder_stem <- basename(folder)
+  destination <- file.path(folder, paste0(folder_stem, "_Cost_estimation.pdf"))
+  write_project_report_pdf(
+    project,
+    samples,
+    files,
+    destination,
+    document_type = "cost_estimate",
+    cost_breakdown = cost_breakdown,
+    include_samples = FALSE
+  )
+  set_project_path_mode(destination, "0666")
+  normalizePath(destination, mustWork = FALSE)
 }
 
 store_upload_set <- function(con, project_id, upload, file_type, folder, username, compress = TRUE) {
@@ -2733,7 +2846,7 @@ server <- function(input, output, session) {
           class = "action-bar",
           actionButton("new_project_btn", "Create New Project", class = "btn btn-primary"),
           actionButton("edit_project_btn", "Edit Selected", class = "btn btn-secondary"),
-          downloadButton("download_report_btn", "Project Report"),
+          downloadButton("download_report_btn", "Sample submission sheet"),
           downloadButton("download_invoice_btn", "Invoice"),
           if (can_delete_projects()) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
         ),
@@ -3866,7 +3979,10 @@ server <- function(input, output, session) {
       update_record(con, "projects", list(
         upload_root = storage$root,
         project_folder = storage$folder,
-        upload_storage_status = storage$status
+        upload_storage_status = storage$status,
+        public_root = storage$public_root,
+        public_project_folder = storage$public_folder,
+        public_storage_status = storage$public_status
       ), "id = ?", list(project_id))
 
       for (i in seq_len(nrow(samples))) {
@@ -3927,14 +4043,21 @@ server <- function(input, output, session) {
       submission_pdf <- file.path(project$project_folder[[1]], paste0(folder_stem, "_Sample_submission.pdf"))
       write_project_report_pdf(project, saved_samples, load_project_files(con, project_id), submission_pdf,
         document_type = "report", include_costs = FALSE, include_samples = TRUE)
+      set_project_path_mode(submission_pdf, "0666")
+      copy_project_artifact(submission_pdf, project$public_project_folder[[1]])
       sample_path <- unlist(stored_paths$sample_table, use.names = FALSE)
       if (length(sample_path) > 0 && file.exists(sample_path)) {
         renamed_sample_path <- file.path(project$project_folder[[1]], paste0(folder_stem, "_Sample_table.txt"))
         if (!identical(normalizePath(sample_path, mustWork = FALSE), normalizePath(renamed_sample_path, mustWork = FALSE))) {
-          file.rename(sample_path, renamed_sample_path)
+          renamed <- file.rename(sample_path, renamed_sample_path)
+          if (length(renamed) != 1 || is.na(renamed) || !renamed) {
+            stop("Could not rename the normalized sample table: ", sample_path)
+          }
+          set_project_path_mode(renamed_sample_path, "0666")
           dbExecute(con, "UPDATE project_files SET stored_name = ?, path = ? WHERE project_id = ? AND file_type = 'sample_table'",
             params = list(basename(renamed_sample_path), normalizePath(renamed_sample_path, mustWork = FALSE), project_id))
         }
+        copy_project_artifact(renamed_sample_path, project$public_project_folder[[1]])
       }
       send_ms_submission_email(con, project, saved_samples, unlist(stored_paths$sample_table, use.names = FALSE))
 
@@ -3948,6 +4071,20 @@ server <- function(input, output, session) {
             "The configured upload pool was not available.",
             paste("Pool root:", MS_UPLOAD_ROOT),
             paste("Fallback folder:", storage$folder),
+            sep = "\n"
+          )
+        )
+      }
+      if (!identical(storage$public_status, "pool")) {
+        send_mail_safe(
+          con,
+          project_id,
+          MS_POOL_FALLBACK_EMAIL,
+          paste(project$project_code, "public pool fallback used", sep = " - "),
+          paste(
+            "The configured public pool was not available.",
+            paste("Pool root:", MS_PUBLIC_ROOT),
+            paste("Fallback folder:", storage$public_folder),
             sep = "\n"
           )
         )
@@ -4508,8 +4645,12 @@ server <- function(input, output, session) {
       already_sent <- dbGetQuery(con, "SELECT COUNT(*) AS n FROM email_logs WHERE project_id = ? AND subject = ? AND status = 'sent'", params = list(project_id, paste(project_after$project_code[[1]], "MS project cost estimation", sep = " - ")))$n[[1]] > 0
       if (!already_sent) {
         samples_after <- load_project_samples(con, project_id)
-        report_file <- tempfile(pattern = paste0(project_after$project_code[[1]], "_cost_estimate_"), fileext = ".pdf")
-        write_project_report_pdf(project_after, samples_after, load_project_files(con, project_id), report_file, document_type = "cost_estimate", cost_breakdown = project_cost_breakdown_snapshot(project_after), include_samples = FALSE)
+        report_file <- write_public_cost_estimation(
+          project_after,
+          samples_after,
+          load_project_files(con, project_id),
+          project_cost_breakdown_snapshot(project_after)
+        )
         res <- send_ms_cost_estimation_email(con, project_after, report_file)
         if (!isTRUE(res$success)) {
           queue_mail_delivery(con, project_id, "accepted", resolve_project_user_contact(con, project_after)$email,
@@ -4517,7 +4658,7 @@ server <- function(input, output, session) {
             "The Mass Spectrometry Core Facility has reviewed and accepted your project submission.", report_file, html = TRUE,
             error_message = res$error %||% "unknown error")
           showNotification(paste("Accepted-project email failed; queued for retry:", res$error %||% "unknown error"), type = "warning", duration = 10)
-        } else unlink(report_file)
+        }
       }
     }
   })
@@ -4569,16 +4710,11 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, project_id)
     samples <- load_project_samples(con, project_id)
     files <- load_project_files(con, project_id)
-    cost_report <- tempfile(pattern = paste0(project$project_code[[1]], "_cost_estimate_"), fileext = ".pdf")
-    on.exit(unlink(cost_report), add = TRUE)
-    write_project_report_pdf(
+    cost_report <- write_public_cost_estimation(
       project,
       samples,
       files,
-      cost_report,
-      document_type = "cost_estimate",
-      cost_breakdown = breakdown,
-      include_samples = FALSE
+      breakdown
     )
     res <- send_ms_cost_estimation_email(con, project, cost_report)
     if (isTRUE(res$success)) {
@@ -4623,7 +4759,7 @@ server <- function(input, output, session) {
   output$download_report_btn <- downloadHandler(
     filename = function() {
       row <- selected_project_row()
-      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_report.pdf")
+      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_sample_submission.pdf")
     },
     content = function(file) {
       row <- selected_project_row()
@@ -4633,7 +4769,15 @@ server <- function(input, output, session) {
       project <- load_project_detail(con, row$id[[1]])
       samples <- load_project_samples(con, row$id[[1]])
       files <- load_project_files(con, row$id[[1]])
-      write_project_report_pdf(project, samples, files, file, "report")
+      write_project_report_pdf(
+        project,
+        samples,
+        files,
+        file,
+        document_type = "report",
+        include_costs = FALSE,
+        include_samples = TRUE
+      )
     }
   )
 

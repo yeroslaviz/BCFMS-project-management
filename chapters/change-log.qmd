@@ -10,6 +10,7 @@ execute:
 
 ### Contents
 
+- [Changes on 13.11.2026](#changes-on-13.11.2026)
 - [Changes on 04.11.2026](#changes-on-04.11.2026)
 - [Changes on 20.08.2026](#changes-on-20.08.2026)
 - [Changes on 31.07.2026](#changes-on-31.07.2026)
@@ -23,6 +24,14 @@ execute:
 - [Changes on 18.06.2026](#changes-on-18.06.2026)
 - [Changes on 17.06.2026](#changes-on-17.06.2026)
 - [Changes on 16.06.2026](#changes-on-16.06.2026)
+
+## Changes on 13.11.2026
+
+1. Added automatic matching project-folder creation in `/fs/pool/pool-mscf-public`, using the existing `PROJECTID_USERNAME` naming convention and type-specific parent directories.
+2. Added an automatic `Results_for_customer` directory to every new public project folder.
+3. Stored the sample submission PDF, normalized sample table, and cost-estimation PDF in the public project folder.
+4. Renamed the report title and project-table download button to **Sample submission sheet**.
+5. Updated the accepted-project cost-estimation email with the revised sample drop-off and Project ID instructions.
 
 ## Changes on 04.11.2026
 

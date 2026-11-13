@@ -98,6 +98,8 @@ SMTP_TLS=0
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects
 MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
+MS_PUBLIC_ROOT=/fs/pool/pool-mscf-public
+MS_LOCAL_PUBLIC_FALLBACK=/srv/ms-app-data/public_pending_pool
 MS_MAX_UPLOAD_MB=75
 # Temporary: keep this only while debugging LDAP, then remove or set to 0.
 LDAP_DEBUG=1
@@ -158,14 +160,21 @@ Configured project-upload root:
 /fs/pool/pool-mscf-projects
 ```
 
-If this path does not exist, the app stores uploads in `/srv/ms-app-data/uploads_pending_pool/` outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because the pool folder is not mounted yet.
+Configured customer-facing root:
 
-New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`.
+```text
+/fs/pool/pool-mscf-public
+```
+
+If either path does not exist, the app stores artifacts in the corresponding `/srv/ms-app-data/*_pending_pool/` fallback outside the deployed app directory and logs/sends a facility warning. This is intentional; project submission should not stop because a pool folder is not mounted yet.
+
+New project folders use the pattern `PROJECTID_USERNAME`, for example `Pr000001_asmith`.
 
 Check fallback files:
 
 ```bash
 sudo find /srv/ms-app-data/uploads_pending_pool -maxdepth 2 -type f
+sudo find /srv/ms-app-data/public_pending_pool -maxdepth 3 -type f
 ```
 
 ## Logs

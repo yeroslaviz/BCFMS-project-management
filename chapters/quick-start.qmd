@@ -90,6 +90,8 @@ SMTP_TLS=0
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects
 MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
+MS_PUBLIC_ROOT=/fs/pool/pool-mscf-public
+MS_LOCAL_PUBLIC_FALLBACK=/srv/ms-app-data/public_pending_pool
 ```
 
 Restart Shiny after changing runtime settings:

@@ -17,7 +17,7 @@ APP_RUN_GROUP=b_ms
 
 `mscf-shiny-user` is the dedicated MS Core Facility service account. The pool ACL grants this user read/write access directly; `b_ms` separately has group read/write access and remains the group used for deployed-file ownership. The service account does not need to belong to `b_ms` and does not need root or sudo membership. These are deployment-shell variables, not R settings, so do not add them to the app-local `.Renviron`.
 
-The repository is prepared for this identity, but do not perform the production cutover until the account exists, storage administrators have confirmed its direct ACL access to `/fs/pool/pool-mscf-projects`, and Shiny Server has been configured to run this app as that user. Until then, a necessary deployment using the existing account must override both values explicitly:
+The repository is prepared for this identity, but do not perform the production cutover until the account exists, storage administrators have confirmed its direct ACL access to `/fs/pool/pool-mscf-projects` and `/fs/pool/pool-mscf-public`, and Shiny Server has been configured to run this app as that user. Until then, a necessary deployment using the existing account must override both values explicitly:
 
 ```bash
 APP_RUN_USER=shiny APP_RUN_GROUP=shiny ./scripts/deploy.sh
@@ -33,7 +33,9 @@ git pull origin main
 
 The deploy script verifies that the configured account and ownership group exist. It then syncs `ms-app/` to `/srv/shiny-server/ms-app/`, excludes `ms_projects.db` and `.Renviron`, fixes ownership, restarts Shiny, and runs HTTPS/LDAP smoke tests unless `SKIP_SMOKE_TEST=1`. Group membership is not required because the runtime account owns the deployed files and has a direct pool ACL.
 
-Project folders created by the app receive mode `0777`, and uploaded project files receive mode `0666`. These modes are applied only to paths created inside the configured project pool or protected fallback. The pool-root ACL continues to control who can reach them. This supports the tested workflow in which Shiny writes through NFS and technicians work through SMB; Samba applies its override to technician-created files. The separate `pool-mscf-public` release workflow retains its username-based permission script.
+Project folders created by the app receive mode `0777`, and uploaded or generated project files receive mode `0666`. These modes are applied only inside the configured private/public pools or protected fallbacks. The pool-root ACLs continue to control who can reach them. This supports the tested workflow in which Shiny writes through NFS and technicians work through SMB; Samba applies its override to technician-created files. The `pool-mscf-public` username-based permission script remains in effect.
+
+For every new project, the app creates matching `PROJECTID_USERNAME` folders below the type-specific private and public directories. The public folder contains the sample-submission artifacts and cost-estimation PDF, and includes `Results_for_customer` for released results.
 
 ## Pre-Deploy Backups
 
@@ -117,7 +119,7 @@ The database seed definitions reproduce application defaults, not the current pr
 Uploaded files are stored outside SQLite. A complete recovery therefore needs:
 
 1. The verified SQLite backup.
-2. A backup or storage snapshot of `MS_UPLOAD_ROOT`.
+2. A backup or storage snapshot of `MS_UPLOAD_ROOT` and `MS_PUBLIC_ROOT`.
 3. A backup of `MS_LOCAL_UPLOAD_FALLBACK`.
 4. The runtime configuration that defines those paths.
 
@@ -142,9 +144,10 @@ Back up the persistent fallback upload directory during the same maintenance win
 
 ```bash
 sudo rsync -av /srv/ms-app-data/uploads_pending_pool/ /secure/backups/uploads_pending_pool/
+sudo rsync -av /srv/ms-app-data/public_pending_pool/ /secure/backups/public_pending_pool/
 ```
 
-Back up `MS_UPLOAD_ROOT` using the facility storage system's snapshot or backup procedure. Do not assume that the SQLite backup contains project uploads.
+Back up `MS_UPLOAD_ROOT` and `MS_PUBLIC_ROOT` using the facility storage system's snapshot or backup procedure. Do not assume that the SQLite backup contains project uploads or generated public artifacts.
 
 ### Test a recovery
 

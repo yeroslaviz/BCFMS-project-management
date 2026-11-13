@@ -22,6 +22,11 @@ MS_LOCAL_UPLOAD_FALLBACK <- Sys.getenv(
   "MS_LOCAL_UPLOAD_FALLBACK",
   "/srv/ms-app-data/uploads_pending_pool"
 )
+MS_PUBLIC_ROOT <- Sys.getenv("MS_PUBLIC_ROOT", "/fs/pool/pool-mscf-public")
+MS_LOCAL_PUBLIC_FALLBACK <- Sys.getenv(
+  "MS_LOCAL_PUBLIC_FALLBACK",
+  "/srv/ms-app-data/public_pending_pool"
+)
 MS_INSTITUTE_ADDRESS <- paste(
   "Max Planck Institute of Biochemistry",
   "Am Klopferspitz 18",
@@ -768,6 +773,9 @@ ms_create_schema <- function(con) {
       upload_root TEXT,
       project_folder TEXT,
       upload_storage_status TEXT DEFAULT 'not_checked',
+      public_root TEXT,
+      public_project_folder TEXT,
+      public_storage_status TEXT DEFAULT 'not_checked',
       invoice_recipient_address TEXT,
       invoice_institute_address TEXT DEFAULT '",
       gsub("'", "''", MS_INSTITUTE_ADDRESS),
@@ -1142,6 +1150,9 @@ ms_migrate_schema <- function(con) {
     "upload_root TEXT",
     "project_folder TEXT",
     "upload_storage_status TEXT DEFAULT 'not_checked'",
+    "public_root TEXT",
+    "public_project_folder TEXT",
+    "public_storage_status TEXT DEFAULT 'not_checked'",
     "invoice_recipient_address TEXT",
     paste0(
       "invoice_institute_address TEXT DEFAULT '",

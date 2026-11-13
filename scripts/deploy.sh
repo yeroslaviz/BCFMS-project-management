@@ -19,7 +19,7 @@ set -euo pipefail
 # 3. Makes the DB writable:
 #    - ms_projects.db
 #
-# 4. Creates the persistent upload fallback outside the rsync target.
+# 4. Creates the persistent private- and public-pool fallbacks outside the rsync target.
 #
 # 5. Restarts Shiny Server
 #
@@ -34,6 +34,7 @@ APP_SOURCE="/home/yeroslaviz/BCFMS-project-management/ms-app/"
 APP_TARGET="/srv/shiny-server/ms-app/"
 APP_DB="${APP_TARGET}ms_projects.db"
 PERSISTENT_UPLOAD_FALLBACK="/srv/ms-app-data/uploads_pending_pool"
+PERSISTENT_PUBLIC_FALLBACK="/srv/ms-app-data/public_pending_pool"
 APP_RUN_USER="${APP_RUN_USER:-mscf-shiny-user}"
 APP_RUN_GROUP="${APP_RUN_GROUP:-b_ms}"
 PUBLIC_BASE_URL="${PUBLIC_BASE_URL:-https://mscf-vm.biochem.mpg.de}"
@@ -171,6 +172,7 @@ if ! getent group "${APP_RUN_GROUP}" >/dev/null; then
 fi
 if sudo rsync -av --delete --exclude 'ms_projects.db' --exclude '.Renviron' "${APP_SOURCE}" "${APP_TARGET}"; then
   sudo install -d -o "${APP_RUN_USER}" -g "${APP_RUN_GROUP}" -m 0750 "${PERSISTENT_UPLOAD_FALLBACK}"
+  sudo install -d -o "${APP_RUN_USER}" -g "${APP_RUN_GROUP}" -m 0750 "${PERSISTENT_PUBLIC_FALLBACK}"
   sudo chown -R "${APP_RUN_USER}:${APP_RUN_GROUP}" "${APP_TARGET}"
   if [ -f "${APP_DB}" ]; then
     sudo chmod 666 "${APP_DB}"

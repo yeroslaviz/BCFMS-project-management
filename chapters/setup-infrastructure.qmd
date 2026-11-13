@@ -77,7 +77,7 @@ APP_RUN_USER=mscf-shiny-user
 APP_RUN_GROUP=b_ms
 ```
 
-The dedicated `mscf-shiny-user` account has direct user read/write access in the ACL of the NFS-mounted `/fs/pool/pool-mscf-projects`. The ACL separately grants group read/write access to `b_ms`, which remains the group used for deployed-file ownership. The service account does not need to belong to `b_ms` and must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in `.Renviron`.
+The dedicated `mscf-shiny-user` account needs direct user read/write access in the ACLs of the NFS-mounted `/fs/pool/pool-mscf-projects` and `/fs/pool/pool-mscf-public`. The ACLs separately grant group read/write access to `b_ms`, which remains the group used for deployed-file ownership. The service account does not need to belong to `b_ms` and must not be granted root or sudo membership. These variables belong to the deployment shell environment and are intentionally not stored in `.Renviron`.
 
 The deploy script now uses these values by default and stops before changing files if the account or ownership group is missing. Do not use the new defaults on the VM until the account has been provisioned, its direct pool access has been verified, and the Shiny Server `run_as` cutover is ready. While production still runs as `shiny`, an essential deployment must use the explicit temporary override:
 
@@ -150,6 +150,8 @@ SMTP_TLS=0
 # MS_EMAIL_ALLOWED_DOMAINS=biochem.mpg.de
 MS_UPLOAD_ROOT=/fs/pool/pool-mscf-projects
 MS_LOCAL_UPLOAD_FALLBACK=/srv/ms-app-data/uploads_pending_pool
+MS_PUBLIC_ROOT=/fs/pool/pool-mscf-public
+MS_LOCAL_PUBLIC_FALLBACK=/srv/ms-app-data/public_pending_pool
 MS_MAX_UPLOAD_MB=75
 EOF
 sudo chown shiny:shiny /srv/shiny-server/ms-app/.Renviron
@@ -157,11 +159,11 @@ sudo chmod 640 /srv/shiny-server/ms-app/.Renviron
 sudo systemctl restart shiny-server
 ```
 
-The project-upload pool is `/fs/pool/pool-mscf-projects`. If it is unavailable, the app stores uploads under `/srv/ms-app-data/uploads_pending_pool/`, outside the deployed app folder, and logs/sends a facility notification instead of blocking project submission. The deploy script creates this persistent fallback with ownership set to `APP_RUN_USER:APP_RUN_GROUP`.
+The project-upload pool is `/fs/pool/pool-mscf-projects`, and the customer-facing pool is `/fs/pool/pool-mscf-public`. If either mount is unavailable, the app uses its persistent fallback under `/srv/ms-app-data/` and logs/sends a facility notification instead of blocking project submission. The deploy script creates both fallbacks with ownership set to `APP_RUN_USER:APP_RUN_GROUP`.
 
-New project folders use the pattern `YYYYMMDD_USERNAME_PROJECTID`, for example `20260724_asmith_Pr_1234`.
+New project folders use the pattern `PROJECTID_USERNAME`, for example `Pr000001_asmith` or `Me000001_asmith`. The same type-specific folder is created in both pools. The public folder receives the sample submission PDF, normalized sample table, and cost-estimation PDF, plus an empty `Results_for_customer` directory.
 
-The app applies mode `0777` to each project folder it creates and mode `0666` to each uploaded project file. This is deliberately limited to project storage under `MS_UPLOAD_ROOT` or the protected fallback root; it does not change the process-wide umask or permissions elsewhere. Access to the main pool remains gated by the pool root ACL. Technicians work through SMB, where the storage service applies its Samba permission override to files they create. Released results are copied separately to `pool-mscf-public`, whose existing permission script grants access based on the recipient username.
+The app applies mode `0777` to each project folder it creates and mode `0666` to each uploaded or generated project file. This is deliberately limited to project storage under the configured private/public roots or their protected fallbacks; it does not change the process-wide umask or permissions elsewhere. Access remains gated by the pool-root ACLs. Technicians work through SMB, where the storage service applies its Samba permission override to files they create. The existing `pool-mscf-public` permission workflow continues to grant access based on the recipient username.
 
 ## Apache LDAP Proxy
 
