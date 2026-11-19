@@ -1504,6 +1504,7 @@ write_project_report_pdf <- function(
   }
 
   if (isTRUE(include_costs)) {
+  if (identical(document_type, "cost_estimate")) new_page()
   section("Cost breakdown")
   cost_row("Biological samples", "", as.character(cost_breakdown$biological_samples))
   if (!identical(scalar_text(project$project_type), "intact_mass")) {
