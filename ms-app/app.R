@@ -2684,6 +2684,7 @@ server <- function(input, output, session) {
   editing_project_id <- reactiveVal(NULL)
   project_status_refresh <- reactiveVal(0)
   admin_edit_user_id <- reactiveVal(NULL)
+  admin_delete_user_id <- reactiveVal(NULL)
   admin_edit_bh_id <- reactiveVal(NULL)
   admin_edit_organism_id <- reactiveVal(NULL)
   admin_edit_option_id <- reactiveVal(NULL)
@@ -5228,10 +5229,59 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     users <- dbGetQuery(con, "SELECT id, username FROM users ORDER BY username")
-    if (nrow(users) >= selected[1] && users$username[selected[1]] != user$username) {
-      dbExecute(con, "DELETE FROM users WHERE id = ?", params = list(users$id[selected[1]]))
-      admin_refresh(admin_refresh() + 1)
+    if (nrow(users) < selected[1]) return()
+    target_id <- users$id[selected[1]]
+    target_username <- users$username[selected[1]]
+    if (identical(target_username, user$username)) {
+      showNotification("You cannot delete the currently logged-in user.", type = "error")
+      return()
     }
+    references <- dbGetQuery(con, "SELECT (SELECT COUNT(*) FROM projects WHERE user_id = ?) AS submitted_projects, (SELECT COUNT(*) FROM projects WHERE technician_user_id = ?) AS technician_projects", params = list(target_id, target_id))
+    admin_delete_user_id(target_id)
+    showModal(modalDialog(
+      title = paste("Delete user", target_username, "?"),
+      if (sum(as.integer(references[1, ])) > 0) {
+        tags$div(
+          class = "alert alert-warning",
+          tags$strong("This user is connected to existing projects."),
+          tags$p("Deleting the account will preserve the project records and historical user text, but remove the account link. A later account with the same username will not be automatically connected to these projects."),
+          tags$p(paste0(references$submitted_projects[[1]], " submitted project(s); ", references$technician_projects[[1]], " technician assignment(s)."))
+        )
+      } else {
+        tags$p("This user is not currently connected to any project.")
+      },
+      footer = tagList(modalButton("Cancel"), actionButton("confirm_delete_user_btn", "Delete User", class = "btn btn-danger")),
+      easyClose = FALSE
+    ))
+  })
+
+  observeEvent(input$confirm_delete_user_btn, {
+    target_id <- admin_delete_user_id()
+    req(target_id)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    target_username <- dbGetQuery(con, "SELECT username FROM users WHERE id = ?", params = list(target_id))$username[[1]]
+    deletion_result <- tryCatch({
+      dbBegin(con)
+      # Preserve the immutable project snapshot fields (submitter_name,
+      # responsible_user, submitter_email) while removing account links.
+      dbExecute(con, "UPDATE projects SET user_id = NULL WHERE user_id = ?", params = list(target_id))
+      dbExecute(con, "UPDATE projects SET technician_user_id = NULL WHERE technician_user_id = ?", params = list(target_id))
+      result <- dbExecute(con, "DELETE FROM users WHERE id = ?", params = list(target_id))
+      dbCommit(con)
+      result
+    }, error = function(e) {
+      if (dbIsValid(con)) try(dbRollback(con), silent = TRUE)
+      e
+    })
+    if (inherits(deletion_result, "error")) {
+      showNotification(paste("User could not be deleted:", conditionMessage(deletion_result)), type = "error", duration = 12)
+      return()
+    }
+    admin_delete_user_id(NULL)
+    removeModal()
+    admin_refresh(admin_refresh() + 1)
+    showNotification(paste("User", target_username, "was deleted."), type = "message")
   })
 
   observeEvent(input$admin_edit_user_btn, {
