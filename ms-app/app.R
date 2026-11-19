@@ -2973,8 +2973,8 @@ server <- function(input, output, session) {
                CASE p.project_type
                  WHEN 'metabolomics' THEN p.metabolomics_approach
                END AS selected_approach,
-               COALESCE(owner.full_name, '') AS customer_full_name,
-               COALESCE(owner.username, p.responsible_user, '') AS customer_username,
+               COALESCE(NULLIF(owner.full_name, ''), NULLIF(p.submitter_name, ''), '') AS customer_full_name,
+               COALESCE(NULLIF(p.responsible_user, ''), NULLIF(owner.username, ''), '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
                trim(
@@ -3011,8 +3011,8 @@ server <- function(input, output, session) {
                CASE p.project_type
                  WHEN 'metabolomics' THEN p.metabolomics_approach
                END AS selected_approach,
-               COALESCE(owner.full_name, '') AS customer_full_name,
-               COALESCE(owner.username, p.responsible_user, '') AS customer_username,
+               COALESCE(NULLIF(owner.full_name, ''), NULLIF(p.submitter_name, ''), '') AS customer_full_name,
+               COALESCE(NULLIF(p.responsible_user, ''), NULLIF(owner.username, ''), '') AS customer_username,
                COALESCE(p.last_status_update_at, p.created_at) AS last_status_update_at,
                COALESCE(t.full_name, t.username, '') AS technician,
                trim(
@@ -5136,7 +5136,7 @@ server <- function(input, output, session) {
     admin_refresh()
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    datatable(dbGetQuery(con, "SELECT id, username, full_name, email, research_group, role, created_at FROM users ORDER BY username"), rownames = FALSE, selection = "single")
+    datatable(dbGetQuery(con, "SELECT id, username, full_name, email, research_group, role, created_at FROM users WHERE username NOT LIKE '__deleted_user_%' ORDER BY username"), rownames = FALSE, selection = "single")
   })
 
   output$admin_budget_table <- renderDT({
@@ -5228,7 +5228,7 @@ server <- function(input, output, session) {
     req(selected)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    users <- dbGetQuery(con, "SELECT id, username FROM users ORDER BY username")
+    users <- dbGetQuery(con, "SELECT id, username FROM users WHERE username NOT LIKE '__deleted_user_%' ORDER BY username")
     if (nrow(users) < selected[1]) return()
     target_id <- users$id[selected[1]]
     target_username <- users$username[selected[1]]
@@ -5263,10 +5263,24 @@ server <- function(input, output, session) {
     target_username <- dbGetQuery(con, "SELECT username FROM users WHERE id = ?", params = list(target_id))$username[[1]]
     deletion_result <- tryCatch({
       dbBegin(con)
-      # Preserve the immutable project snapshot fields (submitter_name,
-      # responsible_user, submitter_email) while removing account links.
-      dbExecute(con, "UPDATE projects SET user_id = NULL WHERE user_id = ?", params = list(target_id))
-      dbExecute(con, "UPDATE projects SET technician_user_id = NULL WHERE technician_user_id = ?", params = list(target_id))
+      # projects.user_id is non-nullable in existing SQLite databases. Move
+      # references to a tombstone account while preserving the immutable
+      # submitter/responsible-user text stored on each project.
+      references <- dbGetQuery(con, "SELECT (SELECT COUNT(*) FROM projects WHERE user_id = ?) AS submitted_projects, (SELECT COUNT(*) FROM projects WHERE technician_user_id = ?) AS technician_projects", params = list(target_id, target_id))
+      if (sum(as.integer(references[1, ])) > 0) {
+        tombstone_username <- paste0("__deleted_user_", target_id, "_", as.integer(Sys.time()))
+        tombstone_id <- insert_record(con, "users", list(
+          username = tombstone_username,
+          full_name = "",
+          password = ms_hash_password("deleted-account"),
+          email = "",
+          phone = "",
+          role = "user",
+          is_admin = 0L
+        ))
+        dbExecute(con, "UPDATE projects SET user_id = ? WHERE user_id = ?", params = list(tombstone_id, target_id))
+        dbExecute(con, "UPDATE projects SET technician_user_id = ? WHERE technician_user_id = ?", params = list(tombstone_id, target_id))
+      }
       result <- dbExecute(con, "DELETE FROM users WHERE id = ?", params = list(target_id))
       dbCommit(con)
       result
@@ -5289,7 +5303,7 @@ server <- function(input, output, session) {
     req(selected)
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
-    users <- dbGetQuery(con, "SELECT id, username, full_name, email, phone, research_group, role, is_admin FROM users ORDER BY username")
+    users <- dbGetQuery(con, "SELECT id, username, full_name, email, phone, research_group, role, is_admin FROM users WHERE username NOT LIKE '__deleted_user_%' ORDER BY username")
     req(nrow(users) >= selected[1])
     row <- users[selected[1], , drop = FALSE]
     admin_edit_user_id(row$id[[1]])
