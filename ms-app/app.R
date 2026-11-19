@@ -1391,6 +1391,7 @@ write_project_report_pdf <- function(
 
   key_value <- function(label, value) {
     value <- trim_scalar(value)
+    if (!nzchar(value) && identical(document_type, "report")) return(invisible(NULL))
     if (!nzchar(value)) value <- "Not entered"
     wrapped <- strwrap(value, width = 72)
     if (length(wrapped) == 0) wrapped <- ""
@@ -1416,11 +1417,9 @@ write_project_report_pdf <- function(
   new_page()
   section("Project overview")
   key_value("Project ID", scalar_text(project$project_code))
-  key_value("Sample / project name", scalar_text(project$project_name))
   key_value("Project type", scalar_text(project$project_type_name, scalar_text(project$project_type)))
   key_value("Status", scalar_text(project$status))
   key_value("Submission date", scalar_text(project$submission_date))
-  key_value("Submission time", scalar_text(project$submission_time))
 
   section("Contact and billing")
   key_value("Submitter", scalar_text(project$submitter_name))
@@ -1430,22 +1429,24 @@ write_project_report_pdf <- function(
   key_value("PI / Group", trimws(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname))))
   key_value("Cost center", scalar_text(project$cost_center))
 
-  section("Sample and measurement")
+  section("Sample Information")
   key_value("Biological samples", scalar_text(project$num_samples))
   if (!identical(scalar_text(project$project_type), "intact_mass")) {
     key_value("Technical replicates", scalar_text(project$technical_replicates, "0"))
   }
   type_options <- project_pricing_options(project)
-  key_value("Project / analysis type", type_options$project_value)
+  key_value("Project type", type_options$project_value)
   key_value("Sample type", type_options$sample_value)
-  if (identical(scalar_text(project$project_type), "metabolomics")) {
+  if (identical(scalar_text(project$project_type), "metabolomics") && identical(document_type, "report")) {
     key_value("Approach", scalar_text(project$metabolomics_approach))
   }
-  key_value("Buffer / solvent", scalar_text(project$sample_buffer))
-  key_value("Sample amount", scalar_text(project$sample_amount))
-  key_value("Volume", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit)))
+  if (identical(document_type, "report")) {
+    key_value("Buffer / solvent", scalar_text(project$sample_buffer))
+    key_value("Sample amount", scalar_text(project$sample_amount))
+    key_value("Volume", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit)))
+  }
 
-  section("Project-specific details")
+  if (identical(document_type, "report")) section("Data Analysis")
   if (identical(scalar_text(project$project_type), "intact_mass")) {
     key_value("Sequence / name / structure", scalar_text(project$intact_sequence_name_structure))
     key_value("Expected mass [Da]", scalar_text(project$intact_expected_mass_da))
@@ -1467,7 +1468,7 @@ write_project_report_pdf <- function(
   } else if (identical(scalar_text(project$project_type), "metabolomics")) {
     key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
     key_value("Approach", scalar_text(project$metabolomics_approach))
-    key_value("Acquisition mode", scalar_text(project$metabolomics_acquisition_mode))
+    if (identical(document_type, "report")) key_value("Acquisition mode", scalar_text(project$metabolomics_acquisition_mode))
     key_value("Species", scalar_text(project$metabolomics_species))
     key_value("Cell number", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit)))
     key_value("Supernatant volume", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit)))
@@ -1475,10 +1476,12 @@ write_project_report_pdf <- function(
     key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
   }
 
-  section("Biological question and requirements")
-  key_value("Biological question", scalar_text(project$sample_notes))
-  key_value("Special requirements", scalar_text(project$special_requirements))
-  if (nzchar(trim_scalar(project$report_notes))) key_value("Report notes", scalar_text(project$report_notes))
+  if (identical(document_type, "report")) {
+    section("Biological question and requirements")
+    key_value("Biological question", scalar_text(project$sample_notes))
+    key_value("Special requirements", scalar_text(project$special_requirements))
+    key_value("Report notes", scalar_text(project$report_notes))
+  }
 
   if (isTRUE(include_costs)) {
   section("Cost breakdown")
