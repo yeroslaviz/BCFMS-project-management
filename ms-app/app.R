@@ -3245,7 +3245,7 @@ server <- function(input, output, session) {
       column(6, selectizeInput(
         "metabolomics_sample_type",
         field_label("Sample Type *", "multiple samples types allowed. Please add the amount information accordingly"),
-        choices = setdiff(load_choice_values(con, "metabolomics_sample_type"), "Protein Pellet"),
+        choices = unique(c(setdiff(load_choice_values(con, "metabolomics_sample_type"), "Protein Pellet"), "Tissue")),
         multiple = TRUE,
         options = list(placeholder = "Multiple sample types allowed")
       ))
@@ -3363,20 +3363,7 @@ server <- function(input, output, session) {
             ),
             column(
               6,
-              conditionalPanel(
-                condition = "input.metabolomics_sample_type && ['Cell Pellet', 'Protein Pellet'].indexOf(input.metabolomics_sample_type) < 0",
-                fluidRow(
-                  column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
-                  column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
-                )
-              ),
-              conditionalPanel(
-                condition = "['Cell Pellet', 'Protein Pellet'].indexOf(input.metabolomics_sample_type) >= 0",
-                textInput(
-                  "sample_amount",
-                  field_label("Sample amount", "Describe the total amount of submitted material.", "1e6 cells, 5 mg tissue")
-                )
-              )
+              uiOutput("metabolomics_sample_type_details")
             )
           )
         } else if (input$project_type == "intact_mass") {
