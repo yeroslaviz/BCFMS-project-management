@@ -4166,19 +4166,30 @@ server <- function(input, output, session) {
             if (nzchar(trim_scalar(project$special_requirements))) column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
           ),
           uiOutput("edit_type_specific_details"),
+          if (role_is_admin(current_user_role())) checkboxInput(
+            "edit_show_empty_optional_fields",
+            "Show empty optional fields",
+            value = FALSE
+          ),
           fluidRow(
-            column(4, selectInput(
-              "edit_column_type",
-              "Column Type",
-              choices = c("Not set" = "", column_type_choices),
-              selected = scalar_text(project$column_type)
-            )),
-            column(4, selectInput(
-              "edit_ms_machine",
-              "MS Machine",
-              choices = c("Not set" = "", ms_machine_choices),
-              selected = scalar_text(project$ms_machine)
-            ))
+            conditionalPanel(
+              condition = paste0("input.edit_show_empty_optional_fields || ", if (nzchar(trim_scalar(project$column_type))) "true" else "false", " || input.edit_column_type != ''"),
+              column(4, selectInput(
+                "edit_column_type",
+                "Column Type",
+                choices = c("Not set" = "", column_type_choices),
+                selected = scalar_text(project$column_type)
+              ))
+            ),
+            conditionalPanel(
+              condition = paste0("input.edit_show_empty_optional_fields || ", if (nzchar(trim_scalar(project$ms_machine))) "true" else "false", " || input.edit_ms_machine != ''"),
+              column(4, selectInput(
+                "edit_ms_machine",
+                "MS Machine",
+                choices = c("Not set" = "", ms_machine_choices),
+                selected = scalar_text(project$ms_machine)
+              ))
+            )
           ),
           fluidRow(
             column(6, conditionalPanel(
