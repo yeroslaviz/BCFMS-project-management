@@ -2413,6 +2413,21 @@ ui <- fluidPage(
         }
       }
 
+      if (window.Shiny) {
+        Shiny.addCustomMessageHandler('reset-project-upload-inputs', function(message) {
+          var ids = (message && message.ids) || [];
+          window.setTimeout(function() {
+            ids.forEach(function(id) {
+              var input = document.getElementById(id);
+              if (input) input.value = '';
+              if (window.Shiny && Shiny.setInputValue) {
+                Shiny.setInputValue(id, null, {priority: 'event'});
+              }
+            });
+          }, 100);
+        });
+      }
+
       document.addEventListener('shiny:connected', publishUrlSearch);
       document.addEventListener('DOMContentLoaded', function() {
         window.setTimeout(publishUrlSearch, 0);
@@ -3204,6 +3219,17 @@ server <- function(input, output, session) {
   output$download_selected_template <- template_download(function() trim_scalar(input$project_type, "proteomics"))
 
   observeEvent(input$new_project_btn, {
+    session$sendCustomMessage(
+      "reset-project-upload-inputs",
+      list(ids = c(
+        "sample_table_upload",
+        "intact_fasta",
+        "proteomics_fasta",
+        "metabolomics_library",
+        "proteomics_additional_sample_files",
+        "metabolomics_additional_sample_files"
+      ))
+    )
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     types <- load_project_types(con)
