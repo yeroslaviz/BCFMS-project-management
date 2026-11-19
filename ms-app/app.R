@@ -3731,7 +3731,8 @@ server <- function(input, output, session) {
           suffix <- suffix_for(sample_type)
           if (identical(sample_type, "Cell Pellet") && !non_empty(input[[paste0("metabolomics_cell_number_", suffix)]])) errors <- c(errors, "Cell number is required for Cell Pellet.")
           if (identical(sample_type, "Tissue") && !non_empty(input[[paste0("metabolomics_tissue_weight_", suffix)]])) errors <- c(errors, "Sample amount is required for Tissue.")
-          if (!sample_type %in% c("Cell Pellet", "Tissue") && !non_empty(input[[paste0("metabolomics_volume_", suffix)]])) errors <- c(errors, paste("Volume submitted is required for", sample_type, "."))
+          volume_id <- if (identical(sample_type, "Supernatant")) paste0("metabolomics_supernatant_volume_", suffix) else paste0("metabolomics_volume_", suffix)
+          if (!sample_type %in% c("Cell Pellet", "Tissue") && !non_empty(input[[volume_id]])) errors <- c(errors, paste("Volume submitted is required for", sample_type, "."))
         }
       }
       if (trim_scalar(input$metabolomics_approach) %in% c("Targeted", "both")) {
