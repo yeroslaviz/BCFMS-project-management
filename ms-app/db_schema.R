@@ -80,7 +80,7 @@ ms_controlled_options <- list(
   ),
   intact_sample_type = c(
     "In-solution, Flow injection",
-    "In-solution",
+    "In-solution LC-MS",
     "Powder"
   ),
   proteomics_project_type = c(
@@ -959,6 +959,7 @@ ms_migrate_schema <- function(con) {
       "SELECT COUNT(*) AS n FROM controlled_options"
     )$n[[1]]
     if (controlled_option_count > 0) {
+      dbExecute(con, "UPDATE controlled_options SET value = 'In-solution LC-MS' WHERE option_group = 'intact_sample_type' AND value = 'In-solution'")
       dbExecute(
         con,
         "

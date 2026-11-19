@@ -3240,10 +3240,12 @@ server <- function(input, output, session) {
         choices = load_choice_values(con, "metabolomics_analysis_type"),
         selected = "Metabolomics"
       )),
-      column(6, selectInput(
+      column(6, selectizeInput(
         "metabolomics_sample_type",
-        "Sample Type *",
-        choices = load_choice_values(con, "metabolomics_sample_type")
+        field_label("Sample Type *", "multiple samples types allowed. Please add the amount information accordingly"),
+        choices = setdiff(load_choice_values(con, "metabolomics_sample_type"), "Protein Pellet"),
+        multiple = TRUE,
+        options = list(placeholder = "Multiple sample types allowed")
       ))
     )
   }
@@ -3283,7 +3285,7 @@ server <- function(input, output, session) {
         div(
           class = "info-note",
           if (identical(input$project_type, "intact_mass")) {
-            "Optional for Intact projects. Upload a non-empty table using the two-column Intact template, or use the Sample name in section 3. The downloaded template is tab-delimited; uploads may be .txt, .csv, or .tsv."
+            "Required for Intact projects. Upload a non-empty tab-delimited table using the Intact template. Uploads may be .txt, .csv, or .tsv."
           } else {
             "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."
           }
@@ -3294,7 +3296,7 @@ server <- function(input, output, session) {
             "sample_table_upload",
             paste0(
               "Upload sample overview table",
-              if (identical(input$project_type, "intact_mass")) " (optional)" else "",
+              if (identical(input$project_type, "intact_mass")) " (required)" else "",
               " (.txt / .csv / .tsv)"
             ),
             accept = c(".txt", ".csv", ".tsv")
@@ -3327,7 +3329,7 @@ server <- function(input, output, session) {
         div(
           class = "info-note",
           if (identical(input$project_type, "intact_mass")) {
-            "If a sample overview table is uploaded, please label submitted tubes exactly as listed there."
+            "Please label submitted tubes exactly as listed in the uploaded template."
           } else {
             MS_SAMPLE_TABLE_STATEMENT
           }
@@ -3377,47 +3379,8 @@ server <- function(input, output, session) {
           )
         } else if (input$project_type == "intact_mass") {
           tagList(
-            conditionalPanel(
-              condition = "input.intact_sample_type == 'In-solution, Flow injection' || input.intact_sample_type == 'In-solution'",
-              fluidRow(
-                column(
-                  6,
-                  textAreaInput(
-                    "sample_buffer",
-                    field_label("Buffer / Solvent", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."),
-                    rows = 3
-                  ),
-                  radioButtons(
-                    "concentration_determination",
-                    field_label("Concentration determination", "Indicate whether concentration was determined."),
-                    choices = load_choice_values(con, "concentration_determination"),
-                    selected = character(0),
-                    inline = TRUE
-                  )
-                ),
-                column(
-                  6,
-                  selectInput("concentration_method", "Method", choices = c("", load_choice_values(con, "concentration_method"))),
-                  fluidRow(
-                    column(8, textInput("sample_volume", field_label("Volume submitted", "Numeric volume submitted.", "50"))),
-                    column(4, selectInput("sample_volume_unit", "Unit", choices = load_choice_values(con, "volume_unit"), selected = "uL"))
-                  )
-                )
-              )
-            ),
-            conditionalPanel(
-              condition = "input.intact_sample_type == 'Powder'",
-              fluidRow(
-                column(6),
-                column(
-                  6,
-                  textInput(
-                    "sample_amount",
-                    field_label("Sample amount", "Describe the total amount of submitted material.", "1 mg protein")
-                  )
-                )
-              )
-            )
+            textAreaInput("sample_buffer", field_label("Buffer / Solvent *", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."), rows = 3),
+            selectInput("concentration_method", field_label("Concentration *", "Select or describe the concentration."), choices = c("", load_choice_values(con, "concentration_method")))
           )
         } else if (input$project_type == "proteomics") {
           fluidRow(
@@ -3556,26 +3519,31 @@ server <- function(input, output, session) {
     div(
       class = "sample-type-details",
       lapply(selected, function(sample_type) {
+        suffix <- gsub("[^A-Za-z0-9]", "_", sample_type)
         if (identical(sample_type, "Cell Pellet")) {
           fluidRow(
             class = "sample-type-detail-row",
-            column(6, textInput("metabolomics_cell_number", field_label("Cell Number *", "Number of cells in the pellet."))),
-            column(6, selectInput("metabolomics_cell_number_unit", "Unit", choices = c("cells", "million cells", "other")))
+            column(6, textInput(paste0("metabolomics_cell_number_", suffix), field_label("Cell number", "Number of cells in the pellet."))),
+            column(6, selectInput(paste0("metabolomics_cell_number_unit_", suffix), "Unit", choices = c("cells", "million cells", "other")))
           )
         } else if (identical(sample_type, "Supernatant")) {
           fluidRow(
             class = "sample-type-detail-row",
-            column(6, textInput("metabolomics_supernatant_volume", field_label("Volumes *", "Submitted volume for supernatant samples."))),
-            column(6, selectInput("metabolomics_supernatant_volume_unit", "Unit", choices = volume_units, selected = "uL"))
+            column(6, textInput(paste0("metabolomics_supernatant_volume_", suffix), field_label("Volume submitted", "Submitted volume for supernatant samples."))),
+            column(6, selectInput(paste0("metabolomics_supernatant_volume_unit_", suffix), "Unit", choices = volume_units, selected = "uL"))
           )
         } else if (identical(sample_type, "Tissue")) {
           fluidRow(
             class = "sample-type-detail-row",
-            column(6, textInput("metabolomics_tissue_weight", field_label("Weight *", "Submitted tissue weight."))),
-            column(6, selectInput("metabolomics_tissue_weight_unit", "Unit", choices = c("ug", "mg", "g", "other"), selected = "mg"))
+            column(6, textInput(paste0("metabolomics_tissue_weight_", suffix), field_label("Sample amount", "Submitted tissue amount."))),
+            column(6, selectInput(paste0("metabolomics_tissue_weight_unit_", suffix), "Unit", choices = c("ug", "mg", "g", "other"), selected = "mg"))
           )
         } else {
-          NULL
+          fluidRow(
+            class = "sample-type-detail-row",
+            column(6, textInput(paste0("metabolomics_volume_", suffix), field_label(paste("Volume submitted -", sample_type), "Submitted volume for this sample type."))),
+            column(6, selectInput(paste0("metabolomics_volume_unit_", suffix), "Unit", choices = volume_units, selected = "uL"))
+          )
         }
       })
     )
@@ -3613,8 +3581,6 @@ server <- function(input, output, session) {
       class = "form-section type-intact",
       h4("5. Intact / Native / QC"),
         conditionalPanel("input.intact_project_type == 'Native Protein Complex'", textInput("intact_stoichiometry", field_label("Stoichiometry", "Shown for native protein complexes.", "alpha-beta-gamma heterotrimer, 1:1:2"))),
-        textAreaInput("intact_sequence_name_structure", field_label("Sequence / Name / Structure *", "Protein/peptide sequence or UniProt ID; small molecule IUPAC, CAS, SMILES, or InChI; oligonucleotide 5' to 3' sequence."), rows = 4),
-        textInput("intact_expected_mass_da", field_label("Expected mass (Da) *", "Monoisotopic or average mass from sequence or formula.")),
         textAreaInput("intact_tags_modifications", field_label("Tags / Modifications", "Purification tags, fusion partners, known PTMs, disulfide bonds; write NA if not applicable.", "His6-SUMO, TEV site"), rows = 2),
         fileInput("intact_fasta", field_label("FASTA file upload", "Required for recombinant, tagged, mutated, or non-standard proteins. Allowed .fasta, .fa, .faa, .fna files."), accept = c(".fasta", ".fa", ".faa", ".fna")),
         tags$details(tags$summary("Show FASTA example"), pre(">protein_A His6 tagged construct\nMKWVTFISLLLLFSSAYSRGVFRRDAHKSEVAHRFKDLGE"))
@@ -3711,7 +3677,7 @@ server <- function(input, output, session) {
     sample_table_result <- read_sample_table_upload(
       input$sample_table_upload,
       selected_type,
-      required = !identical(selected_type, "intact_mass")
+      required = TRUE
     )
     errors <- c(errors, sample_table_result$errors)
 
@@ -3735,8 +3701,8 @@ server <- function(input, output, session) {
       intact_required <- c(
         intact_project_type = "Project Type",
         intact_sample_type = "Sample type",
-        intact_sequence_name_structure = "Sequence / Name / Structure",
-        intact_expected_mass_da = "Expected mass"
+        sample_buffer = "Buffer / Solvent",
+        concentration_method = "Concentration"
       )
       for (id in names(intact_required)) {
         if (!non_empty(input[[id]])) errors <- c(errors, paste(intact_required[[id]], "is required."))
@@ -3779,6 +3745,14 @@ server <- function(input, output, session) {
       selected_sample_types <- selected_sample_types[nzchar(selected_sample_types)]
       if (length(selected_sample_types) == 0) {
         errors <- c(errors, "Sample Type is required.")
+      } else {
+        suffix_for <- function(x) gsub("[^A-Za-z0-9]", "_", x)
+        for (sample_type in selected_sample_types) {
+          suffix <- suffix_for(sample_type)
+          if (identical(sample_type, "Cell Pellet") && !non_empty(input[[paste0("metabolomics_cell_number_", suffix)]])) errors <- c(errors, "Cell number is required for Cell Pellet.")
+          if (identical(sample_type, "Tissue") && !non_empty(input[[paste0("metabolomics_tissue_weight_", suffix)]])) errors <- c(errors, "Sample amount is required for Tissue.")
+          if (!sample_type %in% c("Cell Pellet", "Tissue") && !non_empty(input[[paste0("metabolomics_volume_", suffix)]])) errors <- c(errors, paste("Volume submitted is required for", sample_type, "."))
+        }
       }
       if (trim_scalar(input$metabolomics_approach) %in% c("Targeted", "both")) {
         errors <- c(errors, validate_uploads(input$metabolomics_library, c("xlsx", "csv", "txt", "tsv"), as.numeric(Sys.getenv("MS_MAX_TEXT_MB", "20")), text_only = TRUE))
@@ -3809,19 +3783,11 @@ server <- function(input, output, session) {
     sample_table_result <- read_sample_table_upload(
       input$sample_table_upload,
       input$project_type,
-      required = !identical(input$project_type, "intact_mass")
+      required = TRUE
     )
     if (length(sample_table_result$errors) > 0) {
       showNotification(paste(sample_table_result$errors, collapse = "\n"), type = "error", duration = 12)
       return()
-    }
-    if (identical(input$project_type, "intact_mass") && is.null(sample_table_result$table)) {
-      sample_table_result$table <- data.frame(
-        "Tube ID" = "",
-        "Sample Name" = trim_scalar(input$project_name),
-        check.names = FALSE,
-        stringsAsFactors = FALSE
-      )
     }
     samples <- sample_rows_from_table(sample_table_result$table)
     selected_budget_id <- as.integer(input$budget_id)
@@ -3860,24 +3826,18 @@ server <- function(input, output, session) {
     if (input$project_type == "intact_mass") {
       is_solution_sample <- trim_scalar(input$intact_sample_type) %in% c(
         "In-solution, Flow injection",
-        "In-solution"
+        "In-solution LC-MS"
       )
-      if (is_solution_sample) {
-        project_values$sample_amount <- ""
-      } else {
-        project_values$sample_buffer <- ""
-        project_values$concentration_determination <- ""
-        project_values$concentration_method <- ""
-        project_values$sample_volume <- ""
-        project_values$sample_volume_unit <- ""
-      }
+      project_values$sample_amount <- ""
+      project_values$sample_volume <- ""
+      project_values$sample_volume_unit <- ""
       project_values <- c(project_values, list(
         intact_project_type = trim_scalar(input$intact_project_type),
         intact_sample_type = trim_scalar(input$intact_sample_type),
         intact_sample_type_other = trim_scalar(input$intact_sample_type_other),
         intact_stoichiometry = trim_scalar(input$intact_stoichiometry),
-        intact_sequence_name_structure = trim_scalar(input$intact_sequence_name_structure),
-        intact_expected_mass_da = trim_scalar(input$intact_expected_mass_da),
+        intact_sequence_name_structure = "",
+        intact_expected_mass_da = "",
         intact_tags_modifications = trim_scalar(input$intact_tags_modifications)
       ))
     }
@@ -3931,31 +3891,36 @@ server <- function(input, output, session) {
     }
 
     if (input$project_type == "metabolomics") {
-      is_dry_metabolomics_sample <- trim_scalar(input$metabolomics_sample_type) %in% c(
-        "Cell Pellet",
-        "Protein Pellet"
-      )
+      selected_metabolomics_types <- trimws(as.character(input$metabolomics_sample_type %||% character()))
+      selected_metabolomics_types <- selected_metabolomics_types[nzchar(selected_metabolomics_types)]
+      suffix_for <- function(x) gsub("[^A-Za-z0-9]", "_", x)
+      values_for <- function(prefix, types) {
+        vals <- vapply(types, function(x) trim_scalar(input[[paste0(prefix, "_", suffix_for(x))]]), character(1))
+        paste(vals[nzchar(vals)], collapse = "; ")
+      }
+      units_for <- function(prefix, types) {
+        vals <- vapply(types, function(x) trim_scalar(input[[paste0(prefix, "_", suffix_for(x))]]), character(1))
+        paste(vals[nzchar(vals)], collapse = "; ")
+      }
+      is_dry_metabolomics_sample <- any(selected_metabolomics_types %in% c("Cell Pellet", "Tissue"))
       project_values$concentration_determination <- ""
       project_values$concentration_method <- ""
-      if (is_dry_metabolomics_sample) {
-        project_values$sample_buffer <- ""
-        project_values$sample_volume <- ""
-        project_values$sample_volume_unit <- ""
-      } else {
-        project_values$sample_amount <- ""
-      }
+      project_values$sample_buffer <- ""
+      project_values$sample_volume <- ""
+      project_values$sample_volume_unit <- ""
+      project_values$sample_amount <- if ("Tissue" %in% selected_metabolomics_types) values_for("metabolomics_tissue_weight", selected_metabolomics_types) else if ("Cell Pellet" %in% selected_metabolomics_types) values_for("metabolomics_cell_number", selected_metabolomics_types) else ""
       project_values <- c(project_values, list(
         metabolomics_analysis_type = trim_scalar(input$metabolomics_analysis_type),
         metabolomics_approach = trim_scalar(input$metabolomics_approach),
         metabolomics_approach_other = trim_scalar(input$metabolomics_approach_other),
         metabolomics_acquisition_mode = if (role_is_admin(user$role)) trim_scalar(input$metabolomics_acquisition_mode) else "",
-        metabolomics_sample_type = trim_scalar(input$metabolomics_sample_type),
-        metabolomics_cell_number = trim_scalar(input$metabolomics_cell_number),
-        metabolomics_cell_number_unit = trim_scalar(input$metabolomics_cell_number_unit),
-        metabolomics_supernatant_volume = trim_scalar(input$metabolomics_supernatant_volume),
-        metabolomics_supernatant_volume_unit = trim_scalar(input$metabolomics_supernatant_volume_unit),
-        metabolomics_tissue_weight = trim_scalar(input$metabolomics_tissue_weight),
-        metabolomics_tissue_weight_unit = trim_scalar(input$metabolomics_tissue_weight_unit),
+        metabolomics_sample_type = paste(selected_metabolomics_types, collapse = "; "),
+        metabolomics_cell_number = values_for("metabolomics_cell_number", selected_metabolomics_types),
+        metabolomics_cell_number_unit = units_for("metabolomics_cell_number_unit", selected_metabolomics_types),
+        metabolomics_supernatant_volume = paste(c(values_for("metabolomics_supernatant_volume", selected_metabolomics_types), values_for("metabolomics_volume", selected_metabolomics_types))[nzchar(c(values_for("metabolomics_supernatant_volume", selected_metabolomics_types), values_for("metabolomics_volume", selected_metabolomics_types)))], collapse = "; "),
+        metabolomics_supernatant_volume_unit = paste(c(units_for("metabolomics_supernatant_volume_unit", selected_metabolomics_types), units_for("metabolomics_volume_unit", selected_metabolomics_types))[nzchar(c(units_for("metabolomics_supernatant_volume_unit", selected_metabolomics_types), units_for("metabolomics_volume_unit", selected_metabolomics_types)))], collapse = "; "),
+        metabolomics_tissue_weight = values_for("metabolomics_tissue_weight", selected_metabolomics_types),
+        metabolomics_tissue_weight_unit = units_for("metabolomics_tissue_weight_unit", selected_metabolomics_types),
         metabolomics_species = join_values(input$metabolomics_species),
         metabolomics_targeted_analyte_text = trim_scalar(input$metabolomics_targeted_analyte_text),
         metabolomics_notes = trim_scalar(input$metabolomics_notes)
