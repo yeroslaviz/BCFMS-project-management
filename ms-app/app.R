@@ -3027,7 +3027,7 @@ server <- function(input, output, session) {
       project_type_table_label,
       projects$selected_project_type,
       rep("", nrow(projects)),
-      projects$selected_approach,
+      rep("", nrow(projects)),
       projects$project_type,
       USE.NAMES = FALSE
     )
@@ -3628,16 +3628,7 @@ server <- function(input, output, session) {
             selected = ""
           )
         ),
-        if (role_is_admin(user$role)) {
-          column(
-            6,
-            selectInput(
-              "metabolomics_acquisition_mode",
-              "Acquisition mode",
-              choices = c("Not selected" = "", load_choice_values(con, "metabolomics_acquisition_mode", c("DDA", "Targeted")))
-            )
-          )
-        }
+        NULL
       ),
       conditionalPanel(
         "input.metabolomics_approach == 'Targeted' || input.metabolomics_approach == 'both'",
