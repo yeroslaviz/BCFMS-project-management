@@ -1338,6 +1338,7 @@ write_project_report_pdf <- function(
     document_type,
     invoice = "Mass Spectrometry Project Invoice",
     cost_estimate = "Mass Spectrometry Cost Estimate",
+    updated_report = "Updated Mass Spectrometry Project Report",
     "Sample submission sheet"
   )
   if (is.null(cost_breakdown)) cost_breakdown <- project_cost_breakdown_snapshot(project)
@@ -2863,7 +2864,8 @@ server <- function(input, output, session) {
           class = "action-bar",
           actionButton("new_project_btn", "Create New Project", class = "btn btn-primary"),
           actionButton("edit_project_btn", "Edit Selected", class = "btn btn-secondary"),
-          downloadButton("download_report_btn", "Sample submission sheet"),
+          downloadButton("download_report_btn", "Current project report"),
+          downloadButton("download_original_submission_btn", "Original submission report"),
           downloadButton("download_invoice_btn", "Invoice"),
           if (can_delete_projects()) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
         ),
@@ -4152,16 +4154,16 @@ server <- function(input, output, session) {
             rows = 4,
             placeholder = "Optional information shown below the Windows and Mac project-folder paths."
           ),
-          textAreaInput("edit_sample_buffer", "Buffer / Solvent", value = project$sample_buffer, rows = 3),
+          if (nzchar(trim_scalar(project$sample_buffer))) textAreaInput("edit_sample_buffer", "Buffer / Solvent", value = project$sample_buffer, rows = 3),
           fluidRow(
-            column(4, textInput("edit_sample_concentration", "Concentration", value = project$sample_concentration)),
-            column(2, textInput("edit_sample_concentration_unit", "Unit", value = project$sample_concentration_unit)),
-            column(3, textInput("edit_sample_volume", "Volume", value = project$sample_volume)),
-            column(3, textInput("edit_sample_amount", "Sample amount", value = project$sample_amount))
+            if (nzchar(trim_scalar(project$sample_concentration))) column(4, textInput("edit_sample_concentration", "Concentration", value = project$sample_concentration)),
+            if (nzchar(trim_scalar(project$sample_concentration_unit))) column(2, textInput("edit_sample_concentration_unit", "Unit", value = project$sample_concentration_unit)),
+            if (nzchar(trim_scalar(project$sample_volume))) column(3, textInput("edit_sample_volume", "Volume", value = project$sample_volume)),
+            if (nzchar(trim_scalar(project$sample_amount))) column(3, textInput("edit_sample_amount", "Sample amount", value = project$sample_amount))
           ),
           fluidRow(
-            column(6, textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4)),
-            column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
+            if (nzchar(trim_scalar(project$sample_notes))) column(6, textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4)),
+            if (nzchar(trim_scalar(project$special_requirements))) column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
           ),
           uiOutput("edit_type_specific_details"),
           fluidRow(
@@ -4286,15 +4288,16 @@ server <- function(input, output, session) {
     project <- load_project_detail(con, project_id)
     if (nrow(project) == 0) return(NULL)
     p <- project[1, , drop = FALSE]
-    rows <- list(
-      `Project-specific details` = paste(
-        if (identical(p$project_type, "proteomics")) paste("Project type:", scalar_text(p$proteomics_project_type)) else if (identical(p$project_type, "metabolomics")) paste("Project type:", scalar_text(p$metabolomics_analysis_type)) else paste("Project type:", scalar_text(p$intact_project_type)),
-        if (identical(p$project_type, "proteomics")) paste("Sample type:", scalar_text(p$proteomics_sample_type)) else if (identical(p$project_type, "metabolomics")) paste("Sample type:", scalar_text(p$metabolomics_sample_type)) else paste("Sample type:", scalar_text(p$intact_sample_type)),
-        if (identical(p$project_type, "proteomics")) paste("Acquisition mode:", scalar_text(p$proteomics_acquisition_mode)) else if (identical(p$project_type, "metabolomics")) paste("Approach:", scalar_text(p$metabolomics_approach)) else paste("Expected mass:", scalar_text(p$intact_expected_mass_da)),
-        sep = "\n"
-      )
-    )
-    div(class = "edit-type-specific-details", h4("Project-specific details"), tags$pre(rows[[1]]))
+    values <- if (identical(p$project_type, "proteomics")) {
+      c(paste("Project type:", scalar_text(p$proteomics_project_type)), paste("Sample type:", scalar_text(p$proteomics_sample_type)), paste("Acquisition mode:", scalar_text(p$proteomics_acquisition_mode)))
+    } else if (identical(p$project_type, "metabolomics")) {
+      c(paste("Project type:", scalar_text(p$metabolomics_analysis_type)), paste("Sample type:", scalar_text(p$metabolomics_sample_type)), paste("Approach:", scalar_text(p$metabolomics_approach)))
+    } else {
+      c(paste("Project type:", scalar_text(p$intact_project_type)), paste("Sample type:", scalar_text(p$intact_sample_type)))
+    }
+    values <- values[grepl(":\\s*\\S", values)]
+    if (length(values) == 0) return(NULL)
+    div(class = "edit-type-specific-details", h4("Project-specific details"), tags$pre(paste(values, collapse = "\n")))
   })
 
   output$edit_cost_breakdown <- renderUI({
@@ -4741,7 +4744,7 @@ server <- function(input, output, session) {
   output$download_report_btn <- downloadHandler(
     filename = function() {
       row <- selected_project_row()
-      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_sample_submission.pdf")
+      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_updated_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
     },
     content = function(file) {
       row <- selected_project_row()
@@ -4756,10 +4759,27 @@ server <- function(input, output, session) {
         samples,
         files,
         file,
-        document_type = "report",
+        document_type = "updated_report",
         include_costs = FALSE,
         include_samples = TRUE
       )
+    }
+  )
+
+  output$download_original_submission_btn <- downloadHandler(
+    filename = function() {
+      row <- selected_project_row()
+      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_Sample_submission.pdf")
+    },
+    content = function(file) {
+      row <- selected_project_row()
+      req(row)
+      con <- ms_db_connect()
+      on.exit(dbDisconnect(con), add = TRUE)
+      project <- load_project_detail(con, row$id[[1]])
+      original <- file.path(trim_scalar(project$project_folder[[1]]), paste0(basename(trim_scalar(project$project_folder[[1]])), "_Sample_submission.pdf"))
+      if (!file.exists(original)) stop("Original submission report is not available for this project.")
+      file.copy(original, file, overwrite = TRUE)
     }
   )
 
