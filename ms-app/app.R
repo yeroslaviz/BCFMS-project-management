@@ -1391,7 +1391,7 @@ write_project_report_pdf <- function(
 
   key_value <- function(label, value) {
     value <- trim_scalar(value)
-    if (!nzchar(value) && identical(document_type, "report")) return(invisible(NULL))
+    if (!nzchar(value) && document_type %in% c("report", "cost_estimate")) return(invisible(NULL))
     if (!nzchar(value)) value <- "Not entered"
     wrapped <- strwrap(value, width = 72)
     if (length(wrapped) == 0) wrapped <- ""
@@ -1412,6 +1412,18 @@ write_project_report_pdf <- function(
     graphics::text(0.57, y - 0.016, calculation, adj = c(1, 0.5), col = text_color, cex = 0.7)
     graphics::text(0.925, y - 0.016, amount, adj = c(1, 0.5), col = text_color, cex = 0.76, font = if (total) 2 else 1)
     y <<- y - 0.032
+  }
+
+  has_report_values <- function(...) {
+    values <- unlist(list(...), use.names = FALSE)
+    any(nzchar(trimws(as.character(values[!is.na(values)]))))
+  }
+
+  volume_with_unit <- function(volume, unit) {
+    volume <- trim_scalar(volume)
+    unit <- trim_scalar(unit)
+    if (!nzchar(volume)) return("")
+    paste(volume, unit)
   }
 
   new_page()
@@ -1443,44 +1455,52 @@ write_project_report_pdf <- function(
   if (identical(document_type, "report")) {
     key_value("Buffer / solvent", scalar_text(project$sample_buffer))
     key_value("Sample amount", scalar_text(project$sample_amount))
-    key_value("Volume", paste(trim_scalar(project$sample_volume), trim_scalar(project$sample_volume_unit)))
-  }
-
-  if (identical(document_type, "report")) section("Data Analysis")
-  if (identical(scalar_text(project$project_type), "intact_mass")) {
-    key_value("Sequence / name / structure", scalar_text(project$intact_sequence_name_structure))
-    key_value("Expected mass [Da]", scalar_text(project$intact_expected_mass_da))
-    key_value("Stoichiometry", scalar_text(project$intact_stoichiometry))
-    key_value("Tags / modifications", scalar_text(project$intact_tags_modifications))
-  } else if (identical(scalar_text(project$project_type), "proteomics")) {
-    key_value("Acquisition mode", scalar_text(project$proteomics_acquisition_mode))
-    key_value("Quantification strategy", scalar_text(project$proteomics_quantification_strategy))
-    key_value("Species", scalar_text(project$proteomics_species))
-    key_value("Expression host", scalar_text(project$proteomics_expression_host))
-    key_value("Digestion enzyme", scalar_text(project$proteomics_digestion_enzyme))
-    if (nzchar(trim_scalar(project$proteomics_digestion_enzyme_other))) {
-      key_value("Other digestion description", scalar_text(project$proteomics_digestion_enzyme_other))
-    }
-    key_value("PTMs / modifications", scalar_text(project$proteomics_ptms))
-    if (nzchar(trim_scalar(project$proteomics_crosslinker))) {
-      key_value("Crosslinker", scalar_text(project$proteomics_crosslinker))
-    }
-  } else if (identical(scalar_text(project$project_type), "metabolomics")) {
-    key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
-    key_value("Approach", scalar_text(project$metabolomics_approach))
-    if (identical(document_type, "report")) key_value("Acquisition mode", scalar_text(project$metabolomics_acquisition_mode))
-    key_value("Species", scalar_text(project$metabolomics_species))
-    key_value("Cell number", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit)))
-    key_value("Supernatant volume", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit)))
-    key_value("Tissue weight", paste(trim_scalar(project$metabolomics_tissue_weight), trim_scalar(project$metabolomics_tissue_weight_unit)))
-    key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
+    key_value("Volume", volume_with_unit(project$sample_volume, project$sample_volume_unit))
   }
 
   if (identical(document_type, "report")) {
-    section("Biological question and requirements")
-    key_value("Biological question", scalar_text(project$sample_notes))
-    key_value("Special requirements", scalar_text(project$special_requirements))
-    key_value("Report notes", scalar_text(project$report_notes))
+    type_specific_values <- switch(
+      scalar_text(project$project_type),
+      intact_mass = c(project$intact_sequence_name_structure, project$intact_expected_mass_da, project$intact_stoichiometry, project$intact_tags_modifications),
+      proteomics = c(project$proteomics_acquisition_mode, project$proteomics_quantification_strategy, project$proteomics_species, project$proteomics_expression_host, project$proteomics_digestion_enzyme, project$proteomics_digestion_enzyme_other, project$proteomics_ptms, project$proteomics_crosslinker),
+      metabolomics = c(project$metabolomics_analysis_type, project$metabolomics_approach, project$metabolomics_species, project$metabolomics_cell_number, project$metabolomics_supernatant_volume, project$metabolomics_tissue_weight, project$metabolomics_targeted_analyte_text),
+      character()
+    )
+    if (has_report_values(type_specific_values)) {
+      section("Data Analysis")
+      if (identical(scalar_text(project$project_type), "intact_mass")) {
+        key_value("Sequence / name / structure", scalar_text(project$intact_sequence_name_structure))
+        key_value("Expected mass [Da]", scalar_text(project$intact_expected_mass_da))
+        key_value("Stoichiometry", scalar_text(project$intact_stoichiometry))
+        key_value("Tags / modifications", scalar_text(project$intact_tags_modifications))
+      } else if (identical(scalar_text(project$project_type), "proteomics")) {
+        key_value("Acquisition mode", scalar_text(project$proteomics_acquisition_mode))
+        key_value("Quantification strategy", scalar_text(project$proteomics_quantification_strategy))
+        key_value("Species", scalar_text(project$proteomics_species))
+        key_value("Expression host", scalar_text(project$proteomics_expression_host))
+        key_value("Digestion enzyme", scalar_text(project$proteomics_digestion_enzyme))
+        key_value("Other digestion description", scalar_text(project$proteomics_digestion_enzyme_other))
+        key_value("PTMs / modifications", scalar_text(project$proteomics_ptms))
+        key_value("Crosslinker", scalar_text(project$proteomics_crosslinker))
+      } else if (identical(scalar_text(project$project_type), "metabolomics")) {
+        key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
+        key_value("Approach", scalar_text(project$metabolomics_approach))
+        key_value("Species", scalar_text(project$metabolomics_species))
+        key_value("Cell number", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit)))
+        key_value("Supernatant volume", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit)))
+        key_value("Tissue weight", paste(trim_scalar(project$metabolomics_tissue_weight), trim_scalar(project$metabolomics_tissue_weight_unit)))
+        key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
+      }
+    }
+  }
+
+  if (identical(document_type, "report")) {
+    if (has_report_values(project$sample_notes, project$special_requirements, project$report_notes)) {
+      section("Biological question and requirements")
+      key_value("Biological question", scalar_text(project$sample_notes))
+      key_value("Special requirements", scalar_text(project$special_requirements))
+      key_value("Report notes", scalar_text(project$report_notes))
+    }
   }
 
   if (isTRUE(include_costs)) {
