@@ -1412,6 +1412,7 @@ write_project_report_pdf <- function(
     "Sample submission sheet"
   )
   if (is.null(cost_breakdown)) cost_breakdown <- project_cost_breakdown_snapshot(project)
+  is_project_report <- document_type %in% c("report", "updated_report")
   pdf_currency <- function(value) {
     number <- suppressWarnings(as.numeric(value))
     if (is.na(number) || !is.finite(number)) "EUR 0.00" else sprintf("EUR %.2f", number)
@@ -1462,7 +1463,7 @@ write_project_report_pdf <- function(
 
   key_value <- function(label, value) {
     value <- trim_scalar(value)
-    if (!nzchar(value) && document_type %in% c("report", "cost_estimate")) return(invisible(NULL))
+    if (!nzchar(value) && (is_project_report || identical(document_type, "cost_estimate"))) return(invisible(NULL))
     if (!nzchar(value)) value <- "Not entered"
     wrapped <- strwrap(value, width = 72)
     if (length(wrapped) == 0) wrapped <- ""
@@ -1473,6 +1474,41 @@ write_project_report_pdf <- function(
       graphics::text(0.31, y - 0.012 - (i - 1) * 0.022, wrapped[[i]], adj = c(0, 1), col = text_color, cex = 0.78)
     }
     y <<- y - row_height
+  }
+
+  detail_group <- function(title, labels, values) {
+    labels <- as.character(labels)
+    values <- trimws(as.character(values))
+    values[is.na(values) | !nzchar(values)] <- "Not entered"
+    wrapped_values <- lapply(values, strwrap, width = 62)
+    wrapped_values <- lapply(wrapped_values, function(value) if (length(value) == 0) "" else value)
+    row_heights <- vapply(wrapped_values, function(value) max(0.03, length(value) * 0.021 + 0.008), numeric(1))
+    group_height <- 0.038 + sum(row_heights) + 0.008
+    ensure_space(group_height + 0.012)
+
+    group_top <- y
+    group_bottom <- y - group_height
+    graphics::rect(0.06, group_bottom, 0.94, group_top, col = "#FBFCFD", border = "#DFE4E7")
+    graphics::rect(0.06, group_top - 0.038, 0.94, group_top, col = pale, border = "#DFE4E7")
+    graphics::rect(0.06, group_top - 0.038, 0.067, group_top, col = accent, border = NA)
+    graphics::text(0.078, group_top - 0.019, title, adj = c(0, 0.5), col = navy, cex = 0.8, font = 2)
+
+    row_y <- group_top - 0.046
+    for (i in seq_along(labels)) {
+      graphics::text(0.078, row_y - 0.008, labels[[i]], adj = c(0, 1), col = muted, cex = 0.69, font = 2)
+      for (line_index in seq_along(wrapped_values[[i]])) {
+        graphics::text(
+          0.34,
+          row_y - 0.008 - (line_index - 1) * 0.021,
+          wrapped_values[[i]][[line_index]],
+          adj = c(0, 1),
+          col = text_color,
+          cex = 0.75
+        )
+      }
+      row_y <- row_y - row_heights[[i]]
+    }
+    y <<- group_bottom - 0.012
   }
 
   cost_row <- function(label, calculation, amount, total = FALSE) {
@@ -1519,22 +1555,33 @@ write_project_report_pdf <- function(
   }
   type_options <- project_pricing_options(project)
   key_value("Project type", type_options$project_value)
-  key_value("Sample type", type_options$sample_value)
-  if (identical(scalar_text(project$project_type), "metabolomics") && identical(document_type, "report")) {
-    key_value("Approach", scalar_text(project$metabolomics_approach))
+  is_metabolomics_report <- identical(scalar_text(project$project_type), "metabolomics") && is_project_report
+  if (!is_metabolomics_report) {
+    key_value("Sample type", type_options$sample_value)
   }
-  if (identical(document_type, "report")) {
+  if (is_project_report) {
     key_value("Buffer / solvent", scalar_text(project$sample_buffer))
-    key_value("Sample amount", scalar_text(project$sample_amount))
-    key_value("Volume", volume_with_unit(project$sample_volume, project$sample_volume_unit))
+    if (is_metabolomics_report) {
+      metabolomics_details <- metabolomics_sample_details(project)
+      for (i in seq_len(nrow(metabolomics_details))) {
+        detail_group(
+          metabolomics_details$sample_type[[i]],
+          c(metabolomics_details$value_label[[i]], "Unit"),
+          c(metabolomics_details$value[[i]], metabolomics_details$unit[[i]])
+        )
+      }
+    } else {
+      key_value("Sample amount", scalar_text(project$sample_amount))
+      key_value("Volume", volume_with_unit(project$sample_volume, project$sample_volume_unit))
+    }
   }
 
-  if (identical(document_type, "report")) {
+  if (is_project_report) {
     type_specific_values <- switch(
       scalar_text(project$project_type),
       intact_mass = c(project$intact_sequence_name_structure, project$intact_expected_mass_da, project$intact_stoichiometry, project$intact_tags_modifications),
       proteomics = c(project$proteomics_acquisition_mode, project$proteomics_quantification_strategy, project$proteomics_species, project$proteomics_expression_host, project$proteomics_digestion_enzyme, project$proteomics_digestion_enzyme_other, project$proteomics_ptms, project$proteomics_crosslinker),
-      metabolomics = c(project$metabolomics_analysis_type, project$metabolomics_approach, project$metabolomics_species, project$metabolomics_cell_number, project$metabolomics_supernatant_volume, project$metabolomics_tissue_weight, project$metabolomics_targeted_analyte_text),
+      metabolomics = c(project$metabolomics_analysis_type, project$metabolomics_approach, project$metabolomics_species, project$metabolomics_targeted_analyte_text),
       character()
     )
     if (has_report_values(type_specific_values)) {
@@ -1557,15 +1604,12 @@ write_project_report_pdf <- function(
         key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
         key_value("Approach", scalar_text(project$metabolomics_approach))
         key_value("Species", scalar_text(project$metabolomics_species))
-        key_value("Cell number", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit)))
-        key_value("Supernatant volume", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit)))
-        key_value("Tissue weight", paste(trim_scalar(project$metabolomics_tissue_weight), trim_scalar(project$metabolomics_tissue_weight_unit)))
         key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
       }
     }
   }
 
-  if (identical(document_type, "report")) {
+  if (is_project_report) {
     if (has_report_values(project$sample_notes, project$special_requirements, project$report_notes)) {
       section("Biological question and requirements")
       key_value("Biological question", scalar_text(project$sample_notes))
