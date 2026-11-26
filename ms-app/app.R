@@ -3316,18 +3316,14 @@ server <- function(input, output, session) {
           if (identical(input$project_type, "intact_mass")) {
             "Required for Intact projects. Upload a non-empty tab-delimited table using the Intact template. Uploads may be .txt, .csv, or .tsv."
           } else {
-            "Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."
+            "Required. Download the tab-delimited .txt template for the selected project type and fill it locally. Uploads may be .txt, .csv, or .tsv files using tab, comma, or semicolon separators."
           }
         ),
         div(
           class = "sample-upload-actions",
           fileInput(
             "sample_table_upload",
-            paste0(
-              "Upload sample overview table",
-              if (identical(input$project_type, "intact_mass")) " (required)" else "",
-              " (.txt / .csv / .tsv)"
-            ),
+            "Upload sample overview table (required) (.txt / .csv / .tsv)",
             accept = c(".txt", ".csv", ".tsv")
           ),
           downloadButton("download_selected_template", paste("Download", project_type_template_label(input$project_type), "Template"))
@@ -3369,10 +3365,7 @@ server <- function(input, output, session) {
         h4("3. Sample Information"),
         project_and_sample_type_ui(input$project_type, con),
         if (identical(input$project_type, "intact_mass")) {
-          fluidRow(
-            column(6, textInput("project_name", field_label("Sample name", "Optional. Used as the single sample when no sample overview table is uploaded; max 80 characters.", "AB-001_proteinA"))),
-            column(6, textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date())))
-          )
+          textInput("submission_date", field_label("Date of project submission *", "Auto-set to today."), value = as.character(Sys.Date()))
         },
         if (input$project_type == "metabolomics") {
           fluidRow(
@@ -3396,7 +3389,12 @@ server <- function(input, output, session) {
         } else if (input$project_type == "intact_mass") {
           tagList(
             textAreaInput("sample_buffer", field_label("Buffer / Solvent *", "List buffer type, salts, detergents, reducing agents, glycerol %, pH, and organic co-solvents."), rows = 3),
-            selectInput("concentration_method", field_label("Concentration *", "Select or describe the concentration."), choices = c("", load_choice_values(con, "concentration_method")))
+            selectInput(
+              "concentration_method",
+              "Method for Concentration",
+              choices = c("Not selected" = "", load_choice_values(con, "concentration_method")),
+              selected = ""
+            )
           )
         } else if (input$project_type == "proteomics") {
           fluidRow(
@@ -3700,16 +3698,11 @@ server <- function(input, output, session) {
       errors <- c(errors, "Choose a measurement type.")
     }
 
-    if (nchar(trim_scalar(input$project_name)) > 80) {
-      errors <- c(errors, "Sample name must be 80 characters or shorter.")
-    }
-
     if (selected_type == "intact_mass") {
       intact_required <- c(
         intact_project_type = "Project Type",
         intact_sample_type = "Sample type",
-        sample_buffer = "Buffer / Solvent",
-        concentration_method = "Concentration"
+        sample_buffer = "Buffer / Solvent"
       )
       for (id in names(intact_required)) {
         if (!non_empty(input[[id]])) errors <- c(errors, paste(intact_required[[id]], "is required."))
@@ -3806,7 +3799,7 @@ server <- function(input, output, session) {
     }
 
     project_values <- list(
-      project_name = trim_scalar(input$project_name),
+      project_name = "",
       project_type = input$project_type,
       user_id = user$user_id,
       responsible_user = trim_scalar(input$responsible_user),
