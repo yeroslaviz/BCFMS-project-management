@@ -152,6 +152,12 @@ metabolomics_sample_details <- function(project) {
   )
 }
 
+metabolomics_value_with_unit <- function(value, unit) {
+  parts <- c(trim_scalar(value), trim_scalar(unit))
+  parts <- parts[nzchar(parts)]
+  if (length(parts) == 0) "Not entered" else paste(parts, collapse = " ")
+}
+
 metabolomics_read_only_details_ui <- function(project) {
   details <- metabolomics_sample_details(project)
   if (nrow(details) == 0) return(NULL)
@@ -165,12 +171,10 @@ metabolomics_read_only_details_ui <- function(project) {
         div(
           class = "sample-type-static-row",
           span(class = "sample-type-static-label", details$value_label[[i]]),
-          span(class = "sample-type-static-value", first_non_empty(details$value[[i]], "Not entered"))
-        ),
-        div(
-          class = "sample-type-static-row",
-          span(class = "sample-type-static-label", "Unit"),
-          span(class = "sample-type-static-value", first_non_empty(details$unit[[i]], "Not entered"))
+          span(
+            class = "sample-type-static-value",
+            metabolomics_value_with_unit(details$value[[i]], details$unit[[i]])
+          )
         )
       )
     })
@@ -1583,8 +1587,11 @@ write_project_report_pdf <- function(
       for (i in seq_len(nrow(metabolomics_details))) {
         detail_group(
           metabolomics_details$sample_type[[i]],
-          c(metabolomics_details$value_label[[i]], "Unit"),
-          c(metabolomics_details$value[[i]], metabolomics_details$unit[[i]])
+          metabolomics_details$value_label[[i]],
+          metabolomics_value_with_unit(
+            metabolomics_details$value[[i]],
+            metabolomics_details$unit[[i]]
+          )
         )
       }
     } else {
