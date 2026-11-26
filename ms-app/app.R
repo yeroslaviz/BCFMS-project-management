@@ -84,8 +84,13 @@ role_can_manage_project_costs <- function(role) {
   role_is_admin(role)
 }
 
-acceptance_missing_facility_fields <- function(status, column_type, ms_machine) {
-  if (!identical(trim_scalar(status), "Accepted")) return(character())
+submitted_status_requires_acceptance <- function(current_status, requested_status) {
+  identical(trim_scalar(current_status), "Submitted") &&
+    !trim_scalar(requested_status) %in% c("Submitted", "Accepted")
+}
+
+status_missing_facility_fields <- function(status, column_type, ms_machine) {
+  if (trim_scalar(status) %in% c("", "Submitted")) return(character())
   fields <- c(
     "Column Type" = trim_scalar(column_type),
     "MS Machine" = trim_scalar(ms_machine)
@@ -4282,13 +4287,13 @@ server <- function(input, output, session) {
           if (can_edit_all_projects()) fluidRow(
             column(6, selectInput(
               "edit_column_type",
-              "Column Type (required for Accepted)",
+              "Column Type (required)",
               choices = c("Not set" = "", column_type_choices),
               selected = scalar_text(project$column_type)
             )),
             column(6, selectInput(
               "edit_ms_machine",
-              "MS Machine (required for Accepted)",
+              "MS Machine (required)",
               choices = c("Not set" = "", ms_machine_choices),
               selected = scalar_text(project$ms_machine)
             ))
@@ -4614,8 +4619,12 @@ server <- function(input, output, session) {
     } else {
       scalar_text(project_before$status, "Submitted")
     }
+    if (can_edit_all_projects() && submitted_status_requires_acceptance(project_before$status, requested_status)) {
+      showNotification("Please first accept the project.", type = "error", duration = 10)
+      return()
+    }
     missing_facility_fields <- if (can_edit_all_projects()) {
-      acceptance_missing_facility_fields(
+      status_missing_facility_fields(
         requested_status,
         input$edit_column_type,
         input$edit_ms_machine
@@ -4628,7 +4637,7 @@ server <- function(input, output, session) {
         paste0(
           paste(missing_facility_fields, collapse = " and "),
           if (length(missing_facility_fields) == 1) " is" else " are",
-          " required before the project can be set to Accepted."
+          " required before the project can move beyond Submitted."
         ),
         type = "error",
         duration = 10
