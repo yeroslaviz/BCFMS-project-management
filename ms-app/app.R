@@ -90,6 +90,76 @@ join_values <- function(x) {
   paste(x[nzchar(x)], collapse = "; ")
 }
 
+split_joined_values <- function(x) {
+  value <- trim_scalar(x)
+  if (!nzchar(value)) return(character())
+  values <- trimws(strsplit(value, ";", fixed = TRUE)[[1]])
+  values[nzchar(values)]
+}
+
+metabolomics_input_suffix <- function(sample_type) {
+  gsub("[^A-Za-z0-9]", "_", sample_type)
+}
+
+metabolomics_edit_input_id <- function(field, sample_type) {
+  paste0("edit_metabolomics_", field, "_", metabolomics_input_suffix(sample_type))
+}
+
+metabolomics_sample_details <- function(project) {
+  sample_types <- split_joined_values(project$metabolomics_sample_type)
+  if (length(sample_types) == 0) {
+    return(data.frame(
+      sample_type = character(),
+      value_label = character(),
+      value = character(),
+      unit = character(),
+      stringsAsFactors = FALSE
+    ))
+  }
+
+  liquid_types <- c(
+    sample_types[sample_types == "Supernatant"],
+    sample_types[!sample_types %in% c("Cell Pellet", "Supernatant", "Tissue")]
+  )
+  liquid_values <- split_joined_values(project$metabolomics_supernatant_volume)
+  liquid_units <- split_joined_values(project$metabolomics_supernatant_volume_unit)
+
+  liquid_value_for <- function(sample_type, values) {
+    position <- match(sample_type, liquid_types)
+    if (is.na(position) || position > length(values)) "" else values[[position]]
+  }
+
+  details <- lapply(sample_types, function(sample_type) {
+    if (identical(sample_type, "Cell Pellet")) {
+      list(
+        value_label = "Cell number",
+        value = trim_scalar(project$metabolomics_cell_number),
+        unit = trim_scalar(project$metabolomics_cell_number_unit)
+      )
+    } else if (identical(sample_type, "Tissue")) {
+      list(
+        value_label = "Sample amount",
+        value = trim_scalar(project$metabolomics_tissue_weight),
+        unit = trim_scalar(project$metabolomics_tissue_weight_unit)
+      )
+    } else {
+      list(
+        value_label = "Volume submitted",
+        value = liquid_value_for(sample_type, liquid_values),
+        unit = liquid_value_for(sample_type, liquid_units)
+      )
+    }
+  })
+
+  data.frame(
+    sample_type = sample_types,
+    value_label = vapply(details, `[[`, character(1), "value_label"),
+    value = vapply(details, `[[`, character(1), "value"),
+    unit = vapply(details, `[[`, character(1), "unit"),
+    stringsAsFactors = FALSE
+  )
+}
+
 split_full_name <- function(full_name, fallback_username = "") {
   full_name <- trimws(full_name %||% "")
   if (!nzchar(full_name)) full_name <- fallback_username
@@ -4154,11 +4224,12 @@ server <- function(input, output, session) {
             placeholder = "Optional information shown below the Windows and Mac project-folder paths."
           ),
           if (nzchar(trim_scalar(project$sample_buffer))) textAreaInput("edit_sample_buffer", "Buffer / Solvent", value = project$sample_buffer, rows = 3),
+          if (identical(scalar_text(project$project_type), "metabolomics")) uiOutput("edit_metabolomics_sample_type_details"),
           fluidRow(
             if (nzchar(trim_scalar(project$sample_concentration))) column(4, textInput("edit_sample_concentration", "Concentration", value = project$sample_concentration)),
             if (nzchar(trim_scalar(project$sample_concentration_unit))) column(2, textInput("edit_sample_concentration_unit", "Unit", value = project$sample_concentration_unit)),
             if (nzchar(trim_scalar(project$sample_volume))) column(3, textInput("edit_sample_volume", "Volume", value = project$sample_volume)),
-            if (nzchar(trim_scalar(project$sample_amount))) column(3, textInput("edit_sample_amount", "Sample amount", value = project$sample_amount))
+            if (!identical(scalar_text(project$project_type), "metabolomics") && nzchar(trim_scalar(project$sample_amount))) column(3, textInput("edit_sample_amount", "Sample amount", value = project$sample_amount))
           ),
           fluidRow(
             if (nzchar(trim_scalar(project$sample_notes))) column(6, textAreaInput("edit_sample_notes", "Biological question", value = project$sample_notes, rows = 4)),
@@ -4308,6 +4379,68 @@ server <- function(input, output, session) {
     values <- values[grepl(":\\s*\\S", values)]
     if (length(values) == 0) return(NULL)
     div(class = "edit-type-specific-details", h4("Project-specific details"), tags$pre(paste(values, collapse = "\n")))
+  })
+
+  output$edit_metabolomics_sample_type_details <- renderUI({
+    project_id <- editing_project_id()
+    req(project_id)
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    project <- load_project_detail(con, project_id)
+    if (nrow(project) == 0 || !identical(scalar_text(project$project_type), "metabolomics")) return(NULL)
+
+    details <- metabolomics_sample_details(project)
+    if (nrow(details) == 0) return(NULL)
+    volume_units <- load_choice_values(con, "volume_unit", c("uL", "mL", "other"))
+
+    div(
+      class = "edit-metabolomics-sample-details",
+      h4("Sample type information"),
+      lapply(seq_len(nrow(details)), function(i) {
+        sample_type <- details$sample_type[[i]]
+        current_unit <- details$unit[[i]]
+        default_unit <- if (identical(sample_type, "Cell Pellet")) {
+          "cells"
+        } else if (identical(sample_type, "Tissue")) {
+          "mg"
+        } else {
+          "uL"
+        }
+        unit_choices <- if (identical(sample_type, "Cell Pellet")) {
+          c("cells", "million cells", "other")
+        } else if (identical(sample_type, "Tissue")) {
+          c("ug", "mg", "g", "other")
+        } else {
+          volume_units
+        }
+        selected_unit <- first_non_empty(current_unit, default_unit)
+        unit_choices <- unique(c(unit_choices, selected_unit))
+
+        div(
+          class = "sample-type-detail-card",
+          h5(sample_type),
+          fluidRow(
+            column(
+              6,
+              textInput(
+                metabolomics_edit_input_id("value", sample_type),
+                details$value_label[[i]],
+                value = details$value[[i]]
+              )
+            ),
+            column(
+              6,
+              selectInput(
+                metabolomics_edit_input_id("unit", sample_type),
+                "Unit",
+                choices = unit_choices,
+                selected = selected_unit
+              )
+            )
+          )
+        )
+      })
+    )
   })
 
   output$edit_cost_breakdown <- renderUI({
@@ -4467,6 +4600,7 @@ server <- function(input, output, session) {
     project_before <- load_project_detail(con, project_id)
     if (nrow(project_before) == 0) return()
     is_intact_project <- identical(scalar_text(project_before$project_type), "intact_mass")
+    is_metabolomics_project <- identical(scalar_text(project_before$project_type), "metabolomics")
     if (!is_intact_project) {
       edit_technical_replicates <- suppressWarnings(as.numeric(input$edit_technical_replicates %||% NA_real_))
       if (is.na(edit_technical_replicates) || !is.finite(edit_technical_replicates) ||
@@ -4516,6 +4650,36 @@ server <- function(input, output, session) {
       )
       return()
     }
+
+    metabolomics_details <- if (is_metabolomics_project) metabolomics_sample_details(project_before) else NULL
+    metabolomics_values <- metabolomics_units <- character()
+    if (!is.null(metabolomics_details) && nrow(metabolomics_details) > 0) {
+      metabolomics_values <- setNames(vapply(
+        metabolomics_details$sample_type,
+        function(sample_type) trim_scalar(input[[metabolomics_edit_input_id("value", sample_type)]]),
+        character(1)
+      ), metabolomics_details$sample_type)
+      metabolomics_units <- setNames(vapply(
+        metabolomics_details$sample_type,
+        function(sample_type) trim_scalar(input[[metabolomics_edit_input_id("unit", sample_type)]]),
+        character(1)
+      ), metabolomics_details$sample_type)
+
+      missing_values <- metabolomics_details$sample_type[!nzchar(metabolomics_values)]
+      missing_units <- metabolomics_details$sample_type[!nzchar(metabolomics_units)]
+      if (length(missing_values) > 0 || length(missing_units) > 0) {
+        messages <- c(
+          vapply(missing_values, function(sample_type) {
+            label <- metabolomics_details$value_label[match(sample_type, metabolomics_details$sample_type)]
+            paste0(label, " is required for ", sample_type, ".")
+          }, character(1)),
+          vapply(missing_units, function(sample_type) paste0("Unit is required for ", sample_type, "."), character(1))
+        )
+        showNotification(paste(messages, collapse = "\n"), type = "error", duration = 10)
+        return()
+      }
+    }
+
     values <- list(
       project_name = trim_scalar(input$edit_project_name),
       responsible_user = trim_scalar(input$edit_responsible_user),
@@ -4535,6 +4699,26 @@ server <- function(input, output, session) {
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
     )
+    if (is_metabolomics_project && length(metabolomics_values) > 0) {
+      detail_value <- function(values, sample_type) {
+        if (sample_type %in% names(values)) unname(values[[sample_type]]) else ""
+      }
+      sample_types <- metabolomics_details$sample_type
+      liquid_types <- c(
+        sample_types[sample_types == "Supernatant"],
+        sample_types[!sample_types %in% c("Cell Pellet", "Supernatant", "Tissue")]
+      )
+      values$metabolomics_cell_number <- detail_value(metabolomics_values, "Cell Pellet")
+      values$metabolomics_cell_number_unit <- detail_value(metabolomics_units, "Cell Pellet")
+      values$metabolomics_supernatant_volume <- paste(unname(metabolomics_values[liquid_types]), collapse = "; ")
+      values$metabolomics_supernatant_volume_unit <- paste(unname(metabolomics_units[liquid_types]), collapse = "; ")
+      values$metabolomics_tissue_weight <- detail_value(metabolomics_values, "Tissue")
+      values$metabolomics_tissue_weight_unit <- detail_value(metabolomics_units, "Tissue")
+      values$sample_amount <- first_non_empty(
+        values$metabolomics_tissue_weight,
+        values$metabolomics_cell_number
+      )
+    }
     if (!is_intact_project) {
       values$technical_replicates <- as.integer(edit_technical_replicates)
     }

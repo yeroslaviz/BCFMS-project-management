@@ -293,6 +293,31 @@ body {
   margin-bottom: 10px;
 }
 
+.edit-metabolomics-sample-details {
+  margin: 16px 0;
+}
+
+.edit-metabolomics-sample-details > h4 {
+  margin: 0 0 10px;
+  color: #1f4e79;
+}
+
+.sample-type-detail-card {
+  border: 1px solid #dfe4e7;
+  border-left: 5px solid #cc6677;
+  border-radius: 7px;
+  background: #fbfcfd;
+  padding: 12px 14px 0;
+  margin-bottom: 12px;
+}
+
+.sample-type-detail-card h5 {
+  margin: 0 0 10px;
+  color: #263238;
+  font-size: 16px;
+  font-weight: 700;
+}
+
 .form-section {
   border: 1px solid #dfe4e7;
   border-radius: 8px;
