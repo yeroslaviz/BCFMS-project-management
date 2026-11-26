@@ -84,6 +84,15 @@ role_can_manage_project_costs <- function(role) {
   role_is_admin(role)
 }
 
+acceptance_missing_facility_fields <- function(status, column_type, ms_machine) {
+  if (!identical(trim_scalar(status), "Accepted")) return(character())
+  fields <- c(
+    "Column Type" = trim_scalar(column_type),
+    "MS Machine" = trim_scalar(ms_machine)
+  )
+  names(fields)[!nzchar(fields)]
+}
+
 join_values <- function(x) {
   x <- x %||% character()
   x <- trimws(as.character(x))
@@ -1497,41 +1506,6 @@ write_project_report_pdf <- function(
     y <<- y - row_height
   }
 
-  detail_group <- function(title, labels, values) {
-    labels <- as.character(labels)
-    values <- trimws(as.character(values))
-    values[is.na(values) | !nzchar(values)] <- "Not entered"
-    wrapped_values <- lapply(values, strwrap, width = 62)
-    wrapped_values <- lapply(wrapped_values, function(value) if (length(value) == 0) "" else value)
-    row_heights <- vapply(wrapped_values, function(value) max(0.03, length(value) * 0.021 + 0.008), numeric(1))
-    group_height <- 0.038 + sum(row_heights) + 0.008
-    ensure_space(group_height + 0.012)
-
-    group_top <- y
-    group_bottom <- y - group_height
-    graphics::rect(0.06, group_bottom, 0.94, group_top, col = "#FBFCFD", border = "#DFE4E7")
-    graphics::rect(0.06, group_top - 0.038, 0.94, group_top, col = pale, border = "#DFE4E7")
-    graphics::rect(0.06, group_top - 0.038, 0.067, group_top, col = accent, border = NA)
-    graphics::text(0.078, group_top - 0.019, title, adj = c(0, 0.5), col = navy, cex = 0.8, font = 2)
-
-    row_y <- group_top - 0.046
-    for (i in seq_along(labels)) {
-      graphics::text(0.078, row_y - 0.008, labels[[i]], adj = c(0, 1), col = muted, cex = 0.69, font = 2)
-      for (line_index in seq_along(wrapped_values[[i]])) {
-        graphics::text(
-          0.34,
-          row_y - 0.008 - (line_index - 1) * 0.021,
-          wrapped_values[[i]][[line_index]],
-          adj = c(0, 1),
-          col = text_color,
-          cex = 0.75
-        )
-      }
-      row_y <- row_y - row_heights[[i]]
-    }
-    y <<- group_bottom - 0.012
-  }
-
   cost_row <- function(label, calculation, amount, total = FALSE) {
     ensure_space(0.036)
     fill <- if (isTRUE(total)) accent else if ((round(y * 1000) %% 2) == 0) "#F6F8F9" else "white"
@@ -1585,12 +1559,14 @@ write_project_report_pdf <- function(
     if (is_metabolomics_report) {
       metabolomics_details <- metabolomics_sample_details(project)
       for (i in seq_len(nrow(metabolomics_details))) {
-        detail_group(
+        key_value(
           metabolomics_details$sample_type[[i]],
-          metabolomics_details$value_label[[i]],
-          metabolomics_value_with_unit(
-            metabolomics_details$value[[i]],
-            metabolomics_details$unit[[i]]
+          paste(
+            metabolomics_details$value_label[[i]],
+            metabolomics_value_with_unit(
+              metabolomics_details$value[[i]],
+              metabolomics_details$unit[[i]]
+            )
           )
         )
       }
@@ -4303,32 +4279,21 @@ server <- function(input, output, session) {
             if (nzchar(trim_scalar(project$special_requirements))) column(6, textAreaInput("edit_special_requirements", "Special requirements", value = project$special_requirements, rows = 4))
           ),
           uiOutput("edit_type_specific_details"),
-          if (role_is_admin(current_user_role())) checkboxInput(
-            "edit_show_empty_optional_fields",
-            "Show empty optional fields",
-            value = FALSE
+          if (can_edit_all_projects()) fluidRow(
+            column(6, selectInput(
+              "edit_column_type",
+              "Column Type (required for Accepted)",
+              choices = c("Not set" = "", column_type_choices),
+              selected = scalar_text(project$column_type)
+            )),
+            column(6, selectInput(
+              "edit_ms_machine",
+              "MS Machine (required for Accepted)",
+              choices = c("Not set" = "", ms_machine_choices),
+              selected = scalar_text(project$ms_machine)
+            ))
           ),
-          fluidRow(
-            conditionalPanel(
-              condition = paste0("input.edit_show_empty_optional_fields || ", if (nzchar(trim_scalar(project$column_type))) "true" else "false", " || input.edit_column_type != ''"),
-              column(4, selectInput(
-                "edit_column_type",
-                "Column Type",
-                choices = c("Not set" = "", column_type_choices),
-                selected = scalar_text(project$column_type)
-              ))
-            ),
-            conditionalPanel(
-              condition = paste0("input.edit_show_empty_optional_fields || ", if (nzchar(trim_scalar(project$ms_machine))) "true" else "false", " || input.edit_ms_machine != ''"),
-              column(4, selectInput(
-                "edit_ms_machine",
-                "MS Machine",
-                choices = c("Not set" = "", ms_machine_choices),
-                selected = scalar_text(project$ms_machine)
-              ))
-            )
-          ),
-          fluidRow(
+          if (can_edit_all_projects()) fluidRow(
             column(6, conditionalPanel(
               "input.edit_column_type == 'Other'",
               limited_text_input(
@@ -4644,6 +4609,32 @@ server <- function(input, output, session) {
         ""
       }
     }
+    requested_status <- if (can_edit_all_projects()) {
+      trim_scalar(input$edit_status, scalar_text(project_before$status, "Submitted"))
+    } else {
+      scalar_text(project_before$status, "Submitted")
+    }
+    missing_facility_fields <- if (can_edit_all_projects()) {
+      acceptance_missing_facility_fields(
+        requested_status,
+        input$edit_column_type,
+        input$edit_ms_machine
+      )
+    } else {
+      character()
+    }
+    if (length(missing_facility_fields) > 0) {
+      showNotification(
+        paste0(
+          paste(missing_facility_fields, collapse = " and "),
+          if (length(missing_facility_fields) == 1) " is" else " are",
+          " required before the project can be set to Accepted."
+        ),
+        type = "error",
+        duration = 10
+      )
+      return()
+    }
     other_fields <- c(
       "Other Column Type" = trim_scalar(input$edit_column_type_other),
       "Other MS Machine" = trim_scalar(input$edit_ms_machine_other)
@@ -4682,10 +4673,18 @@ server <- function(input, output, session) {
       sample_amount = if (is_metabolomics_project) trim_scalar(project_before$sample_amount) else trim_scalar(input$edit_sample_amount),
       sample_notes = trim_scalar(input$edit_sample_notes),
       special_requirements = trim_scalar(input$edit_special_requirements),
-      column_type = trim_scalar(input$edit_column_type),
-      column_type_other = if (identical(trim_scalar(input$edit_column_type), "Other")) other_fields[["Other Column Type"]] else "",
-      ms_machine = trim_scalar(input$edit_ms_machine),
-      ms_machine_other = if (identical(trim_scalar(input$edit_ms_machine), "Other")) other_fields[["Other MS Machine"]] else "",
+      column_type = if (can_edit_all_projects()) trim_scalar(input$edit_column_type) else trim_scalar(project_before$column_type),
+      column_type_other = if (can_edit_all_projects()) {
+        if (identical(trim_scalar(input$edit_column_type), "Other")) other_fields[["Other Column Type"]] else ""
+      } else {
+        trim_scalar(project_before$column_type_other)
+      },
+      ms_machine = if (can_edit_all_projects()) trim_scalar(input$edit_ms_machine) else trim_scalar(project_before$ms_machine),
+      ms_machine_other = if (can_edit_all_projects()) {
+        if (identical(trim_scalar(input$edit_ms_machine), "Other")) other_fields[["Other MS Machine"]] else ""
+      } else {
+        trim_scalar(project_before$ms_machine_other)
+      },
       report_notes = trim_scalar(input$edit_report_notes),
       invoice_recipient_address = trim_scalar(input$edit_invoice_recipient_address),
       invoice_institute_address = trim_scalar(input$edit_invoice_institute_address, MS_INSTITUTE_ADDRESS)
@@ -4705,7 +4704,7 @@ server <- function(input, output, session) {
     status_changed <- FALSE
     status_changed_at <- NULL
     if (can_edit_all_projects()) {
-      new_status <- trim_scalar(input$edit_status, "Submitted")
+      new_status <- requested_status
       values$status <- new_status
       should_send_acceptance <- identical(scalar_text(project_before$status), "Submitted") && identical(new_status, "Accepted")
       should_send_data_release <- !status_is_data_released(project_before$status) && status_is_data_released(new_status)
