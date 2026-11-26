@@ -649,6 +649,21 @@ date_only <- function(value) {
   if (is.na(parsed)) value else format(parsed, "%Y-%m-%d")
 }
 
+project_modification_date <- function(project) {
+  created_at <- trim_scalar(project$created_at)
+  updated_at <- trim_scalar(project$updated_at)
+  if (!nzchar(created_at) || !nzchar(updated_at)) return("")
+
+  created_time <- suppressWarnings(as.POSIXct(created_at, tz = "UTC"))
+  updated_time <- suppressWarnings(as.POSIXct(updated_at, tz = "UTC"))
+  was_modified <- if (!is.na(created_time) && !is.na(updated_time)) {
+    updated_time > created_time
+  } else {
+    !identical(updated_at, created_at)
+  }
+  if (isTRUE(was_modified)) date_only(updated_at) else ""
+}
+
 status_with_date <- function(status, changed_at, class = "status-date") {
   div(
     class = class,
@@ -676,8 +691,18 @@ update_record <- function(con, table, values, where_sql, where_params = list()) 
   values <- values[!vapply(values, is.null, logical(1))]
   if (length(values) == 0) return(invisible(0))
   assignments <- paste(paste0(names(values), " = ?"), collapse = ", ")
-  sql <- paste0("UPDATE ", table, " SET ", assignments, ", updated_at = CURRENT_TIMESTAMP WHERE ", where_sql)
+  sql <- paste0("UPDATE ", table, " SET ", assignments, ", updated_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now') WHERE ", where_sql)
   dbExecute(con, sql, params = c(unname(values), where_params))
+}
+
+project_values_changed <- function(project, values) {
+  normalize_value <- function(value) {
+    if (is.null(value) || length(value) == 0 || is.na(value[[1]])) return(NA_character_)
+    as.character(value[[1]])
+  }
+  any(vapply(names(values), function(field) {
+    !identical(normalize_value(project[[field]]), normalize_value(values[[field]]))
+  }, logical(1)))
 }
 
 load_choice_values <- function(con, option_group, fallback = character()) {
@@ -1511,6 +1536,17 @@ write_project_report_pdf <- function(
     y <<- y - row_height
   }
 
+  paired_key_values <- function(left_label, left_value, right_label, right_value) {
+    left_value <- trim_scalar(left_value, "Not entered")
+    right_value <- trim_scalar(right_value, "Not entered")
+    ensure_space(0.031)
+    graphics::text(0.065, y - 0.012, left_label, adj = c(0, 1), col = muted, cex = 0.72, font = 2)
+    graphics::text(0.25, y - 0.012, left_value, adj = c(0, 1), col = text_color, cex = 0.78)
+    graphics::text(0.53, y - 0.012, right_label, adj = c(0, 1), col = muted, cex = 0.72, font = 2)
+    graphics::text(0.78, y - 0.012, right_value, adj = c(0, 1), col = text_color, cex = 0.78)
+    y <<- y - 0.031
+  }
+
   cost_row <- function(label, calculation, amount, total = FALSE) {
     ensure_space(0.036)
     fill <- if (isTRUE(total)) accent else if ((round(y * 1000) %% 2) == 0) "#F6F8F9" else "white"
@@ -1538,7 +1574,17 @@ write_project_report_pdf <- function(
   key_value("Project ID", scalar_text(project$project_code))
   key_value("Project type", scalar_text(project$project_type_name, scalar_text(project$project_type)))
   key_value("Status", scalar_text(project$status))
-  key_value("Submission date", scalar_text(project$submission_date))
+  modification_date <- project_modification_date(project)
+  if (nzchar(modification_date)) {
+    paired_key_values(
+      "Submission date",
+      scalar_text(project$submission_date),
+      "Modified project",
+      modification_date
+    )
+  } else {
+    key_value("Submission date", scalar_text(project$submission_date))
+  }
 
   section("Contact and billing")
   key_value("Submitter", scalar_text(project$submitter_name))
@@ -2396,6 +2442,54 @@ project_public_folder <- function(project) {
   file.path(root, parent, folder_name)
 }
 
+stored_cost_estimation_path <- function(project) {
+  folder <- project_public_folder(project)
+  file.path(folder, paste0(basename(folder), "_Cost_estimation.pdf"))
+}
+
+stored_submission_report_paths <- function(project) {
+  project_folder <- trim_scalar(project$project_folder)
+  public_folder <- project_public_folder(project)
+  project_stem <- if (nzchar(project_folder)) basename(project_folder) else ""
+  public_stem <- if (nzchar(public_folder)) basename(public_folder) else ""
+  filenames <- unique(c(
+    if (nzchar(project_stem)) paste0(project_stem, "_Sample_submission.pdf") else character(),
+    if (nzchar(public_stem)) paste0(public_stem, "_Sample_submission.pdf") else character()
+  ))
+  folders <- c(project_folder, public_folder)
+  folders <- folders[nzchar(folders)]
+  unique(unlist(lapply(folders, function(folder) file.path(folder, filenames)), use.names = FALSE))
+}
+
+stored_submission_report_path <- function(project) {
+  candidates <- stored_submission_report_paths(project)
+  existing <- candidates[file.exists(candidates)]
+  if (length(existing) == 0) "" else existing[[1]]
+}
+
+project_has_been_accepted <- function(con, project) {
+  if (identical(trim_scalar(project$status), "Accepted")) return(TRUE)
+  project_id <- suppressWarnings(as.integer(scalar_text(project$id)))
+  accepted_in_history <- if (is.na(project_id)) {
+    FALSE
+  } else {
+    dbGetQuery(
+      con,
+      "SELECT COUNT(*) AS n FROM project_status_history WHERE project_id = ? AND status = 'Accepted'",
+      params = list(project_id)
+    )$n[[1]] > 0
+  }
+  isTRUE(accepted_in_history) || file.exists(stored_cost_estimation_path(project))
+}
+
+touch_project <- function(con, project_id) {
+  dbExecute(
+    con,
+    "UPDATE projects SET updated_at = STRFTIME('%Y-%m-%d %H:%M:%f', 'now') WHERE id = ?",
+    params = list(project_id)
+  )
+}
+
 ensure_project_public_folder <- function(project) {
   folder <- project_public_folder(project)
   dir.create(folder, recursive = TRUE, showWarnings = FALSE)
@@ -2999,9 +3093,8 @@ server <- function(input, output, session) {
           class = "action-bar",
           actionButton("new_project_btn", "Create New Project", class = "btn btn-primary"),
           actionButton("edit_project_btn", "Edit Selected", class = "btn btn-secondary"),
-          downloadButton("download_report_btn", "Current project report"),
-          downloadButton("download_original_submission_btn", "Original submission report"),
-          downloadButton("download_invoice_btn", "Invoice"),
+          downloadButton("download_original_submission_btn", "Submission report"),
+          uiOutput("invoice_download_ui", inline = TRUE),
           if (can_delete_projects()) actionButton("delete_project_btn", "Delete Selected", class = "btn btn-danger")
         ),
         uiOutput("project_type_filter_ui"),
@@ -4137,6 +4230,7 @@ server <- function(input, output, session) {
       }
       if (length(update_values) > 0) update_record(con, "projects", update_values, "id = ?", list(project_id))
 
+      dbExecute(con, "UPDATE projects SET updated_at = created_at WHERE id = ?", params = list(project_id))
       dbCommit(con)
 
       project <- load_project_detail(con, project_id)
@@ -4529,6 +4623,7 @@ server <- function(input, output, session) {
     value <- info$value
     if (column_name == "is_control") value <- as.integer(tolower(value) %in% c("1", "true", "yes", "y"))
     dbExecute(con, paste0("UPDATE project_samples SET ", column_name, " = ? WHERE id = ?"), params = list(value, sample_id))
+    touch_project(con, project_id)
   })
 
   output$edit_files_table <- renderDT({
@@ -4579,6 +4674,7 @@ server <- function(input, output, session) {
     file_row <- files[selected[1], ]
     if (file.exists(file_row$path)) unlink(file_row$path)
     dbExecute(con, "DELETE FROM project_files WHERE id = ?", params = list(file_row$id))
+    touch_project(con, project_id)
     showNotification("File deleted.", type = "message")
   })
 
@@ -4754,10 +4850,11 @@ server <- function(input, output, session) {
       should_send_data_release <- FALSE
       should_send_acceptance <- FALSE
     }
+    project_changed <- project_values_changed(project_before, values)
 
     update_succeeded <- tryCatch({
       dbBegin(con)
-      update_record(con, "projects", values, "id = ?", list(project_id))
+      if (isTRUE(project_changed)) update_record(con, "projects", values, "id = ?", list(project_id))
       if (status_changed) {
         insert_record(con, "project_status_history", list(
           project_id = project_id,
@@ -4855,7 +4952,7 @@ server <- function(input, output, session) {
       technical_replicates = technical_for_cost,
       use_snapshot = TRUE
     )
-    update_record(con, "projects", list(
+    cost_values <- list(
       technical_replicates = technical_for_cost,
       additional_cost = parsed_additional$value,
       additional_cost_comment = if (parsed_additional$value > 0) trim_scalar(input$edit_additional_cost_comment) else "",
@@ -4863,7 +4960,10 @@ server <- function(input, output, session) {
       sample_type_unit_cost = breakdown$sample_unit_cost,
       base_cost = breakdown$base_cost,
       total_cost = breakdown$total_cost
-    ), "id = ?", list(project_id))
+    )
+    if (project_values_changed(project, cost_values)) {
+      update_record(con, "projects", cost_values, "id = ?", list(project_id))
+    }
 
     project <- load_project_detail(con, project_id)
     samples <- load_project_samples(con, project_id)
@@ -4914,35 +5014,44 @@ server <- function(input, output, session) {
     showNotification("Project deleted.", type = "message")
   })
 
-  output$download_report_btn <- downloadHandler(
-    filename = function() {
-      row <- selected_project_row()
-      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_updated_report_", format(Sys.time(), "%Y%m%d_%H%M%S"), ".pdf")
-    },
-    content = function(file) {
-      row <- selected_project_row()
-      req(row)
-      con <- ms_db_connect()
-      on.exit(dbDisconnect(con), add = TRUE)
-      project <- load_project_detail(con, row$id[[1]])
-      samples <- load_project_samples(con, row$id[[1]])
-      files <- load_project_files(con, row$id[[1]])
-      write_project_report_pdf(
-        project,
-        samples,
-        files,
-        file,
-        document_type = "updated_report",
-        include_costs = FALSE,
-        include_samples = TRUE
-      )
+  output$invoice_download_ui <- renderUI({
+    row <- selected_project_row()
+    if (is.null(row)) return(actionButton("invoice_no_project_btn", "Invoice"))
+
+    con <- ms_db_connect()
+    on.exit(dbDisconnect(con), add = TRUE)
+    project <- load_project_detail(con, row$id[[1]])
+    if (nrow(project) == 0) return(actionButton("invoice_no_project_btn", "Invoice"))
+    if (!project_has_been_accepted(con, project)) {
+      return(actionButton("invoice_requires_acceptance_btn", "Invoice"))
     }
-  )
+    if (!file.exists(stored_cost_estimation_path(project))) {
+      return(actionButton("invoice_missing_cost_estimate_btn", "Invoice"))
+    }
+    downloadButton("download_invoice_btn", "Invoice")
+  })
+
+  observeEvent(input$invoice_no_project_btn, {
+    showNotification("Please select a project first.", type = "warning")
+  })
+
+  observeEvent(input$invoice_requires_acceptance_btn, {
+    showNotification("The project needs to be accepted first.", type = "warning", duration = 8)
+  })
+
+  observeEvent(input$invoice_missing_cost_estimate_btn, {
+    showNotification("The accepted cost estimation is not available in pool-mscf-public.", type = "error", duration = 10)
+  })
 
   output$download_original_submission_btn <- downloadHandler(
     filename = function() {
       row <- selected_project_row()
-      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_Sample_submission.pdf")
+      paste0(
+        if (is.null(row)) "ms_project" else row$project_code[[1]],
+        "_Sample_submission_",
+        format(Sys.Date(), "%Y-%m-%d"),
+        ".pdf"
+      )
     },
     content = function(file) {
       row <- selected_project_row()
@@ -4950,16 +5059,33 @@ server <- function(input, output, session) {
       con <- ms_db_connect()
       on.exit(dbDisconnect(con), add = TRUE)
       project <- load_project_detail(con, row$id[[1]])
-      original <- file.path(trim_scalar(project$project_folder[[1]]), paste0(basename(trim_scalar(project$project_folder[[1]])), "_Sample_submission.pdf"))
-      if (!file.exists(original)) stop("Original submission report is not available for this project.")
-      file.copy(original, file, overwrite = TRUE)
+      if (nzchar(project_modification_date(project))) {
+        write_project_report_pdf(
+          project,
+          load_project_samples(con, row$id[[1]]),
+          load_project_files(con, row$id[[1]]),
+          file,
+          document_type = "report",
+          include_costs = FALSE,
+          include_samples = TRUE
+        )
+      } else {
+        original <- stored_submission_report_path(project)
+        if (!nzchar(original)) stop("Submission report is not available for this project.")
+        copied <- file.copy(original, file, overwrite = TRUE)
+        if (length(copied) != 1 || is.na(copied) || !copied) stop("Submission report could not be copied.")
+      }
     }
   )
 
   output$download_invoice_btn <- downloadHandler(
     filename = function() {
       row <- selected_project_row()
-      paste0(if (is.null(row)) "ms_project" else row$project_code[[1]], "_invoice.pdf")
+      if (is.null(row)) return("Cost_estimation.pdf")
+      con <- ms_db_connect()
+      on.exit(dbDisconnect(con), add = TRUE)
+      project <- load_project_detail(con, row$id[[1]])
+      basename(stored_cost_estimation_path(project))
     },
     content = function(file) {
       row <- selected_project_row()
@@ -4967,9 +5093,11 @@ server <- function(input, output, session) {
       con <- ms_db_connect()
       on.exit(dbDisconnect(con), add = TRUE)
       project <- load_project_detail(con, row$id[[1]])
-      samples <- load_project_samples(con, row$id[[1]])
-      files <- load_project_files(con, row$id[[1]])
-      write_project_report_pdf(project, samples, files, file, "invoice")
+      if (!project_has_been_accepted(con, project)) stop("The project needs to be accepted first.")
+      stored_cost_estimate <- stored_cost_estimation_path(project)
+      if (!file.exists(stored_cost_estimate)) stop("The accepted cost estimation is not available in pool-mscf-public.")
+      copied <- file.copy(stored_cost_estimate, file, overwrite = TRUE)
+      if (length(copied) != 1 || is.na(copied) || !copied) stop("Cost estimation could not be copied.")
     }
   )
 
