@@ -744,7 +744,7 @@ dropdown_option_group_labels <- c(
   crosslinker = "Crosslinker",
   metabolomics_analysis_type = "Project Type",
   metabolomics_sample_type = "Sample Type",
-  metabolomics_approach = "Approach",
+  metabolomics_approach = "Acquisition Approach",
   metabolomics_acquisition_mode = "Acquisition Mode",
   concentration_determination = "Concentration Determination",
   concentration_method = "Concentration Method",
@@ -1370,8 +1370,7 @@ project_summary_text <- function(project, samples = NULL) {
   if (scalar_text(project$project_type) == "metabolomics") {
     lines <- c(lines,
       paste("Metabolomics analysis type:", scalar_text(project$metabolomics_analysis_type)),
-      paste("Approach:", scalar_text(project$metabolomics_approach)),
-      paste("Acquisition mode:", scalar_text(project$metabolomics_acquisition_mode)),
+      paste("Acquisition Approach:", scalar_text(project$metabolomics_approach)),
       paste("Sample type:", scalar_text(project$metabolomics_sample_type)),
       paste("Cell number:", paste(trim_scalar(project$metabolomics_cell_number), trim_scalar(project$metabolomics_cell_number_unit))),
       paste("Supernatant volume:", paste(trim_scalar(project$metabolomics_supernatant_volume), trim_scalar(project$metabolomics_supernatant_volume_unit))),
@@ -1653,7 +1652,7 @@ write_project_report_pdf <- function(
         key_value("Crosslinker", scalar_text(project$proteomics_crosslinker))
       } else if (identical(scalar_text(project$project_type), "metabolomics")) {
         key_value("Analysis type", scalar_text(project$metabolomics_analysis_type))
-        key_value("Approach", scalar_text(project$metabolomics_approach))
+        key_value("Acquisition Approach", scalar_text(project$metabolomics_approach))
         key_value("Species", scalar_text(project$metabolomics_species))
         key_value("Targeted analytes", scalar_text(project$metabolomics_targeted_analyte_text))
       }
@@ -3172,6 +3171,11 @@ server <- function(input, output, session) {
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_name, p.submitter_email,
                p.column_type, p.column_type_other, p.ms_machine, p.ms_machine_other,
+               COALESCE(CASE p.project_type
+                 WHEN 'proteomics' THEN p.proteomics_acquisition_mode
+                 WHEN 'metabolomics' THEN p.metabolomics_approach
+                 ELSE ''
+               END, '') AS data_acquisition_display,
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_project_type
                  WHEN 'proteomics' THEN p.proteomics_project_type
@@ -3210,6 +3214,11 @@ server <- function(input, output, session) {
       projects <- dbGetQuery(con, "
         SELECT p.id, p.project_code, p.project_name, pt.name AS project_type,
                p.responsible_user, p.submitter_name, p.submitter_email,
+               COALESCE(CASE p.project_type
+                 WHEN 'proteomics' THEN p.proteomics_acquisition_mode
+                 WHEN 'metabolomics' THEN p.metabolomics_approach
+                 ELSE ''
+               END, '') AS data_acquisition_display,
                CASE p.project_type
                  WHEN 'intact_mass' THEN p.intact_project_type
                  WHEN 'proteomics' THEN p.proteomics_project_type
@@ -3325,7 +3334,13 @@ server <- function(input, output, session) {
         status_update = "Status",
         technician = "Sample handler",
         column_type_display = "Column Type",
-        ms_machine_display = "MS Machine"
+        ms_machine_display = "MS Machine",
+        data_acquisition_display = "Data Acquisition"
+      )
+    } else {
+      display_columns <- c(
+        display_columns,
+        data_acquisition_display = "Data Acquisition"
       )
     }
     display_columns <- c(
@@ -3855,17 +3870,15 @@ server <- function(input, output, session) {
     div(
       class = "form-section type-metabolomics",
       h4("5. Metabolomics – Data Analysis"),
-      fluidRow(
-        column(
-          6,
-          selectInput(
-            "metabolomics_approach",
-            field_label("Approach", "Optional. Targeted, untargeted, or both."),
-            choices = c("Not selected" = "", load_choice_values(con, "metabolomics_approach", c("Targeted", "Untargeted", "both"))),
-            selected = ""
-          )
-        ),
-        NULL
+      radioButtons(
+        "metabolomics_approach",
+        field_label("Acquisition Approach *", "Choose targeted, untargeted, both, or discuss with the facility."),
+        choices = unique(c(
+          load_choice_values(con, "metabolomics_approach", c("Targeted", "Untargeted", "both")),
+          "Discuss with facility"
+        )),
+        selected = "Discuss with facility",
+        inline = TRUE
       ),
       conditionalPanel(
         "input.metabolomics_approach == 'Targeted' || input.metabolomics_approach == 'both'",
@@ -3948,7 +3961,8 @@ server <- function(input, output, session) {
 
     if (selected_type == "metabolomics") {
       metabolomics_required <- c(
-        metabolomics_analysis_type = "Analysis type"
+        metabolomics_analysis_type = "Analysis type",
+        metabolomics_approach = "Acquisition Approach"
       )
       for (id in names(metabolomics_required)) {
         if (!non_empty(input[[id]])) errors <- c(errors, paste(metabolomics_required[[id]], "is required."))
@@ -4126,7 +4140,7 @@ server <- function(input, output, session) {
         metabolomics_analysis_type = trim_scalar(input$metabolomics_analysis_type),
         metabolomics_approach = trim_scalar(input$metabolomics_approach),
         metabolomics_approach_other = trim_scalar(input$metabolomics_approach_other),
-        metabolomics_acquisition_mode = if (role_is_admin(user$role)) trim_scalar(input$metabolomics_acquisition_mode) else "",
+        metabolomics_acquisition_mode = "",
         metabolomics_sample_type = paste(selected_metabolomics_types, collapse = "; "),
         metabolomics_cell_number = values_for("metabolomics_cell_number", selected_metabolomics_types),
         metabolomics_cell_number_unit = units_for("metabolomics_cell_number_unit", selected_metabolomics_types),
@@ -4308,12 +4322,6 @@ server <- function(input, output, session) {
     staff_choices <- load_staff_choices(con)
     column_type_choices <- choice_values_with_current(con, "column_type", project$column_type)
     ms_machine_choices <- choice_values_with_current(con, "ms_machine", project$ms_machine)
-    metabolomics_acquisition_choices <- choice_values_with_current(
-      con,
-      "metabolomics_acquisition_mode",
-      project$metabolomics_acquisition_mode,
-      c("DDA", "Targeted")
-    )
     proteomics_acquisition_choices <- choice_values_with_current(con, "proteomics_acquisition_mode", project$proteomics_acquisition_mode)
     existing_additional_cost <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
     additional_cost_input <- if (!is.na(existing_additional_cost) && existing_additional_cost > 0) {
@@ -4410,14 +4418,6 @@ server <- function(input, output, session) {
               )
             ))
           ),
-          if (role_is_admin(current_user_role()) && identical(scalar_text(project$project_type), "metabolomics")) {
-            selectInput(
-              "edit_metabolomics_acquisition_mode",
-              "Metabolomics acquisition mode",
-              choices = c("Not selected" = "", metabolomics_acquisition_choices),
-              selected = scalar_text(project$metabolomics_acquisition_mode)
-            )
-          },
           if (can_edit_all_projects() && identical(scalar_text(project$project_type), "proteomics")) {
             selectInput(
               "edit_proteomics_acquisition_mode",
@@ -4503,7 +4503,7 @@ server <- function(input, output, session) {
     if (identical(p$project_type, "metabolomics")) {
       values <- c(
         paste("Project type:", scalar_text(p$metabolomics_analysis_type)),
-        paste("Approach:", scalar_text(p$metabolomics_approach))
+        paste("Acquisition Approach:", scalar_text(p$metabolomics_approach))
       )
       values <- values[grepl(":\\s*\\S", values)]
       details_ui <- metabolomics_read_only_details_ui(p)
@@ -4799,9 +4799,6 @@ server <- function(input, output, session) {
     }
     if (can_edit_all_projects()) {
       values$data_release_note <- trim_scalar(input$edit_data_release_note)
-    }
-    if (role_is_admin(current_user_role()) && identical(scalar_text(project_before$project_type), "metabolomics")) {
-      values$metabolomics_acquisition_mode <- trim_scalar(input$edit_metabolomics_acquisition_mode)
     }
     if (can_edit_all_projects() && identical(scalar_text(project_before$project_type), "proteomics")) {
       values$proteomics_acquisition_mode <- trim_scalar(input$edit_proteomics_acquisition_mode, "Discuss with facility")

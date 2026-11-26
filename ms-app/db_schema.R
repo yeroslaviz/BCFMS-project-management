@@ -134,7 +134,7 @@ ms_controlled_options <- list(
     "Other"
   ),
   crosslinker = c("PhoX", "DSS/BS3", "DSSO", "DMTMM/EDC", "Other"),
-  metabolomics_approach = c("Targeted", "Untargeted", "both"),
+  metabolomics_approach = c("Targeted", "Untargeted", "both", "Discuss with facility"),
   metabolomics_acquisition_mode = c("DDA", "Targeted"),
   metabolomics_analysis_type = c("Metabolomics", "Lipidomics"),
   metabolomics_sample_type = c(
@@ -546,7 +546,6 @@ ms_create_schema <- function(con) {
     )
   "
   )
-
   dbExecute(
     con,
     "
@@ -1264,6 +1263,32 @@ ms_migrate_schema <- function(con) {
     "
     )
   }
+
+  dbExecute(
+    con,
+    "
+    INSERT OR IGNORE INTO controlled_options (option_group, value, display_order)
+    VALUES (
+      'metabolomics_approach',
+      'Discuss with facility',
+      COALESCE((
+        SELECT MAX(display_order)
+        FROM controlled_options
+        WHERE option_group = 'metabolomics_approach'
+      ), 0) + 1
+    )
+  "
+  )
+
+  dbExecute(
+    con,
+    "
+    UPDATE controlled_options
+    SET is_active = 1
+    WHERE option_group = 'metabolomics_approach'
+      AND value = 'Discuss with facility'
+  "
+  )
 
   dbExecute(
     con,
