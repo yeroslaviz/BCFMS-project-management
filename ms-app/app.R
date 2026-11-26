@@ -1955,10 +1955,22 @@ project_public_locations <- function(project) {
   )
 }
 
+project_private_locations <- function(project) {
+  parent <- switch(scalar_text(project$project_type), proteomics = "Proteomics", metabolomics = "Metabolomics", intact_mass = "Intact", "Other")
+  project_folder <- trim_scalar(project$project_folder)
+  folder <- if (nzchar(project_folder)) sanitize_path_part(basename(project_folder)) else ""
+  if (!nzchar(folder)) folder <- paste(sanitize_path_part(project$project_code), sanitize_path_part(project$responsible_user), sep = "_")
+  list(
+    windows = paste0("\\\\samba-pool-mscf-projects\\pool-mscf-projects\\", parent, "\\", folder),
+    mac = paste0("smb://samba-pool-mscf-projectsc/pool-mscf-projects/", parent, "/", folder)
+  )
+}
+
 send_ms_submission_email <- function(con, project, samples, sample_table_path) {
   recipients <- MS_FACILITY_EMAIL
   project_type <- scalar_text(project$project_type_name, scalar_text(project$project_type))
   subject <- paste(project$project_code, "MS project submitted", sep = " - ")
+  private_paths <- project_private_locations(project)
   body <- paste(
     "Dear MS core facility members,",
     "",
@@ -1967,8 +1979,8 @@ send_ms_submission_email <- function(con, project, samples, sample_table_path) {
     paste0("The tab-delimited sample overview table and the submission form can be found in the project folder ", basename(project$project_folder[[1]]), "."),
     "",
     "Please check for further information:",
-    "(Windows) \\\\samba-pool-mscf-projects\\pool-mscf-projects\\",
-    paste0("(Mac) ", "smb://samba-pool-mscf-projectsc/pool-mscf-projects/", sub("^.*pool-mscf-projects/", "", project$project_folder[[1]])),
+    paste0("(Windows) ", private_paths$windows),
+    paste0("(Mac) ", private_paths$mac),
     sep = "\n"
   )
   send_mail_safe(con, project$id[[1]], recipients, subject, body)
