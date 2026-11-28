@@ -90,7 +90,11 @@ submitted_status_requires_acceptance <- function(current_status, requested_statu
 }
 
 status_missing_facility_fields <- function(status, column_type, ms_machine) {
-  if (trim_scalar(status) %in% c("", "Submitted")) return(character())
+  measurement_statuses <- c(
+    "MS-Measurement", "Data Analysis", "Results sent",
+    "Measurement in progress", "Data analysis", "Data released", "Completed"
+  )
+  if (!(trim_scalar(status) %in% measurement_statuses)) return(character())
   fields <- c(
     "Column Type" = trim_scalar(column_type),
     "MS Machine" = trim_scalar(ms_machine)
@@ -4453,13 +4457,13 @@ server <- function(input, output, session) {
           if (can_edit_all_projects()) fluidRow(
             column(6, selectInput(
               "edit_column_type",
-              "Column Type (required)",
+              "Column Type (required from MS-Measurement)",
               choices = c("Not set" = "", column_type_choices),
               selected = scalar_text(project$column_type)
             )),
             column(6, selectInput(
               "edit_ms_machine",
-              "MS Machine (required)",
+              "MS Machine (required from MS-Measurement)",
               choices = c("Not set" = "", ms_machine_choices),
               selected = scalar_text(project$ms_machine)
             ))
@@ -4797,7 +4801,7 @@ server <- function(input, output, session) {
         paste0(
           paste(missing_facility_fields, collapse = " and "),
           if (length(missing_facility_fields) == 1) " is" else " are",
-          " required before the project can move beyond Submitted."
+          " required before the project can move to MS-Measurement or a later status."
         ),
         type = "error",
         duration = 10
