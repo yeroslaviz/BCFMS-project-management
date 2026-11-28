@@ -419,12 +419,29 @@ calculate_project_cost <- function(
   } else {
     load_option_unit_cost(con, options$project_group, options$project_value)
   }
-  sample_unit_cost <- if (isTRUE(use_snapshot) && length(snapshot_sample_cost) > 0 &&
-      !is.na(snapshot_sample_cost[[1]])) {
-    snapshot_sample_cost[[1]]
-  } else {
-    load_option_unit_cost(con, options$sample_group, options$sample_value)
+  sample_values <- split_joined_values(options$sample_value)
+  if (length(sample_values) == 0 && nzchar(trim_scalar(options$sample_value))) {
+    sample_values <- trim_scalar(options$sample_value)
   }
+  multiple_sample_types <- length(sample_values) > 1
+  sample_unit_costs <- if (multiple_sample_types) {
+    vapply(
+      sample_values,
+      function(sample_value) load_option_unit_cost(con, options$sample_group, sample_value),
+      numeric(1)
+    )
+  } else if (length(sample_values) == 1 && isTRUE(use_snapshot) &&
+      length(snapshot_sample_cost) > 0 && !is.na(snapshot_sample_cost[[1]])) {
+    stats::setNames(snapshot_sample_cost[[1]], sample_values)
+  } else if (length(sample_values) == 1) {
+    stats::setNames(
+      load_option_unit_cost(con, options$sample_group, sample_values[[1]]),
+      sample_values
+    )
+  } else {
+    numeric()
+  }
+  sample_unit_cost <- sum(sample_unit_costs)
   biological_samples <- suppressWarnings(as.integer(project$num_samples %||% 1L))
   if (is.na(biological_samples) || biological_samples < 1) biological_samples <- 1L
   technical_count <- if (is.null(technical_replicates)) {
@@ -435,7 +452,13 @@ calculate_project_cost <- function(
   if (is.na(technical_count) || technical_count < 1) technical_count <- 1L
   billable_units <- biological_samples * technical_count
   project_subtotal <- billable_units * project_unit_cost
-  sample_subtotal <- billable_units * sample_unit_cost
+  sample_rows <- data.frame(
+    label = names(sample_unit_costs),
+    unit_cost = as.numeric(sample_unit_costs),
+    subtotal = billable_units * as.numeric(sample_unit_costs),
+    stringsAsFactors = FALSE
+  )
+  sample_subtotal <- sum(sample_rows$subtotal)
   base_cost <- project_subtotal + sample_subtotal
   additional <- if (is.null(additional_cost)) {
     suppressWarnings(as.numeric(project$additional_cost %||% 0))
@@ -449,6 +472,7 @@ calculate_project_cost <- function(
     billable_units = billable_units,
     project_label = options$project_value,
     sample_label = options$sample_value,
+    sample_rows = sample_rows,
     project_unit_cost = project_unit_cost,
     sample_unit_cost = sample_unit_cost,
     project_subtotal = project_subtotal,
@@ -456,6 +480,17 @@ calculate_project_cost <- function(
     base_cost = base_cost,
     additional_cost = additional,
     total_cost = base_cost + additional
+  )
+}
+
+cost_breakdown_sample_rows <- function(breakdown) {
+  rows <- breakdown$sample_rows
+  if (!is.null(rows) && is.data.frame(rows) && nrow(rows) > 0) return(rows)
+  data.frame(
+    label = first_non_empty(breakdown$sample_label, "Sample type"),
+    unit_cost = suppressWarnings(as.numeric(breakdown$sample_unit_cost %||% 0)),
+    subtotal = suppressWarnings(as.numeric(breakdown$sample_subtotal %||% 0)),
+    stringsAsFactors = FALSE
   )
 }
 
@@ -481,14 +516,18 @@ project_cost_breakdown_ui <- function(project, breakdown, additional_comment = "
         breakdown$billable_units, " × ", format_euro(breakdown$project_unit_cost),
         " = ", format_euro(breakdown$project_subtotal)
       ))
-    ),
+    )
+  ))
+  sample_rows <- cost_breakdown_sample_rows(breakdown)
+  rows <- c(rows, lapply(seq_len(nrow(sample_rows)), function(i) {
     tags$tr(
-      tags$th(breakdown$sample_label),
+      tags$th(sample_rows$label[[i]]),
       tags$td(paste0(
-        breakdown$billable_units, " × ", format_euro(breakdown$sample_unit_cost),
-        " = ", format_euro(breakdown$sample_subtotal)
+        breakdown$billable_units, " × ", format_euro(sample_rows$unit_cost[[i]]),
+        " = ", format_euro(sample_rows$subtotal[[i]])
       ))
-    ),
+    )
+  }), list(
     tags$tr(class = "cost-breakdown-subtotal", tags$th("Base cost"), tags$td(format_euro(breakdown$base_cost))),
     tags$tr(
       tags$th("Additional cost"),
@@ -1681,11 +1720,14 @@ write_project_report_pdf <- function(
     paste(cost_breakdown$billable_units, "x", pdf_currency(cost_breakdown$project_unit_cost)),
     pdf_currency(cost_breakdown$project_subtotal)
   )
-  cost_row(
-    first_non_empty(cost_breakdown$sample_label, "Sample type"),
-    paste(cost_breakdown$billable_units, "x", pdf_currency(cost_breakdown$sample_unit_cost)),
-    pdf_currency(cost_breakdown$sample_subtotal)
-  )
+  sample_cost_rows <- cost_breakdown_sample_rows(cost_breakdown)
+  for (i in seq_len(nrow(sample_cost_rows))) {
+    cost_row(
+      sample_cost_rows$label[[i]],
+      paste(cost_breakdown$billable_units, "x", pdf_currency(sample_cost_rows$unit_cost[[i]])),
+      pdf_currency(sample_cost_rows$subtotal[[i]])
+    )
+  }
   cost_row("Base cost", "", pdf_currency(cost_breakdown$base_cost))
   cost_row(
     "Additional cost",
@@ -1990,7 +2032,17 @@ send_ms_cost_estimation_email <- function(con, project, report_file = NULL) {
   contact <- resolve_project_user_contact(con, project)
   recipients <- contact$email
   cost_text <- format_cost_value(project$total_cost)
-  breakdown <- project_cost_breakdown_snapshot(project)
+  breakdown <- calculate_project_cost(con, project, use_snapshot = TRUE)
+  sample_cost_rows <- cost_breakdown_sample_rows(breakdown)
+  sample_cost_html <- paste(vapply(seq_len(nrow(sample_cost_rows)), function(i) {
+    paste0(
+      "<tr><td style='padding:5px 12px 5px 0;'>",
+      html_escape(sample_cost_rows$label[[i]]),
+      "</td><td style='padding:5px;text-align:right;'>",
+      html_escape(format_euro(sample_cost_rows$subtotal[[i]])),
+      "</td></tr>"
+    )
+  }, character(1)), collapse = "")
   subject <- paste(project$project_code, "MS project cost estimation", sep = " - ")
   project_description <- project_type_sample_description(project)
   budget_holder <- trimws(paste(trim_scalar(project$budget_name), trim_scalar(project$budget_surname)))
@@ -2004,7 +2056,7 @@ send_ms_cost_estimation_email <- function(con, project, report_file = NULL) {
     "<strong>Cost center:</strong> ", html_escape(project$cost_center), "</p>",
     "<table style='border-collapse:collapse; min-width:420px;'>",
     "<tr><td style='padding:5px 12px 5px 0;'>Project / analysis type</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$project_subtotal)), "</td></tr>",
-    "<tr><td style='padding:5px 12px 5px 0;'>Sample type</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$sample_subtotal)), "</td></tr>",
+    sample_cost_html,
     "<tr><td style='padding:5px 12px 5px 0;'>Additional cost</td><td style='padding:5px;text-align:right;'>", html_escape(format_euro(breakdown$additional_cost)), "</td></tr>",
     "</table>",
     "<p style='color:#c00000; font-weight:700;'>Total Cost: ", html_escape(cost_text), "</p>",
@@ -4913,7 +4965,7 @@ server <- function(input, output, session) {
           project_after,
           samples_after,
           load_project_files(con, project_id),
-          project_cost_breakdown_snapshot(project_after)
+          calculate_project_cost(con, project_after, use_snapshot = TRUE)
         )
         res <- send_ms_cost_estimation_email(con, project_after, report_file)
         if (!isTRUE(res$success)) {
@@ -5405,19 +5457,28 @@ server <- function(input, output, session) {
     con <- ms_db_connect()
     on.exit(dbDisconnect(con), add = TRUE)
     integrity <- dbGetQuery(con, "PRAGMA integrity_check")[[1]][1]
+    foreign_key_violations <- dbGetQuery(con, "PRAGMA foreign_key_check")
     required_tables <- c(
       "users", "budget_holders", "project_types", "reference_organisms",
       "controlled_options", "option_costs", "landing_text_blocks", "projects", "project_samples", "project_files",
-      "project_status_history", "email_templates", "email_logs", "project_documents", "backup_logs"
+      "project_status_history", "email_templates", "email_logs", "project_documents", "backup_logs",
+      "mail_delivery_queue"
     )
     missing_tables <- setdiff(required_tables, dbListTables(con))
-    if (identical(integrity, "ok") && length(missing_tables) == 0) {
+    if (
+      identical(integrity, "ok") &&
+        length(missing_tables) == 0 &&
+        nrow(foreign_key_violations) == 0
+    ) {
       showNotification("Database validation passed.", type = "message")
     } else {
       showNotification(
         paste(c(
           paste("Integrity:", integrity),
-          if (length(missing_tables)) paste("Missing tables:", paste(missing_tables, collapse = ", "))
+          if (length(missing_tables)) paste("Missing tables:", paste(missing_tables, collapse = ", ")),
+          if (nrow(foreign_key_violations) > 0) {
+            paste("Foreign-key violations:", nrow(foreign_key_violations))
+          }
         ), collapse = "\n"),
         type = "error",
         duration = 12
