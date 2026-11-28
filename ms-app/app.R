@@ -1616,7 +1616,7 @@ write_project_report_pdf <- function(
   key_value("Project ID", scalar_text(project$project_code))
   key_value("Project type", scalar_text(project$project_type_name, scalar_text(project$project_type)))
   key_value("Status", scalar_text(project$status))
-  modification_date <- project_modification_date(project)
+  modification_date <- if (is_project_report) project_modification_date(project) else ""
   if (nzchar(modification_date)) {
     paired_key_values(
       "Submission date",
