@@ -3241,7 +3241,7 @@ server <- function(input, output, session) {
                p.column_type, p.column_type_other, p.ms_machine, p.ms_machine_other,
                COALESCE(CASE p.project_type
                  WHEN 'proteomics' THEN p.proteomics_acquisition_mode
-                 WHEN 'metabolomics' THEN p.metabolomics_approach
+                 WHEN 'metabolomics' THEN COALESCE(NULLIF(trim(p.metabolomics_acquisition_mode), ''), p.metabolomics_approach)
                  ELSE ''
                END, '') AS data_acquisition_display,
                CASE p.project_type
@@ -3284,7 +3284,7 @@ server <- function(input, output, session) {
                p.responsible_user, p.submitter_name, p.submitter_email,
                COALESCE(CASE p.project_type
                  WHEN 'proteomics' THEN p.proteomics_acquisition_mode
-                 WHEN 'metabolomics' THEN p.metabolomics_approach
+                 WHEN 'metabolomics' THEN COALESCE(NULLIF(trim(p.metabolomics_acquisition_mode), ''), p.metabolomics_approach)
                  ELSE ''
                END, '') AS data_acquisition_display,
                CASE p.project_type
@@ -4390,6 +4390,12 @@ server <- function(input, output, session) {
     staff_choices <- load_staff_choices(con)
     column_type_choices <- choice_values_with_current(con, "column_type", project$column_type)
     ms_machine_choices <- choice_values_with_current(con, "ms_machine", project$ms_machine)
+    metabolomics_acquisition_choices <- choice_values_with_current(
+      con,
+      "metabolomics_acquisition_mode",
+      project$metabolomics_acquisition_mode,
+      c("DDA", "Targeted")
+    )
     proteomics_acquisition_choices <- choice_values_with_current(con, "proteomics_acquisition_mode", project$proteomics_acquisition_mode)
     existing_additional_cost <- suppressWarnings(as.numeric(project$additional_cost[[1]] %||% 0))
     additional_cost_input <- if (!is.na(existing_additional_cost) && existing_additional_cost > 0) {
@@ -4492,6 +4498,14 @@ server <- function(input, output, session) {
               "Proteomics acquisition mode",
               choices = proteomics_acquisition_choices,
               selected = scalar_text(project$proteomics_acquisition_mode, "Discuss with facility")
+            )
+          },
+          if (can_edit_all_projects() && identical(scalar_text(project$project_type), "metabolomics")) {
+            selectInput(
+              "edit_metabolomics_acquisition_mode",
+              "Metabolomics acquisition mode",
+              choices = c("Not set" = "", metabolomics_acquisition_choices),
+              selected = scalar_text(project$metabolomics_acquisition_mode)
             )
           },
           if (can_edit_all_projects()) {
@@ -4870,6 +4884,9 @@ server <- function(input, output, session) {
     }
     if (can_edit_all_projects() && identical(scalar_text(project_before$project_type), "proteomics")) {
       values$proteomics_acquisition_mode <- trim_scalar(input$edit_proteomics_acquisition_mode, "Discuss with facility")
+    }
+    if (can_edit_all_projects() && identical(scalar_text(project_before$project_type), "metabolomics")) {
+      values$metabolomics_acquisition_mode <- trim_scalar(input$edit_metabolomics_acquisition_mode)
     }
     status_changed <- FALSE
     status_changed_at <- NULL
